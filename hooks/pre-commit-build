@@ -1,0 +1,7 @@
+#!/bin/sh
+./scripts/cleanup.sh
+set -e # exit on non-zero if build failed
+# CXX=clang++-6.0 CC=clang-6.0 cmake -DCMAKE_BUILD_TYPE=Debug && \
+CXX=g++-7 CC=gcc-7 cmake -DCMAKE_BUILD_TYPE=Debug && \
+echo "running cpplint" && make check && \
+echo "building remaining targets" && make -j4

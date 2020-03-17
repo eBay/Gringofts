@@ -1,0 +1,15 @@
+# Contributors (in alphabetic order)
+- Bin (Glen) Geng
+- Bin (Harper) Yan
+- Dong Shan
+- Jie (Elvis) Ren
+- Jun Ling
+- Junzhe (Edward) Lin 
+- Lili (Lionel) Liu
+- Peicheng (Kevin) Yu
+- Qi Hu
+- Qi (Jacky) Jia
+- Xiang (Jacky) Cheng
+- Yanyu (Vivien) Shen
+- Yu Hu
+- Zhiyuan (Liam) Zhang

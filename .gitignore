@@ -1,0 +1,65 @@
+# IDE related #
+###############
+.idea/
+compile_commands.json
+.vscode
+
+# Compile related #
+###################
+build/
+cmake_install.cmake
+CMakeCache.txt
+Makefile
+v18.cbp
+CMakeFiles/
+*.cbp
+CodeCoverage.cmake
+
+# doc related #
+###############
+docs/doxygen/
+
+# auto-gen code #
+#################
+src/app_demo/generated
+src/app_util/generated
+src/infra/es/store/generated
+src/infra/raft/generated
+
+# Test-related #
+################
+code_coverage/
+test_coverage_lcov/
+test_coverage_lcov.*
+*cobertura.xml
+code_coverage.*
+test/target/
+*.out
+test.db
+test/**/node/*
+*.cov
+node_*
+
+# SonarQube #
+#############
+build_wrapper
+.scannerwork
+
+# SQLite db files #
+###################
+src/**/*.db
+sqlite
+
+# Core files #
+##############
+core
+
+# submodules
+################
+third_party
+.gitmodules
+
+# tags
+################
+tags
+**/tags

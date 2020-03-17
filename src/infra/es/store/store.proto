@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package gringofts.es;
+
+// payload for RaftCommandEventStore
+
+message CommandEntry {
+    uint64 type = 1; // command type
+    uint64 id = 2; // command id
+    uint64 createdTimeInNanos = 3;
+    bytes entry = 4; // command's string representation
+    // ONLY append to make backward-compatible
+    uint64 creatorId = 5;
+    uint64 groupId = 6;
+    uint64 groupVersion = 7;
+    string trackingContext = 8; // tracking context in json format
+}
+
+message EventEntry {
+    uint64 type = 1; // event type
+    uint64 id = 2; // event id
+    uint64 commandId = 3; // related command id
+    uint64 createdTimeInNanos = 4;
+    bytes entry = 5; // event's string representation
+    // ONLY append to make backward-compatible
+    uint64 creatorId = 6;
+    uint64 groupId = 7;
+    uint64 groupVersion = 8;
+    string trackingContext = 9; // tracking context in json format
+}
+
+message RaftPayload {
+    CommandEntry command = 1;
+    repeated EventEntry events = 2;
+}

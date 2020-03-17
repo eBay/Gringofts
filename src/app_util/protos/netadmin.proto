@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package gringofts.app.protos;
+
+// The netAdmin service definition.
+service AppNetAdmin {
+    rpc CreateSnapshot (CreateSnapshot.Request) returns (CreateSnapshot.Response) {}
+    rpc TruncatePrefix (TruncatePrefix.Request) returns (TruncatePrefix.Response) {}
+    rpc Hotfix (Hotfix.Request) returns (Hotfix.Response) {}
+}
+
+message CreateSnapshot {
+    message Request {
+
+    }
+    enum ResponseType {
+        UNKNOWN = 0;
+        PROCESSING = 1;
+        SUCCESS = 2;
+        FAILED = 3;
+    }
+    message Response {
+        ResponseType type = 1;
+        string message = 2;
+    }
+}
+
+message TruncatePrefix {
+    message Request {
+        uint64 firstIndexKept = 1;
+    }
+    enum ResponseType {
+        UNKNOWN = 0;
+        PROCESSING = 1;
+        SUCCESS = 2;
+        FAILED = 3;
+    }
+    message Response {
+        ResponseType type = 1;
+        string message = 2;
+    }
+}
+
+message Hotfix {
+    message Request {
+        // payload string will be interpreted by actual hotfix handler
+        string payload = 1;
+    }
+    enum ResponseType {
+        UNKNOWN = 0;
+        PROCESSING = 1;
+        SUCCESS = 2;
+        FAILED = 3;
+    }
+    message Response {
+        ResponseType type = 1;
+        string message = 2;
+    }
+}

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package gringofts.demo.protos;
+
+// The DEMO service definition.
+service DemoService {
+    rpc Execute (IncreaseRequest) returns (IncreaseResponse) {}
+}
+
+message IncreaseRequest {
+    uint64 value = 1;
+}
+
+message IncreaseResponse {
+    uint32 code = 1;
+    string message = 2;
+    string reserved = 3; // leaderHint if the persistence is backed by Raft
+}
