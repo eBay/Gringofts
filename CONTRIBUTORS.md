@@ -1,6 +1,6 @@
 # Contributors (in alphabetic order)
 - Bin (Glen) Geng
-- Bin (Harper) Yan
+- Bing (Harper) Yan
 - Dong Shan
 - Jie (Elvis) Ren
 - Jun Ling
