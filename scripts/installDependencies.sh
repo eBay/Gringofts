@@ -19,7 +19,7 @@ else
   echo "cmake 3.12 has been installed, skip"
 fi
 # install prometheus cpp client
-PROMETHEUS=$(find /usr -name *prometheus*)
+PROMETHEUS=$(find /usr -name '*prometheus*')
 if [ -z "$PROMETHEUS" ]; then
   cd ~/temp/prometheus-cpp/ &&
     cmake CMakeLists.txt && make -j 4 && make install
@@ -29,7 +29,7 @@ else
 fi
 # install grpc and related components
 # 1. install cares
-CARES=$(find /usr -name *c-ares*)
+CARES=$(find /usr -name '*c-ares*')
 if [ -z "$CARES" ]; then
   cd ~/temp/grpc/third_party/cares/cares &&
     CXX=g++-7 CC=gcc-7 cmake -DCMAKE_BUILD_TYPE=Debug &&
@@ -66,7 +66,7 @@ else
   echo "gRPC v1.16 has been installed, skip"
 fi
 # install rocksdb
-ROCKSDB=$(find /usr -name *rocksdb*)
+ROCKSDB=$(find /usr -name '*rocksdb*')
 if [ -z "$ROCKSDB" ]; then
   cd ~/temp/rocksdb &&
     # enable portable due to https://github.com/benesch/cockroach/commit/0e5614d54aa9a11904f59e6316cfabe47f46ce02
@@ -78,7 +78,7 @@ else
   echo "RocksDB has been installed, skip"
 fi
 # install abseil-cpp
-ABSL=$(find /usr -name *absl*)
+ABSL=$(find /usr -name '*absl*')
 if [ -z "$ABSL" ]; then
   cd ~/temp/abseil-cpp &&
     # explicitly set DCMAKE_CXX_STANDARD due to https://github.com/abseil/abseil-cpp/issues/218
@@ -87,18 +87,6 @@ if [ -z "$ABSL" ]; then
   checkLastSuccess "install abseil-cpp fails"
 else
   echo "abseil has been installed, skip"
-fi
-# install go v1.11
-# shellcheck disable=SC1090
-GO=$(go version | grep "1.1")
-if [ -z "$GO" ]; then
-  cd ~/temp/ &&
-    rm -rf /usr/local/go && mv -f go /usr/local &&
-    if ! grep "export PATH=/usr/local/go/bin:$PATH" ~/.profile; then echo "export PATH=/usr/local/go/bin:$PATH" >>~/.profile; fi &&
-    source ~/.profile
-  checkLastSuccess "install golang fails"
-else
-  echo "go v1.1 has been installed, skip"
 fi
 # give read access to cmake modules
 chmod o+rx -R /usr/local/lib/cmake

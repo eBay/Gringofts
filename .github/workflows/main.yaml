@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  Checkout:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+  CppLint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: CyberZHG/github-action-cpp-lint@master
+
+  ShellCheck:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: bewuethr/shellcheck-action@v1
