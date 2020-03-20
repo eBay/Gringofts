@@ -3,33 +3,23 @@ name: CI
 on:
   pull_request:
     branches:
-    - self
-    - master
+      - master
 
 jobs:
   Checkout:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
   CppLint:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: CyberZHG/github-action-cpp-lint@master
+      - uses: CyberZHG/github-action-cpp-lint@master
 
   ShellCheck:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: bewuethr/shellcheck-action@v1
-
-  DockerLint:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: luke142367/Docker-Lint-Action@v1.0.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TARGET: Dockerfile
+      - uses: bewuethr/shellcheck-action@v1
