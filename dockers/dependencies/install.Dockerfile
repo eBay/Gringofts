@@ -1,7 +1,7 @@
 # This Dockerfile installs all the external dependencies
 # tag: gringofts:compile-env
 FROM gringofts:dependencies
-MAINTAINER jqi1@ebay.com
+LABEL maintainer="jqi1@ebay.com"
 WORKDIR /usr/external
 COPY scripts/installDependencies.sh /usr/external
 RUN bash installDependencies.sh
