@@ -5,4 +5,3 @@ LABEL maintainer="jqi1@ebay.com"
 WORKDIR /usr/external
 COPY scripts/installDependencies.sh /usr/external
 RUN bash installDependencies.sh
-ENV PATH "$PATH:/usr/local/go/bin"

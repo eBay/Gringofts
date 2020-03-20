@@ -1,0 +1,7 @@
+codecov:
+  token: "326e7159-267b-429e-9263-8c217fb31c02"
+  bot: "gringofts"
+
+ignore:
+  - "src/app_demo"
+  - "src/app_util"

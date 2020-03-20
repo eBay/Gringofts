@@ -1,4 +1,4 @@
-![CI](https://github.com/jackyjia/Gringofts/workflows/CI/badge.svg)
+![CI](https://github.com/eBay/Gringofts/workflows/CI/badge.svg)
 
 # Table of Contents
 - [Introduction](#introduction)
