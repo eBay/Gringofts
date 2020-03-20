@@ -5,6 +5,10 @@ on:
     branches:
       - master
 
+  schedule:
+    # runs every 30 mins
+    - cron:  '*/30 * * * *'
+
 jobs:
   Checkout:
     runs-on: ubuntu-latest
