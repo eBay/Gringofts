@@ -48,10 +48,6 @@ cd ~/temp &&
   git clone https://github.com/abseil/abseil-cpp.git &&
   cd abseil-cpp &&
   git checkout 20190808
-# download go v1.11
-cd ~/temp &&
-  wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz &&
-  tar -zxvf go1.11.6.linux-amd64.tar.gz
 # download and install tools for code coverage
 apt-get install -y lcov
 # download and install tools required by v18

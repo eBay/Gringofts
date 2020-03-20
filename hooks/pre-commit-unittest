@@ -3,4 +3,6 @@ set -e
 echo "running unit tests" && \
 # so that lcov can find llvm-gcov.sh
 PATH=$PATH:$(pwd)/cmake/clang-6 && \
-make test_coverage_lcov
+make test_coverage_lcov && \
+# upload test report to codecov
+bash <(curl -s https://codecov.io/bash)
