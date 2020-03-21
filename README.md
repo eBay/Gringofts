@@ -1,4 +1,5 @@
 ![CI](https://github.com/eBay/Gringofts/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/eBay/Gringofts/branch/master/graph/badge.svg)](https://codecov.io/gh/eBay/Gringofts)
 
 # Table of Contents
 - [Introduction](#introduction)
