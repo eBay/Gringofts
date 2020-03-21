@@ -78,8 +78,8 @@ bash ./scripts/addSubmodules.sh
 This approach requires minimum dependencies on the target OS as all of the dependencies are encapsulated in a docker image.
 1. Build docker image for compiling the project (one-time setup)
    ```bash
-   sudo docker build --rm -t gringofts:dependencies -f dockers/dependencies/download.Dockerfile .
-   sudo docker build --rm -t gringofts:compile-env -f dockers/dependencies/install.Dockerfile .
+   sudo docker build --rm -t gringofts/dependencies:v1 -f dockers/dependencies/download.Dockerfile .
+   sudo docker build --rm -t gringofts/compile:v1 -f dockers/dependencies/install.Dockerfile .
    ```
 1. Build binaries
    ```bash

@@ -28,4 +28,4 @@ set +x
 ELAPSED=$SECONDS
 TZ=UTC0 printf 'Elapsed time: %(%H:%M:%S)T\n' "$ELAPSED"
 
-echo "Setup is done! Please proceed with v18 and have fun."
+echo "Setup is done! Please proceed with gringofts and have fun."
