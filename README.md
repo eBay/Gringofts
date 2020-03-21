@@ -83,7 +83,7 @@ This approach requires minimum dependencies on the target OS as all of the depen
    ```
 1. Build binaries
    ```bash
-   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts:compile-env hooks/pre-commit-build
+   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v1 hooks/pre-commit
    ```
 
 ### Build directly on local OS
