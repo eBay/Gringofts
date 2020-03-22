@@ -1,0 +1,4 @@
+ignore:
+  - "src/app_demo/**/*"
+  - "src/app_util/**/*"
+  - "test/**/*"
