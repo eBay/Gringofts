@@ -4,10 +4,9 @@ on:
   pull_request:
     branches:
       - master
-  on:
-    schedule:
-      # runs every day at 23:00
-      - cron:  '0 23 * * *'
+  schedule:
+    # runs every day at 23:00
+    - cron:  '0 23 * * *'
 
 jobs:
   Build:
