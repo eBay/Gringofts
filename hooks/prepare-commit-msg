@@ -38,14 +38,12 @@
 ORIGINAL_MSG=$(cat $1)
 BRANCH_NAME=$(git symbolic-ref --short HEAD)
 regex="[issue]/([0-9]+.*)"
-if [[ $BRANCH_NAME =~ $regex ]]
-then
+if [[ $BRANCH_NAME =~ $regex ]]; then
   ISSUE_NO="${BASH_REMATCH[1]}"
-  echo "ISSUE-$ISSUE_NO: $ORIGINAL_MSG" > $1
-elif [[ -z $BRANCH_NAME ]]
-then
+  echo "ISSUE-$ISSUE_NO: $ORIGINAL_MSG" >$1
+elif [[ -z $BRANCH_NAME ]]; then
   echo "empty branch name, probably in the middle of rebasing, ignoring"
-  echo "$ORIGINAL_MSG" > $1
+  echo "$ORIGINAL_MSG" >$1
 else
   echo "branch name must follow pattern: regex=$regex, branch name=$BRANCH_NAME"
   exit 1

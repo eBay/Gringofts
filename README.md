@@ -1,4 +1,5 @@
 ![CI](https://github.com/eBay/Gringofts/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/eBay/Gringofts/branch/master/graph/badge.svg)](https://codecov.io/gh/eBay/Gringofts)
 
 # Table of Contents
 - [Introduction](#introduction)
@@ -78,12 +79,12 @@ bash ./scripts/addSubmodules.sh
 This approach requires minimum dependencies on the target OS as all of the dependencies are encapsulated in a docker image.
 1. Build docker image for compiling the project (one-time setup)
    ```bash
-   sudo docker build --rm -t gringofts:dependencies -f dockers/dependencies/download.Dockerfile .
-   sudo docker build --rm -t gringofts:compile-env -f dockers/dependencies/install.Dockerfile .
+   sudo docker build --rm -t gringofts/dependencies:v1 -f dockers/dependencies/download.Dockerfile .
+   sudo docker build --rm -t gringofts/compile:v1 -f dockers/dependencies/install.Dockerfile .
    ```
 1. Build binaries
    ```bash
-   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts:compile-env hooks/pre-commit-build
+   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v1 hooks/pre-commit
    ```
 
 ### Build directly on local OS

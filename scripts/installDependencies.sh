@@ -66,7 +66,7 @@ else
   echo "gRPC v1.16 has been installed, skip"
 fi
 # install rocksdb
-ROCKSDB=$(find /usr -name '*rocksdb*')
+ROCKSDB=$(find /usr -name '*librocksdb*')
 if [ -z "$ROCKSDB" ]; then
   cd ~/temp/rocksdb &&
     # enable portable due to https://github.com/benesch/cockroach/commit/0e5614d54aa9a11904f59e6316cfabe47f46ce02
@@ -78,7 +78,7 @@ else
   echo "RocksDB has been installed, skip"
 fi
 # install abseil-cpp
-ABSL=$(find /usr -name '*absl*')
+ABSL=$(find /usr -name '*libabsl*')
 if [ -z "$ABSL" ]; then
   cd ~/temp/abseil-cpp &&
     # explicitly set DCMAKE_CXX_STANDARD due to https://github.com/abseil/abseil-cpp/issues/218

@@ -4,26 +4,38 @@ on:
   pull_request:
     branches:
       - master
-
-  schedule:
-    # runs every 30 mins
-    - cron:  '*/30 * * * *'
+  on:
+    schedule:
+      # runs every day at 23:00
+      - cron:  '0 23 * * *'
 
 jobs:
-  Checkout:
+  Build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out code
+        uses: actions/checkout@v2
 
-  CppLint:
+      - name: Set up submodules
+        run: bash ./scripts/addSubmodules.sh
+
+      - name: Build with docker
+        run: docker run --workdir "$GITHUB_WORKSPACE" --mount type=bind,source="$GITHUB_WORKSPACE",target="$GITHUB_WORKSPACE" --user "$(id -u)":"$(id -g)" gringofts/compile:v1 hooks/pre-commit
+
+      - name: Upload test report to codecov
+        uses: codecov/codecov-action@v1
+        with:
+          flags: unittests # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+
+  Lint:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: CyberZHG/github-action-cpp-lint@master
+      - name: Run Cpp Lint
+        uses: CyberZHG/github-action-cpp-lint@master
 
-  ShellCheck:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: bewuethr/shellcheck-action@v1
+      - name: Run ShellCheck
+        uses: bewuethr/shellcheck-action@v1
