@@ -34,7 +34,8 @@ class RaftMonitorAdaptorTest : public ::testing::Test {
   std::shared_ptr<raft::v2::RaftCore> mRaftImpl;
 };
 
-TEST_F(RaftMonitorAdaptorTest, raftAdaptorTest) {
+/// TODO(https://github.com/eBay/Gringofts/issues/10): Fix flaky test RaftMonitorAdaptorTest.raftAdaptorTest
+TEST_F(RaftMonitorAdaptorTest, DISABLED_raftAdaptorTest) {
   RaftMonitorAdaptor raft_monitor_adaptor(mRaftImpl);
   auto tags = raft_monitor_adaptor.monitorTags();
   EXPECT_EQ(tags.size(), 4);

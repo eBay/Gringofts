@@ -23,6 +23,8 @@ namespace gringofts::test {
 TEST(TimeUtilTest, TwoCallsToTimeNanosWillNeverEqual) {
   /// init
   auto createdTimeInNanos1 = TimeUtil::currentTimeInNanos();
+  /// deliberately sleep 1s so that OS in docker will not return the same value
+  sleep(1);
   auto createdTimeInNanos2 = TimeUtil::currentTimeInNanos();
 
   /// assert
