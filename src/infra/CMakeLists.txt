@@ -10,8 +10,18 @@ ADD_PROTO_RESOURCE(
         "es/store/store.proto"
         ${proto_generated_dir})
 
+# sidecar.proto
+set(sidecar_proto_generated_dir "sidecar/generated")
+file(MAKE_DIRECTORY ${sidecar_proto_generated_dir})
+
+ADD_PROTO_RESOURCE(
+        sidecar_proto_library
+        "sidecar/interop.proto"
+        ${sidecar_proto_generated_dir})
+
 # Include generated *.pb.h files
 include_directories("${proto_generated_dir}")
+include_directories("${sidecar_proto_generated_dir}")
 
 add_subdirectory(raft)
 
@@ -52,6 +62,9 @@ add_library(infra STATIC
 add_dependencies(infra infra_raft store_proto_library)
 target_link_libraries(infra infra_raft infra_monitor store_proto_library infra_util)
 
-# Executables
+# Executables5
 add_executable(RaftMain raft/RaftMain.cpp)
 target_link_libraries(RaftMain infra)
+
+add_executable(Sidecar sidecar/Sidecar.cpp)
+target_link_libraries(Sidecar sidecar_proto_library infra)

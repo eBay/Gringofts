@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package gringofts.interop;
+
+// read service
+
+service InteropReadMetaService {
+    rpc ReadMeta (ReadMeta.Request) returns (ReadMeta.Response) {}
+}
+
+message ReadMeta {
+    enum Role {
+        UNKNOWN_ROLE = 0;
+        LEADER = 1;
+        FOLLOWER = 2;
+        CANDIDATE = 3;
+    }
+    message Request {
+    }
+    message Response {
+        uint32 code = 1;
+        string message = 2;
+        // meta
+        Role role = 3;
+        uint64 term = 4;
+        uint64 last_index = 5;
+        uint64 commit_index = 6;
+        string leader_hint = 7;
+    }
+}

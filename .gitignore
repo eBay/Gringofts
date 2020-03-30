@@ -25,6 +25,7 @@ src/app_demo/generated
 src/app_util/generated
 src/infra/es/store/generated
 src/infra/raft/generated
+src/infra/sidecar/generated
 
 # Test-related #
 ################

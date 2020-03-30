@@ -21,8 +21,8 @@ limitations under the License.
 
 #include <spdlog/spdlog.h>
 
-#include "generated/raft.pb.h"
 #include "../grpc/RequestHandle.h"
+#include "generated/raft.pb.h"
 
 namespace gringofts {
 namespace raft {
