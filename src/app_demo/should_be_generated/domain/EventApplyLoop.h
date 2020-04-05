@@ -26,8 +26,8 @@ namespace app {
  */
 template<> inline std::optional<uint64_t>
 EventApplyLoop<demo::v2::AppStateMachine>::getLatestSnapshotOffset() const {
-  SPDLOG_WARN("StateMachine v2 based on RocksDB does not support snapshot.");
-  return std::nullopt;
+  /// RocksDBBacked StateMachine use checkpoint instead of snapshot
+  return SnapshotUtil::findLatestCheckpointOffset(this->mSnapshotDir);
 }
 
 template<> inline std::pair<bool, std::string>

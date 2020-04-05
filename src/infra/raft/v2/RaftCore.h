@@ -33,6 +33,7 @@ limitations under the License.
 #include "../storage/SegmentLog.h"
 #include "../RaftConstants.h"
 #include "../RaftInterface.h"
+#include "../StreamingService.h"
 #include "RaftService.h"
 
 namespace gringofts {
@@ -114,6 +115,7 @@ class RaftCore : public RaftInterface {
   RaftRole getRaftRole() const override         { return mRaftRole; }
   uint64_t getCommitIndex() const override      { return mCommitIndex; }
   uint64_t getCurrentTerm() const override      { return mLog->getCurrentTerm(); }
+  uint64_t getFirstLogIndex() const override    { return mLog->getFirstLogIndex(); }
   uint64_t getLastLogIndex() const override     { return mLog->getLastLogIndex(); }
 
   std::optional<uint64_t> getLeaderHint() const override {
@@ -284,6 +286,9 @@ class RaftCore : public RaftInterface {
   /// raft service: server and clients
   std::unique_ptr<RaftServer> mServer;
   std::map<uint64_t, std::unique_ptr<RaftClient>> mClients;
+
+  /// streaming service
+  std::unique_ptr<StreamingService> mStreamingService;
 
   /**
    * monitor

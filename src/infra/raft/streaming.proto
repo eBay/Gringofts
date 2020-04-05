@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package gringofts.raft;
+
+import "raft.proto";
+
+// The streaming service definition.
+service Streaming {
+    rpc GetMeta (GetMeta.Request) returns (GetMeta.Response) {
+    }
+    rpc GetEntries (GetEntries.Request) returns (GetEntries.Response) {
+    }
+}
+
+message GetMeta {
+    enum Role {
+        UNKNOWN_ROLE = 0;
+        LEADER = 1;
+        FOLLOWER = 2;
+        CANDIDATE = 3;
+    }
+
+    message Request {
+    }
+
+    message Response {
+        uint32 code = 1;
+        string message = 2;
+        // meta
+        Role role = 3;
+        uint64 term = 4;
+        uint64 last_index = 5;
+        uint64 commit_index = 6;
+        string leader_hint = 7;
+    }
+}
+
+message GetEntries {
+    message Request {
+        uint64 start_index = 1;
+    }
+
+    message Response {
+        int64 code = 1;
+        string message = 2;
+
+        // log entries starting from start_index.
+        repeated LogEntry entries = 3;
+
+        // meta data of raft storage
+        uint64 first_index = 4;
+        uint64 last_index = 5;
+        uint64 commit_index = 6;
+    }
+}

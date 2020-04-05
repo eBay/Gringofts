@@ -4,29 +4,8 @@ package gringofts.raft;
 
 // The Raft service definition.
 service Raft {
-    rpc RequestVote (RequestVoteRequest)     returns (RequestVoteResponse) {}
-    rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}
-
     rpc RequestVoteV2 (RequestVote.Request)     returns (RequestVote.Response) {}
     rpc AppendEntriesV2 (AppendEntries.Request) returns (AppendEntries.Response) {}
-}
-
-// RequestRPC
-message RequestVoteRequest {
-    uint64 term = 1; // candidate's proposed term
-    uint64 candidateId = 2; // candidate who requests vote
-    uint64 lastLogIndex = 3; // index of candidate's last log entry
-    uint64 lastLogTerm = 4; // term of candidate's last log entry
-    // metrics
-    uint64 createdTimeInNanos = 5; // time when this request is created
-}
-
-message RequestVoteResponse {
-    uint64 id = 1; //  the peer who granted or rejected the vote
-    uint64 term = 2; // the term in the peer
-    bool voteGranted = 3; // true means the peer gave the vote
-    // metrics
-    uint64 createdTimeInNanos = 4; // time when this response is created
 }
 
 message LogEntry {
@@ -35,35 +14,6 @@ message LogEntry {
     bool noop = 3; // the first entry when a new leader will send to all followers
     uint64 checksum = 4; // checksum of the payload
     bytes payload = 5; // one payload may contain multiple content, e.g., commands, events
-}
-
-// AppendEntriesRPC
-message AppendEntriesRequest {
-    uint64 term = 1; // leader's current term
-    uint64 leaderId = 2; // leader id who requests vote
-    uint64 prevLogIndex = 3; // index of log entry immediately preceding new ones
-    uint64 prevLogTerm = 4; // term of prevLogIndex entry
-    uint64 leaderCommitIndex = 5; // leader's commitIndex
-    repeated LogEntry entry = 6; // entry to be appended to the follower's log
-    // metrics
-    uint64 logCopyElapsedTimeInNanos = 7;  // time it took to copy log entries to the grpc request
-    uint64 createdTimeInNanos = 8; // time when this request is created
-}
-
-message AppendEntriesResponse {
-    uint64 term = 1; // follower's current term
-    uint64 id = 2; // follower's id
-    bool success = 3; // true if follower contained entry matching prevLogIndex and prevLogTerm
-
-    /**
-     * The recipient's last log index (after it's applied this RPC's
-     * changes to the log). This is used to speed up finding the correct
-     * value for nextIndex with a follower that is far behind the leader.
-     */
-    uint64 lastLogIndex = 4;
-
-    // metrics
-    uint64 createdTimeInNanos = 5; // time when this response is created
 }
 
 message RequestVote {

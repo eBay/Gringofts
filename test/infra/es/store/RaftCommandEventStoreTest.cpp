@@ -32,6 +32,7 @@ class RaftInterfaceMock : public RaftInterface {
   MOCK_CONST_METHOD0(getRaftRole, RaftRole());
   MOCK_CONST_METHOD0(getCommitIndex, uint64_t());
   MOCK_CONST_METHOD0(getCurrentTerm, uint64_t());
+  MOCK_CONST_METHOD0(getFirstLogIndex, uint64_t());
   MOCK_CONST_METHOD0(getLastLogIndex, uint64_t());
   MOCK_CONST_METHOD0(getLeaderHint, std::optional<uint64_t>());
   // @formatter:off

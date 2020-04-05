@@ -181,6 +181,9 @@ void RaftCore::initService(const INIReader &iniReader) {
 
   /// init raftMainLoop
   mRaftLoop = std::thread(&RaftCore::raftLoopMain, this);
+
+  /// init StreamingService
+  mStreamingService = std::make_unique<StreamingService>(iniReader, *this);
 }
 
 RaftCore::~RaftCore() {
