@@ -62,6 +62,7 @@ class RaftInterface {
   virtual RaftRole getRaftRole() const = 0;
   virtual uint64_t getCommitIndex() const = 0;
   virtual uint64_t getCurrentTerm() const = 0;
+  virtual uint64_t getFirstLogIndex() const = 0;
   virtual uint64_t getLastLogIndex() const = 0;
   virtual std::optional<uint64_t> getLeaderHint() const = 0;
 
