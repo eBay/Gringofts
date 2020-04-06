@@ -37,28 +37,41 @@ namespace app {
  * A loop which runs the business command process & event apply logic on app layer.
  * It runs on a dedicated thread.
  */
-class CommandProcessLoopInterface : public Loop, public Recoverable {};
+class CommandProcessLoopInterface : public Loop, public Recoverable {
+ public:
+  /**
+   * Process command, generate events, persist both command and events
+   * to event store and apply events to state machine (will mutate the state).
+   *
+   * @param command: the command to be processed
+   */
+  // @formatter:off
+  virtual void processCommand(std::shared_ptr<Command> command) = 0;
+  // @formatter:on
+};
 
 /**
  * @tparam StateMachineType:  type of state machine which
  *                            encapsulates app state and ops around the state
  */
 template<typename StateMachineType>
-class CommandProcessLoop : public CommandProcessLoopInterface {
+class CommandProcessLoopBase : public CommandProcessLoopInterface {
  public:
   using EventApplyLoopPtr = std::shared_ptr<EventApplyLoopInterface>;
+  // @formatter:off
   using CommandQueue = BlockingQueue<std::shared_ptr<Command>>;
+  // @formatter:on
 
-  CommandProcessLoop(const INIReader &reader,
-                     const std::shared_ptr<CommandEventDecoder> &decoder,
-                     DeploymentMode deploymentMode,
-                     EventApplyLoopPtr eventApplyLoop,
-                     CommandQueue &inputCommandQueue,  // NOLINT [runtime/references]
-                     std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
-                     std::shared_ptr<CommandEventStore> commandEventStore,
-                     const std::string &snapshotDir);
+  CommandProcessLoopBase(const INIReader &reader,
+                         const std::shared_ptr<CommandEventDecoder> &decoder,
+                         DeploymentMode deploymentMode,
+                         EventApplyLoopPtr eventApplyLoop,
+                         CommandQueue &inputCommandQueue,  // NOLINT [runtime/references]
+                         std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
+                         std::shared_ptr<CommandEventStore> commandEventStore,
+                         const std::string &snapshotDir);
 
-  ~CommandProcessLoop() override = default;
+  ~CommandProcessLoopBase() override = default;
 
   /// The main function under standalone mode.
   void run() override;
@@ -69,14 +82,7 @@ class CommandProcessLoop : public CommandProcessLoopInterface {
 
   void shutdown() override { mShouldExit = true; }
 
-  /// standalone mode
-  void recoverOnce() override;
-
  protected:
-  void initStateMachine(const INIReader &) {
-    mAppStateMachine = std::make_unique<StateMachineType>();
-  }
-
   /// distributed mode
   void onBecomeLeader(std::shared_ptr<Command> command);
 
@@ -89,14 +95,6 @@ class CommandProcessLoop : public CommandProcessLoopInterface {
     uint64_t currentTerm = mCommandEventStore->getCurrentTerm();
     return mEventApplyLoop->waitTillLeaderIsReadyOrStepDown(currentTerm);
   }
-
-  /**
-   * Process command, generate events, persist both command and events
-   * to event store and apply events to state machine (will mutate the state).
-   *
-   * @param command: the command to be processed
-   */
-  virtual void processCommand(std::shared_ptr<Command> command) = 0;
 
   /**
    * standalone mode
@@ -135,7 +133,7 @@ class CommandProcessLoop : public CommandProcessLoopInterface {
 };
 
 template<typename StateMachineType>
-CommandProcessLoop<StateMachineType>::CommandProcessLoop(
+CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
     const INIReader &reader,
     const std::shared_ptr<CommandEventDecoder> &decoder,
     DeploymentMode deploymentMode,
@@ -165,11 +163,11 @@ CommandProcessLoop<StateMachineType>::CommandProcessLoop(
   assert(mEventApplyLoop);
 
   mCrypto.init(reader);
-  initStateMachine(reader);
+  mAppStateMachine = std::make_unique<StateMachineType>();
 }
 
 template<typename StateMachineType>
-void CommandProcessLoop<StateMachineType>::runDistributed() {
+void CommandProcessLoopBase<StateMachineType>::runDistributed() {
   assert(mDeploymentMode == DeploymentMode::Distributed);
 
   while (!mShouldExit) {
@@ -205,7 +203,7 @@ void CommandProcessLoop<StateMachineType>::runDistributed() {
 }
 
 template<typename StateMachineType>
-void CommandProcessLoop<StateMachineType>::onBecomeLeader(std::shared_ptr<Command> command) {
+void CommandProcessLoopBase<StateMachineType>::onBecomeLeader(std::shared_ptr<Command> command) {
   SPDLOG_INFO("Waiting for EventApplyLoop to catch up.");
 
   /// Wait
@@ -238,7 +236,7 @@ void CommandProcessLoop<StateMachineType>::onBecomeLeader(std::shared_ptr<Comman
 }
 
 template<typename StateMachineType>
-void CommandProcessLoop<StateMachineType>::run() {
+void CommandProcessLoopBase<StateMachineType>::run() {
   assert(mDeploymentMode == DeploymentMode::Standalone);
 
   while (!mShouldExit) {
@@ -257,25 +255,7 @@ void CommandProcessLoop<StateMachineType>::run() {
 }
 
 template<typename StateMachineType>
-void CommandProcessLoop<StateMachineType>::recoverOnce() {
-  assert(mDeploymentMode == DeploymentMode::Standalone);
-
-  if (mRecovered) {
-    throw std::runtime_error("Error: Application has already been recovered, calling it multiple times will make "
-                             "application state inconsistent. Exit...");
-  }
-
-  mRecovered = true;
-  std::optional<Id> offset = SnapshotUtil::loadLatestSnapshot(mSnapshotDir,
-                                                              *mAppStateMachine,
-                                                              *mCommandEventDecoder,
-                                                              *mCommandEventDecoder,
-                                                              mCrypto);
-  replayEvents(offset);
-}
-
-template<typename StateMachineType>
-std::optional<Id> CommandProcessLoop<StateMachineType>::replayEvents(std::optional<Id> offset) {
+std::optional<Id> CommandProcessLoopBase<StateMachineType>::replayEvents(std::optional<Id> offset) {
   assert(mDeploymentMode == DeploymentMode::Standalone);
 
   if (offset) {
@@ -303,6 +283,48 @@ std::optional<Id> CommandProcessLoop<StateMachineType>::replayEvents(std::option
   SPDLOG_INFO("Replay completed, total applied {} events", eventCount);
   return eventCount == 0 ? std::nullopt : std::optional<Id>(currentCommandId);
 }
+
+template<typename StateMachineType, bool = IsRocksDBBacked<StateMachineType>::value>
+class CommandProcessLoop;  /// not defined
+
+template<typename MemoryBackedStateMachineType>
+class CommandProcessLoop<MemoryBackedStateMachineType, false>
+    : public CommandProcessLoopBase<MemoryBackedStateMachineType> {
+ public:
+  using CommandProcessLoopBase<MemoryBackedStateMachineType>::CommandProcessLoopBase;
+
+  /// standalone mode
+  void recoverOnce() override {
+    assert(this->mDeploymentMode == DeploymentMode::Standalone);
+
+    if (this->mRecovered) {
+      throw std::runtime_error("Error: Application has already been recovered, calling it multiple times will make "
+                               "application state inconsistent. Exit...");
+    }
+
+    this->mRecovered = true;
+    std::optional<Id> offset = SnapshotUtil::loadLatestSnapshot(this->mSnapshotDir,
+                                                                *this->mAppStateMachine,
+                                                                *this->mCommandEventDecoder,
+                                                                *this->mCommandEventDecoder,
+                                                                this->mCrypto);
+    this->replayEvents(offset);
+  }
+};
+
+template<typename RocksDBBackedStateMachineType>
+class CommandProcessLoop<RocksDBBackedStateMachineType, true>
+    : public CommandProcessLoopBase<RocksDBBackedStateMachineType> {
+ public:
+  using CommandProcessLoopBase<RocksDBBackedStateMachineType>::CommandProcessLoopBase;
+
+  /// standalone mode
+  void recoverOnce() override {
+    assert(this->mDeploymentMode == DeploymentMode::Standalone);
+    throw std::runtime_error("Error: RocksDBBacked AppStateMachine does not "
+                             "support standalone mode. Exit...");
+  }
+};
 
 }  /// namespace app
 }  /// namespace gringofts

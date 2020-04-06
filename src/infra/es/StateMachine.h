@@ -93,30 +93,6 @@ class StateMachine {
    * Check if two state machine has exactly the same state
    */
   virtual bool hasSameState(const StateMachine &) const = 0;
-
-  /**
-   * Take a snapshot of the current state and persist it to file
-   * @param offset snapshot = apply events in [0, offset]
-   * @param ofs the target snapshot file
-   * @param crypto used to encrypt data
-   * @return true if succeed, false otherwise
-   */
-  virtual bool createSnapshotAndPersist(uint64_t offset,
-                                        std::ofstream &ofs,
-                                        Crypto &crypto) const = 0;  // NOLINT (runtime/references)
-
-  /**
-   * Load the snapshot from file
-   * @param ifs the snapshot file
-   * @param commandDecoder decoder used to decode command
-   * @param eventDecoder decoder used to decode event
-   * @param crypto used to decrypt data
-   * @return the offset as of the snapshot was taken if succeed, or std::nullopt otherwise
-   */
-  virtual std::optional<uint64_t> loadSnapshotFrom(std::ifstream &ifs,
-                                                   const CommandDecoder &commandDecoder,
-                                                   const EventDecoder &eventDecoder,
-                                                   Crypto &crypto) = 0;  // NOLINT (runtime/references)
 };
 
 }  /// namespace gringofts

@@ -76,23 +76,18 @@ class EventApplyLoopInterface : public Loop,
  *                              app state and ops around the state
  */
 template<typename StateMachineType>
-class EventApplyLoop : public EventApplyLoopInterface {
+class EventApplyLoopBase : public EventApplyLoopInterface {
  public:
-  EventApplyLoop(const INIReader &reader,
-                 const std::shared_ptr<CommandEventDecoder> &decoder,
-                 std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
-                 const std::string &snapshotDir)
+  EventApplyLoopBase(const INIReader &reader,
+                     const std::shared_ptr<CommandEventDecoder> &decoder,
+                     std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
+                     const std::string &snapshotDir)
       : mReadonlyCommandEventStore(std::move(readonlyCommandEventStore)),
         mCommandEventDecoder(decoder),
         mSnapshotDir(snapshotDir),
-        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})) {
-    mCrypto.init(reader);
-    initStateMachine(reader);
-    /// recover state
-    recoverSelf();
-  }
+        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})) { mCrypto.init(reader); }
 
-  ~EventApplyLoop() override = default;
+  ~EventApplyLoopBase() override = default;
 
   /**
    * implement Loop
@@ -106,12 +101,6 @@ class EventApplyLoop : public EventApplyLoopInterface {
   void truncatePrefix(uint64_t offsetKept) override {
     mReadonlyCommandEventStore->truncatePrefix(offsetKept);
   }
-
-  std::optional<uint64_t> getLatestSnapshotOffset() const override {
-    return SnapshotUtil::findLatestSnapshotOffset(mSnapshotDir);
-  }
-
-  std::pair<bool, std::string> takeSnapshotAndPersist() const override;
 
   /**
    * implement EventApplyLoopInterface
@@ -138,12 +127,10 @@ class EventApplyLoop : public EventApplyLoopInterface {
   }
 
  protected:
-  void initStateMachine(const INIReader &) {
-    mAppStateMachine = std::make_unique<StateMachineType>();
-  }
-
-  /// caller should acquire lock.
-  void recoverSelf();
+  /**
+   * recover StateMachine
+   */
+  virtual void recoverSelf() = 0;
 
   std::unique_ptr<ReadonlyCommandEventStore> mReadonlyCommandEventStore;
   std::shared_ptr<CommandEventDecoder> mCommandEventDecoder;
@@ -170,51 +157,11 @@ class EventApplyLoop : public EventApplyLoopInterface {
   santiago::MetricsCenter::GaugeType mLastAppliedIndexGauge;
 };
 
-template<typename StateMachineType>
-void EventApplyLoop<StateMachineType>::recoverSelf() {
-  SPDLOG_INFO("Start recovering.");
-
-  /// clear state machine
-  auto ts1InNano = TimeUtil::currentTimeInNanos();
-  mAppStateMachine->clearState();
-
-  /// recover state machine from snapshot
-  auto ts2InNano = TimeUtil::currentTimeInNanos();
-  auto readOffsetOpt = SnapshotUtil::loadLatestSnapshot(mSnapshotDir,
-                                                        *mAppStateMachine,
-                                                        *mCommandEventDecoder,
-                                                        *mCommandEventDecoder,
-                                                        mCrypto);
-  /// recover applied index
-  auto ts3InNano = TimeUtil::currentTimeInNanos();
-  if (readOffsetOpt) {
-    mLastAppliedLogEntryIndex = *readOffsetOpt;
-  }
-
-  /// re-init Readonly CES, unit test CAN ignore this step.
-  if (mReadonlyCommandEventStore) {
-    if (readOffsetOpt) {
-      mReadonlyCommandEventStore->setCurrentOffset(*readOffsetOpt);
-    }
-    mReadonlyCommandEventStore->init();
-  }
-
-  auto ts4InNano = TimeUtil::currentTimeInNanos();
-  SPDLOG_INFO("clear state cost {}ms, reload snapshot cost {}ms, "
-              "re-init Readonly CES cost {}ms, will start apply events after {}",
-              (ts2InNano - ts1InNano) / 1000000.0,
-              (ts3InNano - ts2InNano) / 1000000.0,
-              (ts4InNano - ts3InNano) / 1000000.0,
-              readOffsetOpt.value_or(0));
-
-  mShouldRecover = false;
-}
-
 /**
  * Called by EAL thread
  */
 template<typename StateMachineType>
-void EventApplyLoop<StateMachineType>::run() {
+void EventApplyLoopBase<StateMachineType>::run() {
   while (!mShouldExit) {
     std::lock_guard<std::mutex> lock(mLoopMutex);
 
@@ -257,25 +204,8 @@ void EventApplyLoop<StateMachineType>::run() {
   }
 }
 
-/**
- * Called by NetAdminServer thread triggered by PuBuddy
- */
 template<typename StateMachineType>
-std::pair<bool, std::string> EventApplyLoop<StateMachineType>::takeSnapshotAndPersist() const {
-  /// TODO: takeSnapshotAndPersist() may hurt waitTillLeaderIsReady()
-  std::lock_guard<std::mutex> lock(mLoopMutex);
-
-  if (mShouldRecover) {
-    SPDLOG_WARN("Defer taking snapshot during recover.");
-    return std::make_pair(false, "");
-  }
-
-  auto offset = mLastAppliedLogEntryIndex;
-  return SnapshotUtil::takeSnapshotAndPersist(offset, mSnapshotDir, *mAppStateMachine, mCrypto);
-}
-
-template<typename StateMachineType>
-void EventApplyLoop<StateMachineType>::replayTillNoEvent() {
+void EventApplyLoopBase<StateMachineType>::replayTillNoEvent() {
   SPDLOG_WARN("should ONLY see this log in unit test");
   std::unique_ptr<Event> eventPtr = mReadonlyCommandEventStore->loadNextEvent(*mCommandEventDecoder);
   while (eventPtr) {
@@ -286,6 +216,167 @@ void EventApplyLoop<StateMachineType>::replayTillNoEvent() {
   }
   mAppStateMachine->generateMockData();
 }
+
+/**
+ * use SFINAE(https://en.cppreference.com/w/cpp/language/sfinae)
+ * to determine whether the state machine is backed by RocksDB
+ * via checking if it defines type RocksDBConf
+ */
+template<typename T>
+struct IsRocksDBBackedHelper {
+  template<typename Tp, typename = typename Tp::RocksDBConf>
+  static std::true_type __test(int);
+
+  template<typename>
+  static std::false_type __test(...);
+
+  typedef decltype(__test<T>(0)) type;
+};
+
+template<typename T>
+struct IsRocksDBBacked : public IsRocksDBBackedHelper<T>::type {};
+
+template<typename StateMachineType, bool = IsRocksDBBacked<StateMachineType>::value>
+class EventApplyLoop;  /// not defined
+
+template<typename MemoryBackedStateMachineType>
+class EventApplyLoop<MemoryBackedStateMachineType, false>
+        : public EventApplyLoopBase<MemoryBackedStateMachineType> {
+ public:
+  EventApplyLoop(const INIReader &reader,
+                 const std::shared_ptr<CommandEventDecoder> &decoder,
+                 std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
+                 const std::string &snapshotDir)
+         : EventApplyLoopBase<MemoryBackedStateMachineType>(reader,
+                                                            decoder,
+                                                            std::move(readonlyCommandEventStore),
+                                                            snapshotDir) {
+    initStateMachine(reader);
+    /// recover state
+    recoverSelf();
+  }
+
+  /**
+   * Called by NetAdminServer thread triggered by PuBuddy
+   */
+  std::pair<bool, std::string> takeSnapshotAndPersist() const override {
+    /// TODO: takeSnapshotAndPersist() may hurt waitTillLeaderIsReady()
+    std::lock_guard<std::mutex> lock(this->mLoopMutex);
+
+    if (this->mShouldRecover) {
+      SPDLOG_WARN("Defer taking snapshot during recover.");
+      return std::make_pair(false, "");
+    }
+
+    auto offset = this->mLastAppliedLogEntryIndex;
+    return SnapshotUtil::takeSnapshotAndPersist(offset,
+                                                this->mSnapshotDir,
+                                                *this->mAppStateMachine,
+                                                this->mCrypto);
+  }
+
+  std::optional<uint64_t> getLatestSnapshotOffset() const override {
+    return SnapshotUtil::findLatestSnapshotOffset(this->mSnapshotDir);
+  }
+
+ protected:
+  void initStateMachine(const INIReader &) {
+    this->mAppStateMachine = std::make_unique<MemoryBackedStateMachineType>();
+  }
+
+  void recoverSelf() override {
+    SPDLOG_INFO("Start recovering.");
+
+    /// clear state machine
+    auto ts1InNano = TimeUtil::currentTimeInNanos();
+    this->mAppStateMachine->clearState();
+
+    /// recover state machine from snapshot
+    auto ts2InNano = TimeUtil::currentTimeInNanos();
+    auto readOffsetOpt = SnapshotUtil::loadLatestSnapshot(this->mSnapshotDir,
+                                                          *this->mAppStateMachine,
+                                                          *this->mCommandEventDecoder,
+                                                          *this->mCommandEventDecoder,
+                                                          this->mCrypto);
+    /// recover applied index
+    auto ts3InNano = TimeUtil::currentTimeInNanos();
+    if (readOffsetOpt) {
+      this->mLastAppliedLogEntryIndex = *readOffsetOpt;
+    }
+
+    /// re-init Readonly CES, unit test CAN ignore this step.
+    if (this->mReadonlyCommandEventStore) {
+      if (readOffsetOpt) {
+        this->mReadonlyCommandEventStore->setCurrentOffset(*readOffsetOpt);
+      }
+      this->mReadonlyCommandEventStore->init();
+    }
+
+    auto ts4InNano = TimeUtil::currentTimeInNanos();
+    SPDLOG_INFO("clear state cost {}ms, reload snapshot cost {}ms, "
+                "re-init Readonly CES cost {}ms, will start apply events after {}",
+                (ts2InNano - ts1InNano) / 1000000.0,
+                (ts3InNano - ts2InNano) / 1000000.0,
+                (ts4InNano - ts3InNano) / 1000000.0,
+                readOffsetOpt.value_or(0));
+
+    this->mShouldRecover = false;
+  }
+};
+
+template<typename RocksDBBackedStateMachineType>
+class EventApplyLoop<RocksDBBackedStateMachineType, true>
+        : public EventApplyLoopBase<RocksDBBackedStateMachineType> {
+ public:
+  EventApplyLoop(const INIReader &reader,
+                 const std::shared_ptr<CommandEventDecoder> &decoder,
+                 std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
+                 const std::string &snapshotDir)
+          : EventApplyLoopBase<RocksDBBackedStateMachineType>(reader,
+                                                              decoder,
+                                                              std::move(readonlyCommandEventStore),
+                                                              snapshotDir) {
+    initStateMachine(reader);
+    /// recover state
+    recoverSelf();
+  }
+
+  std::pair<bool, std::string> takeSnapshotAndPersist() const override {
+    /// create Checkpoint of RocksDB is thread-safe,
+    /// we don't need lock mLoopMutex.
+    auto checkpointPath = this->mAppStateMachine->createCheckpoint(this->mSnapshotDir);
+    return std::make_pair(true, checkpointPath);
+  }
+
+  std::optional<uint64_t> getLatestSnapshotOffset() const override {
+    /// RocksDBBacked StateMachine use checkpoint instead of snapshot
+    return SnapshotUtil::findLatestCheckpointOffset(this->mSnapshotDir);
+  }
+
+ protected:
+  void initStateMachine(const INIReader &iniReader) {
+    std::string walDir = iniReader.Get("rocksdb", "wal.dir", "");
+    std::string dbDir  = iniReader.Get("rocksdb", "db.dir", "");
+    assert(!walDir.empty() && !dbDir.empty());
+
+    this->mAppStateMachine = std::make_unique<RocksDBBackedStateMachineType>(walDir, dbDir);
+  }
+
+  void recoverSelf() override {
+    SPDLOG_INFO("Start recovering.");
+
+    /// recover StateMachine
+    this->mLastAppliedLogEntryIndex = this->mAppStateMachine->recoverSelf();
+
+    /// re-init Readonly CES, unit test CAN ignore this step.
+    if (this->mReadonlyCommandEventStore) {
+      this->mReadonlyCommandEventStore->setCurrentOffset(this->mLastAppliedLogEntryIndex);
+      this->mReadonlyCommandEventStore->init();
+    }
+
+    this->mShouldRecover = false;
+  }
+};
 
 }  /// namespace app
 }  /// namespace gringofts
