@@ -41,9 +41,10 @@ class SnapshotUtil {
    * @param crypto the instance used to encrypt snapshot
    * @return <true, path of snapshot file> if succeed, false otherwise
    */
+  template<typename StateMachineType>
   static std::pair<bool, std::string> takeSnapshotAndPersist(uint64_t currentOffset,
                                                              const std::string &snapshotDir,
-                                                             const StateMachine &stateMachine,
+                                                             const StateMachineType &stateMachine,
                                                              CryptoUtil &crypto) noexcept {  // NOLINT [runtime/references]
     auto offset = currentOffset;
     const auto &snapshotFilePath = snapshotDir + "/" + std::to_string(offset) + kSnapshotSuffix;
@@ -84,8 +85,9 @@ class SnapshotUtil {
    * @param crypto the instance used to decrypt snapshot
    * @return the read offset in the snapshot if succeed, std::nullopt otherwise
    */
+  template<typename StateMachineType>
   static std::optional<uint64_t> loadLatestSnapshot(const std::string &snapshotDir,
-                                                    StateMachine &stateMachine,  // NOLINT [runtime/references]
+                                                    StateMachineType &stateMachine,  // NOLINT [runtime/references]
                                                     const CommandDecoder &commandDecoder,
                                                     const EventDecoder &eventDecoder,
                                                     CryptoUtil &crypto) noexcept {  // NOLINT [runtime/references]

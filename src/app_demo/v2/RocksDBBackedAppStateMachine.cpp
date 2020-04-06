@@ -26,7 +26,7 @@ void RocksDBBackedAppStateMachine::setValue(uint64_t value) {
   mValue = value;
 
   /// save in RocksDB
-  auto status = mWriteBatch.Put(kValueKey, std::to_string(value));
+  auto status = mWriteBatch.Put(RocksDBConf::kValueKey, std::to_string(value));
   if (!status.ok()) {
     SPDLOG_ERROR("Error writing RocksDB: {}. Exiting...", status.ToString());
     assert(0);
@@ -50,7 +50,7 @@ uint64_t RocksDBBackedAppStateMachine::recoverSelf() {
 }
 
 void RocksDBBackedAppStateMachine::commit(uint64_t appliedIndex) {
-  auto status = mWriteBatch.Put(kLastAppliedIndexKey, std::to_string(appliedIndex));
+  auto status = mWriteBatch.Put(RocksDBConf::kLastAppliedIndexKey, std::to_string(appliedIndex));
   if (!status.ok()) {
     SPDLOG_ERROR("Error writing RocksDB: {}. Exiting...", status.ToString());
     assert(0);
@@ -119,7 +119,7 @@ void RocksDBBackedAppStateMachine::loadFromRocksDB() {
 
   /// load last applied index
   auto status = mRocksDB->Get(rocksdb::ReadOptions(),
-                              kLastAppliedIndexKey, &value);
+                              RocksDBConf::kLastAppliedIndexKey, &value);
   if (status.ok()) {
     mLastFlushedIndex = std::stoull(value);
   } else if (status.IsNotFound()) {
@@ -130,7 +130,7 @@ void RocksDBBackedAppStateMachine::loadFromRocksDB() {
   }
 
   /// load value
-  status = mRocksDB->Get(rocksdb::ReadOptions(), kValueKey, &value);
+  status = mRocksDB->Get(rocksdb::ReadOptions(), RocksDBConf::kValueKey, &value);
   if (status.ok()) {
     mValue = std::stoull(value);
   } else if (status.IsNotFound()) {

@@ -31,7 +31,6 @@ limitations under the License.
 #include "../../AppStateMachine.h"
 #include "../domain/CommandDecoderImpl.h"
 #include "../domain/CommandProcessLoop.h"
-#include "../domain/EventApplyLoop.h"
 #include "../domain/EventDecoderImpl.h"
 #include "../domain/common_types.h"
 #include "../domain/post/BundleExposePublisher.h"

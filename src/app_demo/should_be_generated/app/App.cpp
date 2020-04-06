@@ -75,9 +75,9 @@ App::App(const char *configPath) : mIsShutdown(false) {
         snapshotDir);
   } else if (appVersion == "v2") {
     mEventApplyLoop =
-        std::make_shared<app::EventApplyLoop<v2::AppStateMachine>>(
+        std::make_shared<app::EventApplyLoop<v2::RocksDBBackedAppStateMachine>>(
             reader, commandEventDecoder, std::move(mReadonlyCommandEventStoreForEventApplyLoop), snapshotDir);
-    mCommandProcessLoop = std::make_unique<CommandProcessLoop<v2::AppStateMachine>>(
+    mCommandProcessLoop = std::make_unique<CommandProcessLoop<v2::MemoryBackedAppStateMachine>>(
         reader,
         commandEventDecoder,
         mDeploymentMode,

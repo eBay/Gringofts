@@ -43,10 +43,12 @@ class RocksDBBackedAppStateMachine : public v2::AppStateMachine {
   void swapState(StateMachine *anotherStateMachine) override { assert(0); }
 
   /// invoked after swapState() is called, return lastFlushedIndex
-  uint64_t recoverSelf() override;
+  uint64_t recoverSelf();
 
   /// call flushToRocksDB() if needed.
   void commit(uint64_t appliedIndex) override;
+
+  std::string createCheckpoint(const std::string &baseDir) { assert(0); }
 
  private:
   friend class MemoryBackedAppStateMachine;
@@ -64,10 +66,6 @@ class RocksDBBackedAppStateMachine : public v2::AppStateMachine {
 
   /// read value/lastAppliedIndex from RocksDB
   void loadFromRocksDB();
-
-  /// RocksDB key
-  const std::string kLastAppliedIndexKey = "last_applied_index";
-  const std::string kValueKey = "value";
 
   /// the max num of bundles batched in write batch
   const uint64_t mMaxBatchSize = 5;

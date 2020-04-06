@@ -53,7 +53,14 @@ class NetAdminServer final : public AppNetAdmin::Service {
  public:
   NetAdminServer(const INIReader &reader,
                  std::shared_ptr<NetAdminServiceProvider> netAdminProxy) :
-      mServiceProvider(netAdminProxy) {
+      mServiceProvider(netAdminProxy),
+      mSnapshotTakenCounter(getCounter("snapshot_taken_counter", {})),
+      mSnapshotFailedCounter(getCounter("snapshot_failed_counter", {})),
+      mPrefixTruncatedCounter(getCounter("prefix_truncated_counter", {})),
+      mPrefixTruncateFailedCounter(getCounter("prefix_truncate_failed_counter", {})),
+      mHotfixAppliedCounter(getCounter("hotfix_applied_counter", {})),
+      mHotfixFailedCounter(getCounter("hotfix_failed_counter", {})),
+      mFirstIndexGauge(getGauge("first_index_gauge", {})) {
     mIpPort = reader.Get("netadmin", "ip.port", "UNKNOWN");
     assert(mIpPort != "UNKNOWN");
 
@@ -83,8 +90,10 @@ class NetAdminServer final : public AppNetAdmin::Service {
     const auto[succeed, snapshotPath] = mServiceProvider->takeSnapshotAndPersist();
     if (succeed) {
       SPDLOG_INFO("A new snapshot has been persisted to {}", snapshotPath);
+      mSnapshotTakenCounter.increase();
     } else {
       SPDLOG_WARN("Failed to create snapshot");
+      mSnapshotFailedCounter.increase();
     }
     reply->set_type(succeed ? CreateSnapshot_ResponseType::CreateSnapshot_ResponseType_SUCCESS :
                     CreateSnapshot_ResponseType::CreateSnapshot_ResponseType_FAILED);
@@ -117,6 +126,7 @@ class NetAdminServer final : public AppNetAdmin::Service {
       if (!offsetOpt) {
         errorMessage = "Refuse truncate prefix, since no snapshot is founded.";
         SPDLOG_WARN("{}", errorMessage);
+        mPrefixTruncateFailedCounter.increase();
         break;
       }
 
@@ -129,6 +139,7 @@ class NetAdminServer final : public AppNetAdmin::Service {
       if (firstIndexKept > snapshotOffset) {
         errorMessage = "Refuse truncate prefix, since firstIndexKept > snapshotOffset";
         SPDLOG_WARN("{}, Detail: {} > {}.", errorMessage, firstIndexKept, snapshotOffset);
+        mPrefixTruncateFailedCounter.increase();
         break;
       }
 
@@ -140,6 +151,8 @@ class NetAdminServer final : public AppNetAdmin::Service {
 
       SPDLOG_WARN("Truncate prefix to {}, meanwhile, latest snapshot offset is {}",
                   firstIndexKept, snapshotOffset);
+      mPrefixTruncatedCounter.increase();
+      mFirstIndexGauge.set(firstIndexKept);
     } while (0);
 
     reply->set_message(errorMessage);
@@ -166,6 +179,9 @@ class NetAdminServer final : public AppNetAdmin::Service {
     auto message = "Hotfix has been done successfully";
     if (!succeed) {
       message = "Failed to apply the hotfix";
+      mHotfixFailedCounter.increase();
+    } else {
+      mHotfixAppliedCounter.increase();
     }
     SPDLOG_INFO(message);
     reply->set_type(succeed ? Hotfix_ResponseType::Hotfix_ResponseType_SUCCESS :
@@ -221,6 +237,16 @@ class NetAdminServer final : public AppNetAdmin::Service {
   std::atomic<bool> mSnapshotIsRunning = false;
   std::atomic<bool> mTruncatePrefixIsRunning = false;
   std::atomic<bool> mHotfixIsRunning = false;
+
+  /// metrics start
+  mutable santiago::MetricsCenter::CounterType mSnapshotTakenCounter;
+  mutable santiago::MetricsCenter::CounterType mSnapshotFailedCounter;
+  mutable santiago::MetricsCenter::CounterType mPrefixTruncatedCounter;
+  mutable santiago::MetricsCenter::CounterType mPrefixTruncateFailedCounter;
+  mutable santiago::MetricsCenter::CounterType mHotfixAppliedCounter;
+  mutable santiago::MetricsCenter::CounterType mHotfixFailedCounter;
+  mutable santiago::MetricsCenter::GaugeType mFirstIndexGauge;
+  /// metrics end
 };
 
 }  /// namespace app

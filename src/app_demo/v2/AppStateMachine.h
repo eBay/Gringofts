@@ -23,22 +23,16 @@ namespace v2 {
 
 class AppStateMachine : public demo::AppStateMachine {
  public:
-  /**
-   * v2::AppStateMachine does not support snapshot
-   */
-  bool createSnapshotAndPersist(uint64_t offset,
-                                std::ofstream &ofs,
-                                Crypto &crypto) const override { assert(0); }
+  struct RocksDBConf {
+    /// RocksDB key
+    static constexpr const char *kLastAppliedIndexKey = "last_applied_index";
+    static constexpr const char *kValueKey = "value";
+  };
 
-  std::optional<uint64_t> loadSnapshotFrom(std::ifstream &ifs,
-                                           const CommandDecoder &commandDecoder,
-                                           const EventDecoder &eventDecoder,
-                                           Crypto &crypto) override { assert(0); }
   /**
    * integration
    */
   void clearState() override { mValue = 0; }
-  virtual uint64_t recoverSelf() = 0;
 
   /// unit test
   bool hasSameState(const StateMachine &) const override { return true; }

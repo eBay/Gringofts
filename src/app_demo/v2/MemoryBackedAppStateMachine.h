@@ -48,10 +48,6 @@ class MemoryBackedAppStateMachine : public v2::AppStateMachine {
     /// explicitly trigger a flush in RocksDB
     another.flushToRocksDB();
   }
-
-  uint64_t recoverSelf() override { assert(0); };
-
-  void commit(uint64_t appliedIndex) override { assert(0);}
 };
 
 }  /// namespace v2

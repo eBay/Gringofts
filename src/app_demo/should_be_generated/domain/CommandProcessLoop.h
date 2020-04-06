@@ -33,17 +33,6 @@ class CommandProcessLoop : public app::CommandProcessLoop<StateMachineType> {
 }  /// namespace demo
 }  /// namespace gringofts
 
-namespace gringofts {
-namespace app {
-
-template<> inline void
-app::CommandProcessLoop<demo::v2::AppStateMachine>::initStateMachine(const INIReader &) {
-  mAppStateMachine = std::make_unique<demo::v2::MemoryBackedAppStateMachine>();
-}
-
-}  /// namespace app
-}  /// namespace gringofts
-
 #include "CommandProcessLoop.hpp"
 
 #endif  // SRC_APP_DEMO_SHOULD_BE_GENERATED_DOMAIN_COMMANDPROCESSLOOP_H_
