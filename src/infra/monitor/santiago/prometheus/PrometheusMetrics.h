@@ -15,7 +15,9 @@ limitations under the License.
 #ifndef SRC_INFRA_MONITOR_SANTIAGO_PROMETHEUS_PROMETHEUSMETRICS_H_
 #define SRC_INFRA_MONITOR_SANTIAGO_PROMETHEUS_PROMETHEUSMETRICS_H_
 
-#include <prometheus/registry.h>
+#include <prometheus/counter.h>
+#include <prometheus/gauge.h>
+#include <prometheus/summary.h>
 
 #include "../Metrics.h"
 
@@ -34,9 +36,9 @@ class MetricHolder {
   T &mReference;
 };
 
-typedef MetricHolder<::prometheus::Counter, ::prometheus::detail::CounterBuilder> Counter;
-typedef MetricHolder<::prometheus::Gauge, ::prometheus::detail::GaugeBuilder> Gauge;
-typedef MetricHolder<::prometheus::Summary, ::prometheus::detail::SummaryBuilder> Summary;
+typedef MetricHolder<::prometheus::Counter, ::prometheus::detail::Builder<::prometheus::Counter>> Counter;
+typedef MetricHolder<::prometheus::Gauge, ::prometheus::detail::Builder<::prometheus::Gauge>> Gauge;
+typedef MetricHolder<::prometheus::Summary, ::prometheus::detail::Builder<::prometheus::Summary>> Summary;
 
 template<class T>
 class MetricsFactory {
