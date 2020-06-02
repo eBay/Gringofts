@@ -180,7 +180,9 @@ include_directories(third_party/spdlog/include)
 include_directories(third_party/inih/cpp)
 
 # abseil-cpp
+set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(third_party/abseil-cpp)
+include_directories(third_party/abseil-cpp)
 set(ABSL_LIBS absl::strings absl::base)
 
 # prometheus
