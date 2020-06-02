@@ -18,6 +18,7 @@ limitations under the License.
 #include <prometheus/counter.h>
 #include <prometheus/gauge.h>
 #include <prometheus/summary.h>
+#include <prometheus/registry.h>
 
 #include "../Metrics.h"
 
