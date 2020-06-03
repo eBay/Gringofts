@@ -5,11 +5,8 @@ set(Gringofts_VERSION_MINOR 0)
 
 MESSAGE(STATUS "compiler is: " ${CMAKE_CXX_COMPILER_ID})
 
-# boost
-find_package(Boost COMPONENTS system filesystem REQUIRED)
-
 ## Unit test
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
     include(cmake/clang-6/CodeCoverage.cmake)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     include(cmake/g++-7/CodeCoverage.cmake)
@@ -41,11 +38,25 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+
+
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
 
     ## clang will always use c++17 as std
     set(CPP_STD c++17)
-
+    # special for MAC OS
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+        include_directories(SYSTEM /usr/local/include)
+        link_directories(/usr/local/lib)
+        add_compile_definitions(MAC_OS)
+        set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+        set(CMAKE_HAVE_THREADS_LIBRARY 1)
+        set(CMAKE_USE_PTHREADS_INIT 1)
+        set(THREADS_PREFER_PTHREAD_FLAG ON)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
+        # mac os not support -static-libgcc -static-libstdc++
+        unset(CMAKE_EXE_LINKER_FLAGS)
+    endif()
     set(FLAG_LIST
             -Wno-c++98-compat-pedantic
             -Wno-covered-switch-default
@@ -191,6 +202,18 @@ include_directories(third_party/prometheus-cpp/core/include)
 include_directories(third_party/prometheus-cpp/pull/include)
 set(MONITOR_LIBS prometheus-cpp::pull prometheus-cpp::core)
 
+# boost
+find_package(Boost COMPONENTS system filesystem thread iostreams REQUIRED)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+
+# openssl
+find_package(OpenSSL COMPONENTS Crypto SSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
+# TODO(https://jirap.corp.ebay.com/browse/RTCUTOFF-684): Fix version of OpenSSL::Crypto
+set(OPENSSL_LIBS
+        OpenSSL::SSL
+        OpenSSL::Crypto)
+
 set(ROCKSDB_LIBS
         rocksdb.a
         gflags.a
@@ -219,24 +242,11 @@ function(check_lib_exist LIB_NAME)
 endfunction(check_lib_exist)
 
 check_lib_exist(pthread)
-check_lib_exist(rt)
 check_lib_exist(sqlite3)
-
-# TODO: Fix version of OpenSSL::Crypto
-set(OPENSSL_LIBS
-        OpenSSL::SSL
-        OpenSSL::Crypto)
-
-set(BOOST_LIBS
-        boost_system.a
-        boost_thread.a
-        boost_filesystem.a
-        boost_iostreams.a)
-
 
 
 # collect all libs when they all exist
-set(LIBRARIES pthread rt sqlite3.a dl ${ABSL_LIBS} ${OPENSSL_LIBS} ${BOOST_LIBS}
+set(LIBRARIES pthread sqlite3.a dl ${ABSL_LIBS} ${OPENSSL_LIBS} ${Boost_LIBRARIES}
         ${MONITOR_LIBS} ${ROCKSDB_LIBS} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF} lib_inih)
 
 # Protobuf build by cmake

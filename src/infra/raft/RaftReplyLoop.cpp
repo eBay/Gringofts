@@ -13,6 +13,7 @@ limitations under the License.
 **************************************************************************/
 
 #include "RaftReplyLoop.h"
+#include "../common_types.h"
 
 namespace gringofts {
 namespace raft {
