@@ -14,7 +14,7 @@ limitations under the License.
 
 #include "RaftService.h"
 
-#include "../metrics/RaftMetrics.h"
+#include "../../monitor/MonitorTypes.h"
 
 namespace gringofts {
 namespace raft {
@@ -170,7 +170,7 @@ void RaftClient::clientLoopMain() {
                   call->mStatus.error_details());
 
       /// collect gRpc error code metrics
-      RaftMetrics::reportGrpcError(call->mStatus.error_code());
+      getCounter("grpc_error_counter", {{"error_code", std::to_string(call->mStatus.error_code())}});
     }
 
     /// enqueue event

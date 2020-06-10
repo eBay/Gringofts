@@ -27,11 +27,11 @@ class Counter {
   template<class ... ArgT>
   explicit Counter(ArgT &&...args):
       mImplPtr(std::make_shared<ImplType>(std::forward<ArgT>(args)...)) {}
-  Counter(const Counter &_c) : mImplPtr(_c.mImplPtr) {}
-  Counter(Counter &&_c) : mImplPtr(_c.mImplPtr) {}
-  void increase();
-  void increase(double);
-  double value();
+  Counter(const Counter &_c) = default;
+  virtual ~Counter() = default;
+  void increase() { (*mImplPtr)->Increment(); }
+  void increase(double val) { (*mImplPtr)->Increment(val); }
+  double value() const { return (*mImplPtr)->Value(); }
  private:
   std::shared_ptr<ImplType> mImplPtr;
 };
@@ -43,9 +43,10 @@ class Gauge {
   template<class ... ArgT>
   explicit Gauge(ArgT &&...args):
       mImplPtr(std::make_shared<ImplType>(std::forward<ArgT>(args)...)) {}
-  Gauge(const Gauge &_c) : mImplPtr(_c.mImplPtr) {}
-  void set(double value);
-  double value();
+  Gauge(const Gauge &_c) = default;
+  virtual ~Gauge() = default;
+  void set(double val) { (*mImplPtr)->Set(val); }
+  double value() const { return (*mImplPtr)->Value(); }
  private:
   std::shared_ptr<ImplType> mImplPtr;
 };
@@ -57,8 +58,9 @@ class Summary {
   template<class ... ArgT>
   explicit Summary(ArgT &&...args):
       mImplPtr(std::make_shared<ImplType>(std::forward<ArgT>(args)...)) {}
-  Summary(const Summary &_c) : mImplPtr(_c.mImplPtr) {}
-  void observe(double);
+  Summary(const Summary &_c) = default;
+  virtual ~Summary() = default;
+  void observe(double val) { (*mImplPtr)->Observe(val); }
  private:
   std::shared_ptr<ImplType> mImplPtr;
 };

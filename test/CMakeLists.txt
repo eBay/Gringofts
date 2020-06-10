@@ -16,11 +16,8 @@ set(UNIT_TEST_SRC
         infra/es/store/SQLiteCommandEventStoreTest.cpp
         infra/grpc/RequestHandleTest.cpp
         infra/monitor/MonitorCenterTest.cpp
-        infra/monitor/santiago/metrics_category_test.cpp
-        infra/monitor/santiago/metrics_collector_test.cpp
         infra/monitor/santiago/MetricsCenterTest.cpp
         infra/mpscqueue/MpscDoubleBufferQueueTest.cpp
-        infra/raft/monitor/RaftMetricsTest.cpp
         infra/raft/monitor/RaftMonitorAdaptorTest.cpp
         infra/raft/storage/LogTest.cpp
         infra/raft/v2/RaftCoreTest.cpp

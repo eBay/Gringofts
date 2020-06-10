@@ -44,6 +44,27 @@ else
   cd "$SPDLOG" || return
   git checkout 10578ff
 fi
+# abseil-cpp
+ABSL="third_party/abseil-cpp"
+if [[ "$SUMMARY" == *"$ABSL"* ]]; then
+  echo "Skipping $ABSL"
+else
+  cd "$DIR" || return
+  git submodule add -f https://github.com/abseil/abseil-cpp.git "$ABSL"
+  cd "$ABSL" || return
+  git checkout 20190808
+fi
+# prometheus-cpp
+PROMETHEUS="third_party/prometheus-cpp"
+if [[ "$SUMMARY" == *"$PROMETHEUS"* ]]; then
+  echo "Skipping $PROMETHEUS"
+else
+  cd "$DIR" || return
+  git submodule add -f https://github.com/jupp0r/prometheus-cpp.git "$PROMETHEUS"
+  cd "$PROMETHEUS" || return
+  git checkout v0.9.0
+  git submodule update --init --recursive
+fi
 # CodeCoverage
 wget https://raw.githubusercontent.com/bilke/cmake-modules/819ad94ebd33c80da2772dc82319f77cc14bf175/CodeCoverage.cmake
 mv CodeCoverage.cmake "$DIR"/cmake/g++-7/CodeCoverage.cmake

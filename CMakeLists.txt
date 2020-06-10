@@ -180,12 +180,16 @@ include_directories(third_party/spdlog/include)
 include_directories(third_party/inih/cpp)
 
 # abseil-cpp
-find_package(absl CONFIG REQUIRED)
+set(CMAKE_CXX_STANDARD 17)
+add_subdirectory(third_party/abseil-cpp)
+include_directories(third_party/abseil-cpp)
+set(ABSL_LIBS absl::strings absl::base)
 
-set(MONITOR_LIBS
-        prometheus-cpp-push
-        prometheus-cpp-pull
-        prometheus-cpp-core)
+# prometheus
+add_subdirectory(third_party/prometheus-cpp)
+include_directories(third_party/prometheus-cpp/core/include)
+include_directories(third_party/prometheus-cpp/pull/include)
+set(MONITOR_LIBS prometheus-cpp::pull prometheus-cpp::core)
 
 set(ROCKSDB_LIBS
         rocksdb.a
@@ -229,9 +233,7 @@ set(BOOST_LIBS
         boost_filesystem.a
         boost_iostreams.a)
 
-set(ABSL_LIBS
-        absl_strings.a
-        absl_base.a)
+
 
 # collect all libs when they all exist
 set(LIBRARIES pthread rt sqlite3.a dl ${ABSL_LIBS} ${OPENSSL_LIBS} ${BOOST_LIBS}

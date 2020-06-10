@@ -22,15 +22,9 @@ limitations under the License.
 #include "../../../infra/es/store/ReadonlyRaftCommandEventStore.h"
 #include "../../../infra/es/store/ReadonlySQLiteCommandEventStore.h"
 #include "../../../infra/es/store/SQLiteCommandEventStore.h"
-#include "../../../infra/monitor/Monitorable.h"
-#include "../../../infra/monitor/santiago/metrics_collector.h"
+#include "../../../infra/monitor/MonitorCenter.h"
 #include "../../../infra/raft/metrics/RaftMonitorAdaptor.h"
 #include "../../../infra/raft/RaftBuilder.h"
-
-namespace {
-using ::santiago::MetricsMonitor;
-using ::santiago::MetricsCollector;
-}
 
 namespace gringofts {
 namespace demo {
@@ -117,7 +111,7 @@ void App::initDeploymentMode(const INIReader &reader) {
 void App::initMonitor(const INIReader &reader) {
   int monitorPort = reader.GetInteger("monitor", "port", -1);
   assert(monitorPort > 0);
-  MetricsMonitor::Instance(monitorPort).init();
+  auto &server = gringofts::getMonitorServer("0.0.0.0", monitorPort);
 
   auto &appInfo = Singleton<santiago::AppInfo>::getInstance();
   auto appName = "demoApp";
@@ -128,7 +122,7 @@ void App::initMonitor(const INIReader &reader) {
   auto startTime = TimeUtil::currentTimeInNanos();
   appInfo.gauge("start_time_guage", {}).set(startTime);
 
-  MetricsMonitor::Instance().registry(appInfo.getRegistryPtr());
+  server.Registry(appInfo);
   SPDLOG_INFO("Init monitor with app name : {} , app version : {}, app env : {}, start time : {}",
               appName,
               appVersion,
