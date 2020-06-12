@@ -24,8 +24,8 @@ limitations under the License.
 #include "../../../infra/es/store/SQLiteCommandEventStore.h"
 #include "../../../infra/monitor/Monitorable.h"
 #include "../../../infra/monitor/santiago/metrics_collector.h"
-#include "../../../infra/raft/metrics/RaftMonitorAdaptor.h"
 #include "../../../infra/raft/RaftBuilder.h"
+#include "../../../infra/raft/metrics/RaftMonitorAdaptor.h"
 
 namespace {
 using ::santiago::MetricsMonitor;
@@ -177,7 +177,7 @@ void App::initCommandEventStore(const INIReader &reader) {
 
     std::shared_ptr<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>> commandEventDecoder =
         std::make_shared<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>>();
-    auto raftImpl = raft::buildRaftImpl(configPath.c_str());
+    auto raftImpl = raft::buildRaftImpl(configPath.c_str(), std::nullopt);
     auto metricsAdaptor = std::make_shared<RaftMonitorAdaptor>(raftImpl);
     enableMonitorable(metricsAdaptor);
     mCommandEventStore = std::make_shared<RaftCommandEventStore>(raftImpl, mCrypto);

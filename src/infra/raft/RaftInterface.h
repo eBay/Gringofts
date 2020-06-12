@@ -27,12 +27,28 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
+using MemberId = uint64_t;
+/// 0 should not be used as mId
+constexpr MemberId kBadID = 0;
+
+struct MemberInfo {
+  MemberId mId = kBadID;
+  /// host:port
+  std::string mAddress;
+  std::string toString() const {
+    return std::to_string(mId) + "@" + mAddress;
+  }
+  bool operator < (const MemberInfo &other) const {
+    return mId < other.mId;
+  }
+};
+
 //////////////////////////// Client Request ////////////////////////////
 
 struct ClientRequest {
   /// <index, term> is filled with <mLogStoreIndex, mLogStoreTerm>
   /// raft verifies the write to WAL by checking index and term
-  LogEntry mEntry;
+  raft::LogEntry mEntry;
 
   /// Async Callback of Client
   RequestHandle *mRequestHandle = nullptr;
@@ -43,9 +59,9 @@ using ClientRequests = std::vector<ClientRequest>;
 //////////////////////////// Raft Interface ////////////////////////////
 
 enum class RaftRole {
-  Leader     = 0,
-  Follower   = 1,
-  Candidate  = 2
+  Leader = 0,
+  Follower = 1,
+  Candidate = 2
 };
 
 class RaftInterface {
@@ -53,8 +69,8 @@ class RaftInterface {
   RaftInterface() = default;
 
   /// forbidden copy/move
-  RaftInterface(const RaftInterface&) = delete;
-  RaftInterface& operator=(const RaftInterface&) = delete;
+  RaftInterface(const RaftInterface &) = delete;
+  RaftInterface &operator=(const RaftInterface &) = delete;
 
   virtual ~RaftInterface() = default;
 
@@ -69,14 +85,14 @@ class RaftInterface {
   /// used by StateMachine to read committed entry at index
   /// return true if succeed, return false if the entry is truncated.
   /// Attention that, index should be less than or equal to commitIndex.
-  virtual bool getEntry(uint64_t index, LogEntry *entry) const = 0;
+  virtual bool getEntry(uint64_t index, raft::LogEntry *entry) const = 0;
 
   /// used by StateMachine to read committed entries between
   /// [startIndex, startIndex + size - 1]. if everything is fine,
   /// return number of fetched entries. otherwise, return 0.
   virtual uint64_t getEntries(uint64_t startIndex,
                               uint64_t size,
-                              std::vector<LogEntry> *entries) const = 0;
+                              std::vector<raft::LogEntry> *entries) const = 0;
 
   /// used by RaftLogStore to send a batch of client requests
   virtual void enqueueClientRequests(ClientRequests clientRequests) = 0;

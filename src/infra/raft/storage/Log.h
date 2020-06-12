@@ -36,8 +36,8 @@ class Log {
   virtual ~Log() = default;
 
   /// Log is not copyable
-  Log(const Log&) = delete;
-  Log& operator=(const Log&) = delete;
+  Log(const Log &) = delete;
+  Log &operator=(const Log &) = delete;
 
   /// append
   virtual bool appendEntry(const raft::LogEntry &entry) = 0;

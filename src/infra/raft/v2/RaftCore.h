@@ -24,6 +24,7 @@ limitations under the License.
 #include <INIReader.h>
 
 #include "../../util/RandomUtil.h"
+#include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
 #include "../../util/Util.h"
 #include "../generated/raft.pb.h"
@@ -108,29 +109,29 @@ struct Peer {
 
 class RaftCore : public RaftInterface {
  public:
-  explicit RaftCore(const char *configPath);
+  RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt);
 
   ~RaftCore() override;
 
-  RaftRole getRaftRole() const override         { return mRaftRole; }
-  uint64_t getCommitIndex() const override      { return mCommitIndex; }
-  uint64_t getCurrentTerm() const override      { return mLog->getCurrentTerm(); }
-  uint64_t getFirstLogIndex() const override    { return mLog->getFirstLogIndex(); }
-  uint64_t getLastLogIndex() const override     { return mLog->getLastLogIndex(); }
+  RaftRole getRaftRole() const override { return mRaftRole; }
+  uint64_t getCommitIndex() const override { return mCommitIndex; }
+  uint64_t getCurrentTerm() const override { return mLog->getCurrentTerm(); }
+  uint64_t getFirstLogIndex() const override { return mLog->getFirstLogIndex(); }
+  uint64_t getLastLogIndex() const override { return mLog->getLastLogIndex(); }
 
   std::optional<uint64_t> getLeaderHint() const override {
     uint64_t leaderId = mLeaderId;
     return leaderId != 0 ? std::optional<uint64_t>(leaderId) : std::nullopt;
   }
 
-  bool getEntry(uint64_t index, LogEntry *entry) const override {
+  bool getEntry(uint64_t index, raft::LogEntry *entry) const override {
     assert(index <= mCommitIndex);
     return mLog->getEntry(index, entry);
   }
 
   uint64_t getEntries(uint64_t startIndex,
                       uint64_t size,
-                      std::vector<LogEntry> *entries) const override {
+                      std::vector<raft::LogEntry> *entries) const override {
     assert(startIndex + size - 1 <= mCommitIndex);
     return mLog->getEntries(startIndex, mMaxLenInBytes, size, entries);
   }
@@ -152,7 +153,7 @@ class RaftCore : public RaftInterface {
  private:
   /// init
   void initConfigurableVars(const INIReader &iniReader);
-  void initClusterConf(const INIReader &iniReader);
+  void initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt);
   void initStorage(const INIReader &iniReader);
   void initMetrics(const INIReader &iniReader);
   void initService(const INIReader &iniReader);
@@ -177,18 +178,18 @@ class RaftCore : public RaftInterface {
   void requestVote();
 
   /// receive AE_req, reply AE_resp
-  void handleAppendEntriesRequest(const AppendEntries::Request &request,
-                                  AppendEntries::Response *response);
+  void handleAppendEntriesRequest(const raft::AppendEntries::Request &request,
+                                  raft::AppendEntries::Response *response);
 
   /// receive AE_resp
-  void handleAppendEntriesResponse(const AppendEntries::Response &response);
+  void handleAppendEntriesResponse(const raft::AppendEntries::Response &response);
 
   /// receive RV_req, reply RV_resp
-  void handleRequestVoteRequest(const RequestVote::Request &request,
-                                RequestVote::Response *response);
+  void handleRequestVoteRequest(const raft::RequestVote::Request &request,
+                                raft::RequestVote::Response *response);
 
   /// receive RV_resp
-  void handleRequestVoteResponse(const RequestVote::Response &response);
+  void handleRequestVoteResponse(const raft::RequestVote::Response &response);
 
   /// receive ClientRequests
   void handleClientRequests(ClientRequests clientRequests);
@@ -207,7 +208,7 @@ class RaftCore : public RaftInterface {
   void stepDown(uint64_t newTerm);
 
   /// be careful that precedence of '>>' is less than '+'
-  static uint64_t getMajorityNumber(uint64_t totalNum)  { return (totalNum >> 1) + 1; }
+  static uint64_t getMajorityNumber(uint64_t totalNum) { return (totalNum >> 1) + 1; }
 
   uint64_t termOfLogEntryAt(uint64_t index) const {
     uint64_t term;
@@ -229,14 +230,15 @@ class RaftCore : public RaftInterface {
   std::string selfId() const {
     return (mRaftRole == RaftRole::Leader ? "Leader "
                                           : mRaftRole == RaftRole::Candidate ? "Candidate "
-                                                                             : "Follower ") + std::to_string(mSelfId);
+                                                                             : "Follower ") +
+                                                                             std::to_string(mSelfInfo.mId);
   }
 
   /// for some reason, print status.
   void printStatus(const std::string &reason) const;
 
   /// metrics
-  static void printMetrics(const AppendEntries::Metrics &metrics);
+  static void printMetrics(const raft::AppendEntries::Metrics &metrics);
 
   /**
    * configurable vars
@@ -257,8 +259,7 @@ class RaftCore : public RaftInterface {
 
   std::map<uint64_t, Peer> mPeers;
 
-  uint64_t mSelfId = kBadID;
-  std::string mSelfAddress;
+  MemberInfo mSelfInfo;
 
   std::atomic<uint64_t> mLeaderId = kBadID;
   /// if now > election time point, incr current term, convert to candidate
@@ -271,7 +272,7 @@ class RaftCore : public RaftInterface {
   std::unique_ptr<storage::Log> mLog;
 
   /// pending client requests, list of <index, handle>
-  std::list<std::pair<uint64_t, RequestHandle*>> mPendingClientRequests;
+  std::list<std::pair<uint64_t, RequestHandle *>> mPendingClientRequests;
 
   /**
    * threading model
@@ -300,6 +301,9 @@ class RaftCore : public RaftInterface {
   prometheus::Counter *mCommitIndexCounter = nullptr;
 
   /// UT
+  RaftCore(const char *configPath, TestPointProcessor *processor);
+  TestPointProcessor *mTPProcessor = nullptr;
+  friend class ClusterTestUtil;
   FRIEND_TEST(RaftCoreTest, BasicTest);
 };
 

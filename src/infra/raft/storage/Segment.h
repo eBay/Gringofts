@@ -64,39 +64,39 @@ class Segment final {
   /// need create
   Segment(const std::string &logDir, uint64_t firstIndex, uint64_t maxDataSize, uint64_t maxMetaSize,
           const std::shared_ptr<CryptoUtil> &crypto)
-          : mDataSizeLimit(maxDataSize)
-          , mMetaSizeLimit(maxMetaSize)
-          , mLogDir(logDir + "/")
-          , mIsActive(true)
-          , mFirstIndex(firstIndex)
-          , mLastIndex(firstIndex - 1)
-          , mCrypto(crypto) { createActiveSegment(); }
+      : mDataSizeLimit(maxDataSize),
+        mMetaSizeLimit(maxMetaSize),
+        mLogDir(logDir + "/"),
+        mIsActive(true),
+        mFirstIndex(firstIndex),
+        mLastIndex(firstIndex - 1),
+        mCrypto(crypto) { createActiveSegment(); }
 
   /// Ctor for active segment
   /// need recover
   Segment(const std::string &logDir, uint64_t firstIndex,
           const std::shared_ptr<CryptoUtil> &crypto)
-          : mLogDir(logDir + "/")
-          , mIsActive(true)
-          , mFirstIndex(firstIndex)
-          , mLastIndex(firstIndex - 1)
-          , mCrypto(crypto) { /** lazy recover */ }
+      : mLogDir(logDir + "/"),
+        mIsActive(true),
+        mFirstIndex(firstIndex),
+        mLastIndex(firstIndex - 1),
+        mCrypto(crypto) { /** lazy recover */ }
 
   /// Ctor for closed segment
   /// need recover
   Segment(const std::string &logDir, uint64_t firstIndex, uint64_t lastIndex,
           const std::shared_ptr<CryptoUtil> &crypto)
-          : mLogDir(logDir + "/")
-          , mIsActive(false)
-          , mFirstIndex(firstIndex)
-          , mLastIndex(lastIndex)
-          , mCrypto(crypto) { /** lazy recover */ }
+      : mLogDir(logDir + "/"),
+        mIsActive(false),
+        mFirstIndex(firstIndex),
+        mLastIndex(lastIndex),
+        mCrypto(crypto) { /** lazy recover */ }
 
   ~Segment();
 
   /// forbidden copy
-  Segment(const Segment&) = delete;
-  Segment& operator=(const Segment&) = delete;
+  Segment(const Segment &) = delete;
+  Segment &operator=(const Segment &) = delete;
 
   /// create or recover segment
   void createActiveSegment();
@@ -142,10 +142,10 @@ class Segment final {
   bool isWithInBoundary(uint64_t index) const;
 
   /// require: index within [mFirstIndex, mLastIndex]
-  const LogMeta& getMeta(uint64_t index) const;
+  const LogMeta &getMeta(uint64_t index) const;
 
   /// require: offset within [0, mDataOffset]
-  void* getEntryAddr(uint64_t offset) const;
+  void *getEntryAddr(uint64_t offset) const;
 
   /// log layout: [mFirstIndex, mLastIndex]
   ///             'mLastIndex = mFirstIndex - 1' indicate empty log

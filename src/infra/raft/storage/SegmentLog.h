@@ -57,11 +57,11 @@ class SegmentLog : public Log {
              const std::shared_ptr<CryptoUtil> &crypto,
              uint64_t segmentDataSizeLimit,
              uint64_t segmentMetaSizeLimit)
-        : mLogDir(logDir)
-        , mMetaStorage(logDir)
-        , mCrypto(crypto)
-        , mSegmentDataSizeLimit(segmentDataSizeLimit)
-        , mSegmentMetaSizeLimit(segmentMetaSizeLimit) { init(); }
+      : mLogDir(logDir),
+        mMetaStorage(logDir),
+        mCrypto(crypto),
+        mSegmentDataSizeLimit(segmentDataSizeLimit),
+        mSegmentMetaSizeLimit(segmentMetaSizeLimit) { init(); }
 
   ~SegmentLog() override = default;
 

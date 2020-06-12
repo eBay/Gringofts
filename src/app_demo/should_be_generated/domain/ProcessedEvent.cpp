@@ -20,8 +20,7 @@ namespace gringofts {
 namespace demo {
 
 ProcessedEvent::ProcessedEvent(TimestampInNanos createdTimeInNanos, const protos::IncreaseRequest &request)
-    : Event(PROCESSED_EVENT, createdTimeInNanos)
-    , mRequest(std::move(request)) {}
+    : Event(PROCESSED_EVENT, createdTimeInNanos), mRequest(std::move(request)) {}
 
 ProcessedEvent::ProcessedEvent(TimestampInNanos createdTimeInNanos, std::string_view requestString)
     : Event(PROCESSED_EVENT, createdTimeInNanos) {
@@ -33,7 +32,7 @@ std::string ProcessedEvent::encodeToString() const {
 }
 
 void ProcessedEvent::decodeFromString(std::string_view payload) {
-  mRequest.ParseFromString(payload.data());
+  mRequest.ParseFromString(std::string(payload));
 }
 
 }  /// namespace demo

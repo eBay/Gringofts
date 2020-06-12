@@ -19,9 +19,9 @@ limitations under the License.
 namespace santiago {
 
 const prometheus::Summary::Quantiles SummaryQuantiles = prometheus::Summary::Quantiles{
-    {0.5, 0.05},
-    {0.9, 0.01},
-    {0.99, 0.001}};
+    {0.99, 0.001},
+    {0.995, 0.0005},
+    {0.999, 0.0001}};
 
 MetricsCenter::MetricsCenter()
     : mRegistryPtr(std::make_shared<prometheus::Registry>()),

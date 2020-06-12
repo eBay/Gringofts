@@ -42,12 +42,12 @@ struct RaftEventBase {
   virtual ~RaftEventBase() = default;
 
   enum class Type {
-    Unknown               = 0,
-    RequestVoteRequest    = 1,
-    RequestVoteResponse   = 2,
-    AppendEntriesRequest  = 3,
+    Unknown = 0,
+    RequestVoteRequest = 1,
+    RequestVoteResponse = 2,
+    AppendEntriesRequest = 3,
     AppendEntriesResponse = 4,
-    ClientRequest         = 5
+    ClientRequest = 5
   };
 
   Type mType = Type::Unknown;
@@ -57,7 +57,7 @@ struct RaftEventBase {
  * RaftEvent is a generalized container for Payload,
  * mType indicates the specific PayloadType.
  */
-template <typename PayloadType>
+template<typename PayloadType>
 struct RaftEvent : public RaftEventBase {
   PayloadType mPayload;
 };
@@ -67,12 +67,10 @@ using EventQueue = BlockingQueue<std::shared_ptr<RaftEventBase>>;
 //////////////////////////// CallData ////////////////////////////
 
 struct CallDataBase {
-  CallDataBase(Raft::AsyncService *service,
+  CallDataBase(raft::Raft::AsyncService *service,
                grpc::ServerCompletionQueue *completionQueue,
                EventQueue *aeRvQueue)
-      : mService(service)
-      , mCompletionQueue(completionQueue)
-      , mAeRvQueue(aeRvQueue) {}
+      : mService(service), mCompletionQueue(completionQueue), mAeRvQueue(aeRvQueue) {}
 
   virtual ~CallDataBase() = default;
 
@@ -80,18 +78,17 @@ struct CallDataBase {
   virtual void failOver() = 0;
   virtual void reply() = 0;
 
-  Raft::AsyncService *mService;
+  raft::Raft::AsyncService *mService;
   grpc::ServerCompletionQueue *mCompletionQueue;
   EventQueue *mAeRvQueue;
 };
 
-template <typename RequestType, typename ResponseType>
+template<typename RequestType, typename ResponseType>
 struct CallData : public CallDataBase {
-  CallData(Raft::AsyncService *service,
+  CallData(raft::Raft::AsyncService *service,
            grpc::ServerCompletionQueue *completionQueue,
            EventQueue *aeRvQueue)
-      : CallDataBase(service, completionQueue, aeRvQueue)
-      , mResponder(&mContext) {
+      : CallDataBase(service, completionQueue, aeRvQueue), mResponder(&mContext) {
     /// Attention, call virtual function in Ctor/Dtor is not recommended.
     /// However, we do not rely on polymorphism here.
     proceed();
@@ -120,19 +117,21 @@ struct CallData : public CallDataBase {
   grpc::ServerAsyncResponseWriter<ResponseType> mResponder;
 };
 
-template <> inline
-void CallData<AppendEntries::Request, AppendEntries::Response>::proceed() {
+template<>
+inline
+void CallData<raft::AppendEntries::Request, raft::AppendEntries::Response>::proceed() {
   if (mCallStatus == CallStatus::CREATE) {
     mCallStatus = CallStatus::PROCESS;
     mService->RequestAppendEntriesV2(&mContext, &mRequest, &mResponder,
-                                      mCompletionQueue, mCompletionQueue, this);
+                                     mCompletionQueue, mCompletionQueue, this);
   } else if (mCallStatus == CallStatus::PROCESS) {
-    new CallData<AppendEntries::Request,
-                 AppendEntries::Response>(mService, mCompletionQueue, mAeRvQueue);
+    new CallData<raft::AppendEntries::Request,
+                 raft::AppendEntries::Response>(mService, mCompletionQueue, mAeRvQueue);
 
     /// payload is a pointer, RaftEvent does not handle
     /// life cycle of CallData, since CallData will suicide itself
-    using EventType = RaftEvent<CallData<AppendEntries::Request, AppendEntries::Response>*>;
+    using EventType = RaftEvent<CallData<raft::AppendEntries::Request,
+                                         raft::AppendEntries::Response> *>;
 
     auto event = std::make_shared<EventType>();
     event->mType = RaftEventBase::Type::AppendEntriesRequest;
@@ -147,19 +146,21 @@ void CallData<AppendEntries::Request, AppendEntries::Response>::proceed() {
   }
 }
 
-template <> inline
-void CallData<RequestVote::Request, RequestVote::Response>::proceed() {
+template<>
+inline
+void CallData<raft::RequestVote::Request, raft::RequestVote::Response>::proceed() {
   if (mCallStatus == CallStatus::CREATE) {
     mCallStatus = CallStatus::PROCESS;
     mService->RequestRequestVoteV2(&mContext, &mRequest, &mResponder,
-                                    mCompletionQueue, mCompletionQueue, this);
+                                   mCompletionQueue, mCompletionQueue, this);
   } else if (mCallStatus == CallStatus::PROCESS) {
-    new CallData<RequestVote::Request,
-                 RequestVote::Response>(mService, mCompletionQueue, mAeRvQueue);
+    new CallData<raft::RequestVote::Request,
+                 raft::RequestVote::Response>(mService, mCompletionQueue, mAeRvQueue);
 
     /// payload is a pointer, RaftEvent does not handle
     /// life cycle of CallData, since CallData will suicide itself
-    using EventType = RaftEvent<CallData<RequestVote::Request, RequestVote::Response>*>;
+    using EventType = RaftEvent<CallData<raft::RequestVote::Request,
+                                         raft::RequestVote::Response> *>;
 
     auto event = std::make_shared<EventType>();
     event->mType = RaftEventBase::Type::RequestVoteRequest;
@@ -172,8 +173,8 @@ void CallData<RequestVote::Request, RequestVote::Response>::proceed() {
   }
 }
 
-using AppendEntriesCallData = CallData<AppendEntries::Request, AppendEntries::Response>;
-using RequestVoteCallData = CallData<RequestVote::Request, RequestVote::Response>;
+using AppendEntriesCallData = CallData<raft::AppendEntries::Request, raft::AppendEntries::Response>;
+using RequestVoteCallData = CallData<raft::RequestVote::Request, raft::RequestVote::Response>;
 
 //////////////////////////// RaftServer ////////////////////////////
 
@@ -192,7 +193,7 @@ class RaftServer {
   std::optional<TlsConf> mTlsConfOpt;
 
   std::unique_ptr<grpc::ServerCompletionQueue> mCompletionQueue;
-  Raft::AsyncService mService;
+  raft::Raft::AsyncService mService;
   std::unique_ptr<grpc::Server> mServer;
 
   /// event queue
@@ -216,7 +217,7 @@ struct AsyncClientCallBase {
   uint64_t mPeerId = 0;
 };
 
-template <typename ResponseType>
+template<typename ResponseType>
 struct AsyncClientCall : public AsyncClientCallBase {
   std::string toString() const override { assert(0); }
   RaftEventBase::Type getType() const override { assert(0); }
@@ -225,28 +226,32 @@ struct AsyncClientCall : public AsyncClientCallBase {
   std::unique_ptr<grpc::ClientAsyncResponseReader<ResponseType>> mResponseReader;
 };
 
-template <> inline
-std::string AsyncClientCall<AppendEntries::Response>::toString() const {
+template<>
+inline
+std::string AsyncClientCall<raft::AppendEntries::Response>::toString() const {
   return "Leader sending AE_req to Follower " + std::to_string(mPeerId);
 }
 
-template <> inline
-RaftEventBase::Type AsyncClientCall<AppendEntries::Response>::getType() const {
+template<>
+inline
+RaftEventBase::Type AsyncClientCall<raft::AppendEntries::Response>::getType() const {
   return RaftEventBase::Type::AppendEntriesResponse;
 }
 
-template <> inline
-std::string AsyncClientCall<RequestVote::Response>::toString() const {
+template<>
+inline
+std::string AsyncClientCall<raft::RequestVote::Response>::toString() const {
   return "Candidate sending RV_req to Follower " + std::to_string(mPeerId);
 }
 
-template <> inline
-RaftEventBase::Type AsyncClientCall<RequestVote::Response>::getType() const {
+template<>
+inline
+RaftEventBase::Type AsyncClientCall<raft::RequestVote::Response>::getType() const {
   return RaftEventBase::Type::RequestVoteResponse;
 }
 
-using AppendEntriesClientCall = AsyncClientCall<AppendEntries::Response>;
-using RequestVoteClientCall = AsyncClientCall<RequestVote::Response>;
+using AppendEntriesClientCall = AsyncClientCall<raft::AppendEntries::Response>;
+using RequestVoteClientCall = AsyncClientCall<raft::RequestVote::Response>;
 
 //////////////////////////// RaftClient ////////////////////////////
 
@@ -256,14 +261,14 @@ class RaftClient {
              uint64_t peerId, EventQueue *aeRvQueue);
   ~RaftClient();
 
-  void requestVote(const RequestVote::Request &request);
-  void appendEntries(const AppendEntries::Request &request);
+  void requestVote(const raft::RequestVote::Request &request);
+  void appendEntries(const raft::AppendEntries::Request &request);
 
  private:
   /// thread function of mClientLoop.
   void clientLoopMain();
 
-  std::unique_ptr<Raft::Stub> mStub;
+  std::unique_ptr<raft::Raft::Stub> mStub;
   grpc::CompletionQueue mCompletionQueue;
   uint64_t mPeerId = 0;
 
@@ -277,13 +282,13 @@ class RaftClient {
 
 //////////////////////////// Alias ////////////////////////////
 
-using AppendEntriesRequestEvent  = RaftEvent<AppendEntriesCallData*>;
+using AppendEntriesRequestEvent = RaftEvent<AppendEntriesCallData *>;
 using AppendEntriesResponseEvent = RaftEvent<std::unique_ptr<AppendEntriesClientCall>>;
 
-using RequestVoteRequestEvent    = RaftEvent<RequestVoteCallData*>;
-using RequestVoteResponseEvent   = RaftEvent<std::unique_ptr<RequestVoteClientCall>>;
+using RequestVoteRequestEvent = RaftEvent<RequestVoteCallData *>;
+using RequestVoteResponseEvent = RaftEvent<std::unique_ptr<RequestVoteClientCall>>;
 
-using ClientRequestsEvent        = RaftEvent<ClientRequests>;
+using ClientRequestsEvent = RaftEvent<ClientRequests>;
 
 }  /// namespace v2
 }  /// namespace raft

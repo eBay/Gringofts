@@ -36,8 +36,8 @@ class RaftInterfaceMock : public RaftInterface {
   MOCK_CONST_METHOD0(getLastLogIndex, uint64_t());
   MOCK_CONST_METHOD0(getLeaderHint, std::optional<uint64_t>());
   // @formatter:off
-  MOCK_CONST_METHOD2(getEntry, bool(uint64_t, raft::LogEntry*));
-  MOCK_CONST_METHOD3(getEntries, uint64_t(uint64_t, uint64_t, std::vector<raft::LogEntry>*));
+  MOCK_CONST_METHOD2(getEntry, bool(uint64_t, gringofts::raft::LogEntry*));
+  MOCK_CONST_METHOD3(getEntries, uint64_t(uint64_t, uint64_t, std::vector<gringofts::raft::LogEntry>*));
   // @formatter:on
   MOCK_METHOD1(enqueueClientRequests, void(raft::ClientRequests));
   MOCK_METHOD1(truncatePrefix, void(uint64_t));
@@ -154,7 +154,7 @@ class RaftCommandEventStoreTest : public ::testing::Test {
     INIReader reader("../test/infra/es/store/config/aes.ini");
     mCrypto = std::make_shared<CryptoUtil>();
     mCrypto->init(reader);
-    mRaftImpl = raft::buildRaftImpl("../test/infra/es/store/config/raft.ini");
+    mRaftImpl = raft::buildRaftImpl("../test/infra/es/store/config/raft.ini", std::nullopt);
     mCommandEventStore = std::make_unique<RaftCommandEventStore>(mRaftImpl, mCrypto);
     mCommandDecoder = std::make_shared<DummyCommandDecoder>();
     mEventDecoder = std::make_shared<DummyEventDecoder>();

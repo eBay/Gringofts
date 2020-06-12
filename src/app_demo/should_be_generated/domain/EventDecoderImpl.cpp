@@ -23,7 +23,7 @@ std::unique_ptr<Event> EventDecoderImpl::decodeEventFromString(const EventMetaDa
   std::unique_ptr<Event> event;
   switch (metaData.getType()) {
     case PROCESSED_EVENT: {
-      event = std::make_unique<ProcessedEvent>(metaData.getCreatedTimeInNanos(), payload.data());
+      event = std::make_unique<ProcessedEvent>(metaData.getCreatedTimeInNanos(), std::string(payload));
       break;
     }
     default:return nullptr;

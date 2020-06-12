@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
   spdlog::set_pattern("[%D %H:%M:%S.%F] [%s:%# %!] [%l] [thread %t] %v");
 
   /// create raft impl
-  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1]);
+  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1], std::nullopt);
 
   /// create fake CryptoUtil
   auto crypto = std::make_shared<gringofts::CryptoUtil>();

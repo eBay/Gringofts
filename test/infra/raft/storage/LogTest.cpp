@@ -34,15 +34,15 @@ void LogTest::everythingAboutLog(Log *log) {
     std::string str10KiB(10 * 1024, 'a');
     std::string str4KiB(4 * 1024, 'a');
 
-    raft::LogEntry entry1;
+    gringofts::raft::LogEntry entry1;
     entry1.set_index(1);
     entry1.set_payload(str10KiB);
 
-    raft::LogEntry entry2;
+    gringofts::raft::LogEntry entry2;
     entry2.set_index(2);
     entry2.set_payload(str4KiB);
 
-    raft::LogEntry entry3;
+    gringofts::raft::LogEntry entry3;
     entry3.set_index(3);
     entry3.set_payload(str4KiB);
 
@@ -57,16 +57,16 @@ void LogTest::everythingAboutLog(Log *log) {
   {
     std::string str4KiB(4 * 1024, 'a');
 
-    raft::LogEntry entry4;
+    gringofts::raft::LogEntry entry4;
     entry4.set_index(4);
     entry4.set_payload(str4KiB);
 
-    raft::LogEntry entry5;
+    gringofts::raft::LogEntry entry5;
     entry5.set_index(5);
     entry5.set_payload(str4KiB);
 
     log->append(entry4);
-    log->append(std::vector<raft::LogEntry>{entry5});
+    log->append(std::vector<gringofts::raft::LogEntry>{entry5});
 
     EXPECT_EQ(log->getLogTerm(4), 0);
   }
@@ -77,7 +77,7 @@ void LogTest::everythingAboutLog(Log *log) {
 
   /// getEntry and getTerm
   {
-    raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     uint64_t term = 0;
 
     EXPECT_TRUE(log->getEntry(1, &entry));
@@ -89,7 +89,7 @@ void LogTest::everythingAboutLog(Log *log) {
 
   /// getEntries
   {
-    std::vector<raft::LogEntry> entries;
+    std::vector<gringofts::raft::LogEntry> entries;
     EXPECT_EQ(log->getEntries(1, 12 * 1024, 10, &entries), 1);
   }
 
@@ -156,7 +156,7 @@ TEST_F(LogTest, HMACTest) {
   auto log = std::make_unique<SegmentLog>(logDir, cryptoDisableHMAC,
                                           segmentDataSizeLimit, segmentMetaSizeLimit);
   for (auto i = 1; i <= 10; ++i) {
-    raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     entry.set_index(i);
     entry.set_payload(str4KiB);
     log->appendEntry(entry);
@@ -171,7 +171,7 @@ TEST_F(LogTest, HMACTest) {
 
   /// append 10 entries meanwhile enable HMAC
   for (auto i = 11; i <= 20; ++i) {
-    raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     entry.set_index(i);
     entry.set_payload(str4KiB);
     log->appendEntry(entry);
@@ -180,7 +180,7 @@ TEST_F(LogTest, HMACTest) {
   EXPECT_EQ(log->getLastLogIndex(), 20);
 
   /// read entries
-  raft::LogEntry entry;
+  gringofts::raft::LogEntry entry;
   /// HMAC disable
   EXPECT_TRUE(log->getEntry(10, &entry));
   /// HMAC enable
@@ -199,13 +199,13 @@ TEST_F(LogTest, InMemoryLogTest) {
 
   /// specific op for in memory log
   {
-    raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     uint64_t term;
 
     EXPECT_TRUE(log->getEntry(0, &entry));
     EXPECT_TRUE(log->getTerm(0, &term));
 
-    std::vector<raft::LogEntry> entries;
+    std::vector<gringofts::raft::LogEntry> entries;
     entries.resize(1);
 
     EXPECT_TRUE(log->getEntries(2, 1, &entries[0]));

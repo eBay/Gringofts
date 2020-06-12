@@ -18,7 +18,7 @@ namespace gringofts {
 namespace raft {
 
 RaftReplyLoop::RaftReplyLoop(const std::shared_ptr<RaftInterface> &raftImpl)
-        : mRaftImpl(raftImpl) {
+    : mRaftImpl(raftImpl) {
   mPopThread = std::thread(&RaftReplyLoop::popThreadMain, this);
 
   for (uint64_t i = 0; i < mConcurrency; ++i) {
@@ -48,10 +48,10 @@ void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
   auto taskPtr = std::make_shared<Task>();
 
   taskPtr->index = index;
-  taskPtr->term  = term;
+  taskPtr->term = term;
 
-  taskPtr->handle  = handle;
-  taskPtr->code    = code;
+  taskPtr->handle = handle;
+  taskPtr->code = code;
   taskPtr->message = message;
 
   /// write lock
@@ -147,7 +147,7 @@ bool RaftReplyLoop::waitTillCommittedOrQuit(uint64_t index, uint64_t term) {
       continue;
     }
 
-    LogEntry entry;
+    raft::LogEntry entry;
     assert(mRaftImpl->getEntry(index, &entry));
     return entry.term() == term;
   }

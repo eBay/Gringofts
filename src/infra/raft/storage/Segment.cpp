@@ -49,8 +49,8 @@ namespace storage {
 struct Segment::LogMeta {
   uint64_t offset = 0;
   uint64_t length = 0;
-  uint64_t term   = 0;
-  uint64_t index  = 0;
+  uint64_t term = 0;
+  uint64_t index = 0;
   char digest[32];      /// HMAC_SHA256
 };
 
@@ -134,7 +134,7 @@ void Segment::recoverActiveOrClosedSegment() {
 
   /// recover meta file
   uint64_t maxPos = mMetaSizeLimit / sizeof(LogMeta);
-  const LogMeta *metaPtr = reinterpret_cast<LogMeta*>(mMetaMemPtr);
+  const LogMeta *metaPtr = reinterpret_cast<LogMeta *>(mMetaMemPtr);
 
   uint64_t pos = 0;
   uint64_t lastIndex = mFirstIndex - 1;
@@ -156,7 +156,7 @@ void Segment::recoverActiveOrClosedSegment() {
 
   /// recover mDataOffset
   mDataOffset = isEmpty(mFirstIndex, mLastIndex)
-          ? 0 : metaPtr[mLastIndex - mFirstIndex].offset +  metaPtr[mLastIndex - mFirstIndex].length;
+                ? 0 : metaPtr[mLastIndex - mFirstIndex].offset + metaPtr[mLastIndex - mFirstIndex].length;
   assert(mDataOffset <= mDataSizeLimit);
 
   auto end = TimeUtil::currentTimeInNanos();
@@ -243,7 +243,7 @@ void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
     meta.length = entry.ByteSizeLong();
 
     /// Serialize to mmap memory
-    void *entryAddr = reinterpret_cast<uint8_t*>(mDataMemPtr) + meta.offset;
+    void *entryAddr = reinterpret_cast<uint8_t *>(mDataMemPtr) + meta.offset;
     entry.SerializeToArray(entryAddr, meta.length);
 
     /// make sure about data safety
@@ -254,12 +254,12 @@ void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
   }
 
   /// sync data file
-  void *dataAddr = reinterpret_cast<uint8_t*>(mDataMemPtr) + metaArr[0].offset;
+  void *dataAddr = reinterpret_cast<uint8_t *>(mDataMemPtr) + metaArr[0].offset;
   uint64_t dataLen = dataOffset - mDataOffset;
   FileUtil::syncAt(dataAddr, dataLen);
 
   /// copy to meta file and sync
-  void *metaAddr = reinterpret_cast<uint8_t*>(mMetaMemPtr) + mMetaOffset;
+  void *metaAddr = reinterpret_cast<uint8_t *>(mMetaMemPtr) + mMetaOffset;
   uint64_t metaLen = entries.size() * sizeof(LogMeta);
 
   ::memmove(metaAddr, metaArr.data(), metaLen);
@@ -293,9 +293,9 @@ bool Segment::isWithInBoundary(uint64_t index) const {
   return true;
 }
 
-const Segment::LogMeta& Segment::getMeta(uint64_t index) const {
+const Segment::LogMeta &Segment::getMeta(uint64_t index) const {
   assert(isWithInBoundary(index));
-  const LogMeta *metaArr = reinterpret_cast<LogMeta*>(mMetaMemPtr);
+  const LogMeta *metaArr = reinterpret_cast<LogMeta *>(mMetaMemPtr);
 
   const auto &meta = metaArr[index - mFirstIndex];
   assert(meta.index == index);
@@ -303,9 +303,9 @@ const Segment::LogMeta& Segment::getMeta(uint64_t index) const {
   return meta;
 }
 
-void* Segment::getEntryAddr(uint64_t offset) const {
+void *Segment::getEntryAddr(uint64_t offset) const {
   assert(offset <= mDataOffset);
-  return reinterpret_cast<uint8_t*>(mDataMemPtr) + offset;
+  return reinterpret_cast<uint8_t *>(mDataMemPtr) + offset;
 }
 
 bool Segment::getEntry(uint64_t index, raft::LogEntry *entry) const {
@@ -410,7 +410,7 @@ uint64_t Segment::getEntries(const uint64_t startIndex,
 
   auto end = TimeUtil::currentTimeInNanos();
   SPDLOG_INFO("startIndex={}, batchSize={}, lenInBytes={}, timeCost={}ms",
-                      startIndex, batchSize, lenInBytes, (end - beg) / 1000000.0);
+              startIndex, batchSize, lenInBytes, (end - beg) / 1000000.0);
   return batchSize;
 }
 
@@ -427,7 +427,7 @@ void Segment::truncateSuffix(uint64_t lastIndexKept) {
 
   /// update metaFile
   mMetaOffset = (mLastIndex - mFirstIndex + 1) * sizeof(LogMeta);
-  void *metaAddr = reinterpret_cast<uint8_t*>(mMetaMemPtr) + mMetaOffset;
+  void *metaAddr = reinterpret_cast<uint8_t *>(mMetaMemPtr) + mMetaOffset;
 
   uint64_t metaLen = (prevLastIndex - mLastIndex) * sizeof(LogMeta);
 
@@ -444,11 +444,11 @@ void Segment::truncateSuffix(uint64_t lastIndexKept) {
   /// rename is needed for closed segment
   if (!mIsActive) {
     auto dataFromPath = mLogDir + dataFileNameForClosedSegment(mFirstIndex, prevLastIndex);
-    auto dataToPath   = mLogDir + dataFileNameForClosedSegment(mFirstIndex, mLastIndex);
+    auto dataToPath = mLogDir + dataFileNameForClosedSegment(mFirstIndex, mLastIndex);
     assert(::rename(dataFromPath.c_str(), dataToPath.c_str()) == 0);
 
     auto metaFromPath = mLogDir + metaFileNameForClosedSegment(mFirstIndex, prevLastIndex);
-    auto metaToPath   = mLogDir + metaFileNameForClosedSegment(mFirstIndex, mLastIndex);
+    auto metaToPath = mLogDir + metaFileNameForClosedSegment(mFirstIndex, mLastIndex);
     assert(::rename(metaFromPath.c_str(), metaToPath.c_str()) == 0);
   }
 }

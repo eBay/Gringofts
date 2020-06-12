@@ -47,7 +47,7 @@ class InMemoryLog : public Log {
     return true;
   }
 
-  bool getEntry(uint64_t index, raft::LogEntry* entry) const override {
+  bool getEntry(uint64_t index, raft::LogEntry *entry) const override {
     if (index == 0) {
       raft::LogEntry dummy;
       dummy.set_term(0);
@@ -79,7 +79,7 @@ class InMemoryLog : public Log {
   }
 
   bool getEntries(uint64_t index, uint64_t size,
-                  raft::LogEntry* entries) const override {
+                  raft::LogEntry *entries) const override {
     if (index < mFirstIndex || index + size - 1 > mLastIndex) {
       return false;
     }

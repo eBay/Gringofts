@@ -94,7 +94,7 @@ class DummyCommandDecoder : public CommandDecoder {
  public:
   std::unique_ptr<Command> decodeCommandFromString(
       const CommandMetaData &metaData, std::string_view payload) const override {
-    auto command = std::make_unique<DummyCommand>(metaData.getCreatedTimeInNanos(), payload.data());
+    auto command = std::make_unique<DummyCommand>(metaData.getCreatedTimeInNanos(), std::string(payload));
     command->setPartialMetaData(metaData);
 
     return std::move(command);
@@ -105,7 +105,7 @@ class DummyEventDecoder : public EventDecoder {
  public:
   std::unique_ptr<Event> decodeEventFromString(
       const EventMetaData &metaData, std::string_view payload) const override {
-    auto event = std::make_unique<DummyEvent>(metaData.getCreatedTimeInNanos(), payload.data());
+    auto event = std::make_unique<DummyEvent>(metaData.getCreatedTimeInNanos(), std::string(payload));
     event->setPartialMetaData(metaData);
 
     return std::move(event);

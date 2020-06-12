@@ -23,7 +23,7 @@ class RaftCoreTest : public ::testing::Test {
  protected:
   void SetUp() override {
     Util::executeCmd("mkdir ../test/infra/raft/node_1");
-    mRaftImpl = std::make_shared<RaftCore>("../test/infra/raft/config/raft_1.ini");
+    mRaftImpl = std::make_shared<RaftCore>("../test/infra/raft/config/raft_1.ini", std::nullopt);
   }
 
   void TearDown() override {
@@ -56,7 +56,7 @@ TEST_F(RaftCoreTest, BasicTest) {
 
   {
     /// fake RV_resp
-    RequestVote::Response rvResp;
+    gringofts::raft::RequestVote::Response rvResp;
     rvResp.set_term(1);
     rvResp.set_vote_granted(true);
     rvResp.set_id(2);
@@ -76,7 +76,7 @@ TEST_F(RaftCoreTest, BasicTest) {
 
   {
     /// fake AE_resp
-    AppendEntries::Response aeResp;
+    gringofts::raft::AppendEntries::Response aeResp;
     aeResp.set_term(1);
     aeResp.set_success(true);
     aeResp.set_id(2);
@@ -95,7 +95,7 @@ TEST_F(RaftCoreTest, BasicTest) {
   ClientRequests clientRequests;
 
   for (uint64_t i = 2; i <= 10; ++i) {
-    LogEntry entry;
+    gringofts::raft::LogEntry entry;
     entry.set_index(i);
     entry.set_term(1);
     entry.set_noop(false);
@@ -125,8 +125,8 @@ TEST_F(RaftCoreTest, BasicTest) {
 
   {
     /// fake RV_req
-    RequestVote::Request rvReq;
-    RequestVote::Response rvResp;
+    gringofts::raft::RequestVote::Request rvReq;
+    gringofts::raft::RequestVote::Response rvResp;
 
     rvReq.set_term(4);
     rvReq.set_candidate_id(2);
@@ -139,8 +139,8 @@ TEST_F(RaftCoreTest, BasicTest) {
 
   {
     /// fake AE_req
-    AppendEntries::Request aeReq;
-    AppendEntries::Response aeResp;
+    gringofts::raft::AppendEntries::Request aeReq;
+    gringofts::raft::AppendEntries::Response aeResp;
 
     aeReq.set_term(5);
     aeReq.set_leader_id(2);
@@ -149,7 +149,7 @@ TEST_F(RaftCoreTest, BasicTest) {
     aeReq.set_commit_index(3);
 
     {
-      LogEntry entry;
+      gringofts::raft::LogEntry entry;
       entry.set_term(1);
       entry.set_index(2);
       entry.set_noop(true);
@@ -157,7 +157,7 @@ TEST_F(RaftCoreTest, BasicTest) {
       *aeReq.add_entries() = std::move(entry);
     }
     {
-      LogEntry entry;
+      gringofts::raft::LogEntry entry;
       entry.set_term(2);
       entry.set_index(3);
       entry.set_noop(true);
@@ -173,10 +173,10 @@ TEST_F(RaftCoreTest, BasicTest) {
     /// misc
     mRaftImpl->getLeaderHint();
 
-    LogEntry entry;
+    gringofts::raft::LogEntry entry;
     mRaftImpl->getEntry(1, &entry);
 
-    std::vector<LogEntry> entries;
+    std::vector<gringofts::raft::LogEntry> entries;
     mRaftImpl->getEntries(1, 1, &entries);
 
     mRaftImpl->truncatePrefix(1);
