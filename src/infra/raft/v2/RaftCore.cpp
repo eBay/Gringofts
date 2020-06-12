@@ -23,7 +23,9 @@ namespace gringofts {
 namespace raft {
 namespace v2 {
 
-RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt) {
+RaftCore::RaftCore(const char *configPath) :
+    mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
+    mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Can't load configure file {}, exit", configPath);
@@ -33,7 +35,6 @@ RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterCon
   initConfigurableVars(iniReader);
   initClusterConf(iniReader, clusterConfOpt);
   initStorage(iniReader);
-  initMetrics(iniReader);
   initService(iniReader);
 }
 
@@ -152,15 +153,6 @@ void RaftCore::initStorage(const INIReader &iniReader) {
   crypto->init(iniReader);
 
   mLog = std::make_unique<storage::SegmentLog>(storageDir, crypto, dataSizeLimit, metaSizeLimit);
-}
-
-void RaftCore::initMetrics(const INIReader &iniReader) {
-  RaftMetrics::RegisterToCollector(&MetricsCollector::Instance());
-
-  mLeadershipGauge = MetricsCollector::Instance()
-      .findMetric<prometheus::Gauge>(RaftMetrics::kLeadershipGaugeName);
-  mCommitIndexCounter = MetricsCollector::Instance()
-      .findMetric<prometheus::Counter>(RaftMetrics::kCommittedLogCounterName);
 }
 
 void RaftCore::initService(const INIReader &iniReader) {
@@ -501,7 +493,7 @@ void RaftCore::handleAppendEntriesRequest(const raft::AppendEntries::Request &re
 
   if (mCommitIndex < request.commit_index()) {
     if (mCommitIndex != 0) {
-      mCommitIndexCounter->Increment(request.commit_index() - mCommitIndex);
+      mCommitIndexCounter.increase(request.commit_index() - mCommitIndex);
     }
 
     mCommitIndex = request.commit_index();
@@ -726,7 +718,7 @@ void RaftCore::advanceCommitIndex() {
 
   /// update counter
   if (mCommitIndex != 0) {
-    mCommitIndexCounter->Increment(majorityIndex - mCommitIndex);
+    mCommitIndexCounter.increase(majorityIndex - mCommitIndex);
   }
 
   mCommitIndex = majorityIndex;
@@ -804,7 +796,7 @@ void RaftCore::becomeLeader() {
   printStatus("becomeLeader");
 
   /// notify monitor
-  mLeadershipGauge->Set(1);
+  mLeadershipGauge.set(1);
 }
 
 void RaftCore::electionTimeout() {
@@ -910,7 +902,7 @@ void RaftCore::stepDown(uint64_t newTerm) {
     }
 
     /// notify monitor
-    mLeadershipGauge->Set(0);
+    mLeadershipGauge.set(0);
     /// resume election timer
     updateElectionTimePoint();
   }

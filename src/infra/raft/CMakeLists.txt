@@ -15,7 +15,6 @@ include_directories("${raft_generated_dir}")
 
 # Source files
 set(INFRA_RAFT_SRC
-        metrics/RaftMetrics.cpp
         metrics/RaftMonitorAdaptor.cpp
         RaftLogStore.cpp
         RaftReplyLoop.cpp

@@ -17,7 +17,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 
 #include "../../../src/infra/monitor/MonitorTypes.h"
-#include "../../../src/infra/monitor/Monitorable.h"
+#include "../../../src/infra/monitor/MonitorCenter.h"
 
 namespace gringofts::test {
 

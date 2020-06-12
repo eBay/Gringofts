@@ -14,7 +14,6 @@ limitations under the License.
 
 #include <gtest/gtest.h>
 
-#include "../../../../src/infra/raft/metrics/RaftMetrics.h"
 #include "../../../../src/infra/raft/metrics/RaftMonitorAdaptor.h"
 #include "../../../../src/infra/raft/v2/RaftCore.h"
 

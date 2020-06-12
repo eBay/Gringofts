@@ -23,12 +23,12 @@ limitations under the License.
 
 #include <INIReader.h>
 
+#include "../../monitor/MonitorTypes.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
 #include "../../util/Util.h"
 #include "../generated/raft.pb.h"
-#include "../metrics/RaftMetrics.h"
 #include "../storage/InMemoryLog.h"
 #include "../storage/Log.h"
 #include "../storage/SegmentLog.h"
@@ -155,7 +155,6 @@ class RaftCore : public RaftInterface {
   void initConfigurableVars(const INIReader &iniReader);
   void initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt);
   void initStorage(const INIReader &iniReader);
-  void initMetrics(const INIReader &iniReader);
   void initService(const INIReader &iniReader);
 
   /// given <peerId, host, port>, determine whether it is itself.
@@ -294,11 +293,11 @@ class RaftCore : public RaftInterface {
   /**
    * monitor
    */
-  prometheus::Gauge *mLeadershipGauge = nullptr;
+  santiago::MetricsCenter::GaugeType mLeadershipGauge;
 
   /// after restart, Leader/Follower will recover commitIndex from 0,
   /// ignore the flip from 0 to avoid confusing metrics
-  prometheus::Counter *mCommitIndexCounter = nullptr;
+  santiago::MetricsCenter::CounterType mCommitIndexCounter;
 
   /// UT
   RaftCore(const char *configPath, TestPointProcessor *processor);

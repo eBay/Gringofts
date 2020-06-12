@@ -16,10 +16,16 @@ limitations under the License.
 #define SRC_INFRA_MONITOR_MONITORTYPES_H_
 
 #include "santiago/AppInfo.h"
+#include "santiago/Server.h"
 
 #include "../../infra/util/Util.h"
 
 namespace gringofts {
+
+template<class... Arg>
+inline santiago::Server& getMonitorServer(Arg &&... args) {
+  return gringofts::Singleton<santiago::Server>::getInstance(std::forward<Arg>(args)...);
+}
 
 inline santiago::AppInfo& getAppInfoMetricsCenter() {
   return gringofts::Singleton<santiago::AppInfo>::getInstance();

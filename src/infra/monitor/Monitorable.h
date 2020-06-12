@@ -22,8 +22,6 @@ limitations under the License.
 #include <vector>
 
 #include "../util/Util.h"
-#include "santiago/metrics_monitor.h"
-#include "MonitorCenter.h"
 
 namespace gringofts {
 
@@ -53,10 +51,6 @@ class Monitorable {
  protected:
   std::vector<MetricTag> mTags;
 };
-
-inline void enableMonitorable(std::shared_ptr<Monitorable> monitorable) {
-  Singleton<MonitorCenter>::getInstance().registry(monitorable);
-}
 
 }  /// namespace gringofts
 

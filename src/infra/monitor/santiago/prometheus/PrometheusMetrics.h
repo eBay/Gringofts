@@ -15,58 +15,39 @@ limitations under the License.
 #ifndef SRC_INFRA_MONITOR_SANTIAGO_PROMETHEUS_PROMETHEUSMETRICS_H_
 #define SRC_INFRA_MONITOR_SANTIAGO_PROMETHEUS_PROMETHEUSMETRICS_H_
 
+#include <prometheus/counter.h>
+#include <prometheus/gauge.h>
+#include <prometheus/summary.h>
 #include <prometheus/registry.h>
 
 #include "../Metrics.h"
 
-namespace santiago {
+namespace santiago::prometheus {
 
-class PrometheusCounter {
+template<class T, class B>
+class MetricHolder {
  public:
-  typedef prometheus::Counter InnerType;
-  typedef prometheus::detail::CounterBuilder InnerBuilder;
-  explicit PrometheusCounter(InnerType &);
-  PrometheusCounter(const PrometheusCounter &) = default;
-  PrometheusCounter(PrometheusCounter &&) = default;
-  void increase();
-  void increase(double);
-  double value();
+  typedef T InnerType;
+  typedef B InnerBuilder;
+  explicit MetricHolder(T &ref) : mReference(ref) {}
+  MetricHolder(const MetricHolder &) = default;
+  T *operator->() const { return &mReference; }
+  T *operator->() { return &mReference; }
  private:
-  InnerType &mCounter;
+  T &mReference;
 };
 
-class PrometheusGauge {
- public:
-  typedef prometheus::Gauge InnerType;
-  typedef prometheus::detail::GaugeBuilder InnerBuilder;
-  explicit PrometheusGauge(InnerType &);
-  PrometheusGauge(const PrometheusGauge &) = default;
-  PrometheusGauge(PrometheusGauge &&) = default;
-  void set(double);
-  double value();
- private:
-  InnerType &mGauge;
-};
-
-class PrometheusSummary {
- public:
-  typedef prometheus::Summary InnerType;
-  typedef prometheus::detail::SummaryBuilder InnerBuilder;
-  explicit PrometheusSummary(InnerType &);
-  PrometheusSummary(const PrometheusSummary &) = default;
-  PrometheusSummary(PrometheusSummary &&) = default;
-  void observe(double);
- private:
-  InnerType &mSummary;
-};
+typedef MetricHolder<::prometheus::Counter, ::prometheus::detail::Builder<::prometheus::Counter>> Counter;
+typedef MetricHolder<::prometheus::Gauge, ::prometheus::detail::Builder<::prometheus::Gauge>> Gauge;
+typedef MetricHolder<::prometheus::Summary, ::prometheus::detail::Builder<::prometheus::Summary>> Summary;
 
 template<class T>
-class PrometheusMetricsFactory {
+class MetricsFactory {
  public:
   typedef typename T::ImplType::InnerType InnerMetricsType;
   typedef typename T::ImplType::InnerBuilder InnerMetricsBuilder;
-  typedef prometheus::Family<InnerMetricsType> MetricsFamily;
-  explicit PrometheusMetricsFactory(prometheus::Registry &registry) : mRegistry(registry) {}
+  typedef ::prometheus::Family<InnerMetricsType> MetricsFamily;
+  explicit MetricsFactory(std::shared_ptr<::prometheus::Registry> registry) : mRegistry(registry) {}
   template<class ... ArgT>
   T get(const std::string &name,
         const std::map<std::string, std::string> labels,
@@ -74,7 +55,7 @@ class PrometheusMetricsFactory {
         ArgT &&...args) {
     if (mFamilies.count(name) == 0) {
       InnerMetricsBuilder builder{};
-      auto &family = builder.Name(name).Help(help).Register(mRegistry);
+      auto &family = builder.Name(name).Help(help).Register(*mRegistry);
       mFamilies[name] = &family;
     }
     return T(mFamilies[name]->Add(labels, std::forward<ArgT>(args)...));
@@ -82,9 +63,9 @@ class PrometheusMetricsFactory {
 
  private:
   std::unordered_map<std::string, MetricsFamily *> mFamilies;
-  prometheus::Registry &mRegistry;
+  std::shared_ptr<::prometheus::Registry> mRegistry;
 };
 
-}  /// namespace santiago
+}  /// namespace santiago::prometheus
 
 #endif  //  SRC_INFRA_MONITOR_SANTIAGO_PROMETHEUS_PROMETHEUSMETRICS_H_

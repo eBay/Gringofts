@@ -44,11 +44,6 @@ if [ -z "$GCC7" ]; then
 else
   echo "g++ 7.4 has been installed, skip"
 fi
-# download prometheus cpp client
-apt-get install -y libcurl4-gnutls-dev &&
-  cd ~/temp && version=v0.4.2 &&
-  git clone -b $version https://github.com/jupp0r/prometheus-cpp.git &&
-  cd prometheus-cpp/ && git submodule init && git submodule update
 # download grpc and related components
 cd ~/temp && version=1.16 && build=1 &&
   git clone https://github.com/grpc/grpc &&
@@ -65,11 +60,6 @@ cd ~/temp &&
   cd rocksdb &&
   git checkout v6.5.2 &&
   git submodule update --init --recursive
-# download abseil
-cd ~/temp &&
-  git clone https://github.com/abseil/abseil-cpp.git &&
-  cd abseil-cpp &&
-  git checkout 20190808
 # download and install tools for code coverage
 apt-get install -y lcov
 # download and install tools required by gringofts

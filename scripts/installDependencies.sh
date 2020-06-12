@@ -18,15 +18,6 @@ if [ -z "$CMAKE" ]; then
 else
   echo "cmake 3.12 has been installed, skip"
 fi
-# install prometheus cpp client
-PROMETHEUS=$(find /usr -name '*prometheus*')
-if [ -z "$PROMETHEUS" ]; then
-  cd ~/temp/prometheus-cpp/ &&
-    cmake CMakeLists.txt && make -j 4 && make install
-  checkLastSuccess "install prometheus cpp client fails"
-else
-  echo "prometheus client has been installed, skip"
-fi
 # install grpc and related components
 # 1. install cares
 CARES=$(find /usr -name '*c-ares*')
@@ -76,17 +67,6 @@ if [ -z "$ROCKSDB" ]; then
   checkLastSuccess "install rocksdb fails"
 else
   echo "RocksDB has been installed, skip"
-fi
-# install abseil-cpp
-ABSL=$(find /usr -name '*libabsl*')
-if [ -z "$ABSL" ]; then
-  cd ~/temp/abseil-cpp &&
-    # explicitly set DCMAKE_CXX_STANDARD due to https://github.com/abseil/abseil-cpp/issues/218
-    CXX=g++-7 CC=gcc-7 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 &&
-    make && make install
-  checkLastSuccess "install abseil-cpp fails"
-else
-  echo "abseil has been installed, skip"
 fi
 # give read access to cmake modules
 chmod o+rx -R /usr/local/lib/cmake
