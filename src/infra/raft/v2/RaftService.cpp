@@ -88,7 +88,7 @@ void RaftServer::serverLoopMain() {
 
 RaftClient::RaftClient(const std::shared_ptr<grpc::Channel> &channel,
                        uint64_t peerId, EventQueue *aeRvQueue)
-    : mStub(raft::Raft::NewStub(channel)), mPeerId(peerId), mAeRvQueue(aeRvQueue) {
+    : mStub(Raft::NewStub(channel)), mPeerId(peerId), mAeRvQueue(aeRvQueue) {
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
 }
@@ -110,7 +110,7 @@ RaftClient::~RaftClient() {
   while (mCompletionQueue.Next(&tag, &ok)) { ; }
 }
 
-void RaftClient::requestVote(const raft::RequestVote::Request &request) {
+void RaftClient::requestVote(const RequestVote::Request &request) {
   auto *call = new RequestVoteClientCall;
 
   call->mPeerId = mPeerId;
@@ -126,7 +126,7 @@ void RaftClient::requestVote(const raft::RequestVote::Request &request) {
                                 reinterpret_cast<void *>(call));
 }
 
-void RaftClient::appendEntries(const raft::AppendEntries::Request &request) {
+void RaftClient::appendEntries(const AppendEntries::Request &request) {
   auto *call = new AppendEntriesClientCall;
 
   call->mPeerId = mPeerId;

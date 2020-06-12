@@ -44,8 +44,8 @@ StreamingService::~StreamingService() {
 }
 
 grpc::Status StreamingService::GetMeta(grpc::ServerContext *context,
-                                       const raft::GetMeta::Request *request,
-                                       raft::GetMeta::Response *response) {
+                                       const GetMeta::Request *request,
+                                       GetMeta::Response *response) {
   response->set_code(0);
 
   /// populate meta
@@ -68,8 +68,8 @@ grpc::Status StreamingService::GetMeta(grpc::ServerContext *context,
 }
 
 grpc::Status StreamingService::GetEntries(grpc::ServerContext *context,
-                                          const raft::GetEntries::Request *request,
-                                          raft::GetEntries::Response *response) {
+                                          const GetEntries::Request *request,
+                                          GetEntries::Response *response) {
   auto currentConcurrency = ++mCurrentConcurrency;
   auto status = grpc::Status::OK;
 
@@ -98,8 +98,8 @@ grpc::Status StreamingService::GetEntries(grpc::ServerContext *context,
 }
 
 grpc::Status StreamingService::getEntries(grpc::ServerContext *context,
-                                          const raft::GetEntries::Request *request,
-                                          raft::GetEntries::Response *response) {
+                                          const GetEntries::Request *request,
+                                          GetEntries::Response *response) {
   auto commitIndex = mRaftImpl.getCommitIndex();
   response->set_commit_index(commitIndex);
 
@@ -113,7 +113,7 @@ grpc::Status StreamingService::getEntries(grpc::ServerContext *context,
     return grpc::Status::OK;
   }
 
-  std::vector<raft::LogEntry> entries;
+  std::vector<LogEntry> entries;
   mRaftImpl.getEntries(startIndex, commitIndex - startIndex + 1, &entries);
 
   for (auto &entry : entries) {

@@ -26,32 +26,32 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
-class StreamingService : public raft::Streaming::Service {
+class StreamingService : public Streaming::Service {
  public:
   StreamingService(const INIReader &, const RaftInterface &raftImpl);
   ~StreamingService() override;
 
   grpc::Status GetMeta(grpc::ServerContext *context,
-                       const raft::GetMeta::Request *request,
-                       raft::GetMeta::Response *response) override;
+                       const GetMeta::Request *request,
+                       GetMeta::Response *response) override;
 
   grpc::Status GetEntries(grpc::ServerContext *context,
-                          const raft::GetEntries::Request *request,
-                          raft::GetEntries::Response *response) override;
+                          const GetEntries::Request *request,
+                          GetEntries::Response *response) override;
 
  private:
-  static raft::GetMeta_Role resolveRole(raft::RaftRole role) {
+  static GetMeta_Role resolveRole(RaftRole role) {
     switch (role) {
-      case raft::RaftRole::Leader: return raft::GetMeta_Role_LEADER;
-      case raft::RaftRole::Follower: return raft::GetMeta_Role_FOLLOWER;
-      case raft::RaftRole::Candidate: return raft::GetMeta_Role_CANDIDATE;
-      default: return raft::GetMeta_Role_UNKNOWN_ROLE;
+      case RaftRole::Leader: return GetMeta_Role_LEADER;
+      case RaftRole::Follower: return GetMeta_Role_FOLLOWER;
+      case RaftRole::Candidate: return GetMeta_Role_CANDIDATE;
+      default: return GetMeta_Role_UNKNOWN_ROLE;
     }
   }
 
   grpc::Status getEntries(grpc::ServerContext *context,
-                          const raft::GetEntries::Request *request,
-                          raft::GetEntries::Response *response);
+                          const GetEntries::Request *request,
+                          GetEntries::Response *response);
 
   const RaftInterface &mRaftImpl;
 

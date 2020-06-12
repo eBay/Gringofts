@@ -124,14 +124,14 @@ class RaftCore : public RaftInterface {
     return leaderId != 0 ? std::optional<uint64_t>(leaderId) : std::nullopt;
   }
 
-  bool getEntry(uint64_t index, raft::LogEntry *entry) const override {
+  bool getEntry(uint64_t index, LogEntry *entry) const override {
     assert(index <= mCommitIndex);
     return mLog->getEntry(index, entry);
   }
 
   uint64_t getEntries(uint64_t startIndex,
                       uint64_t size,
-                      std::vector<raft::LogEntry> *entries) const override {
+                      std::vector<LogEntry> *entries) const override {
     assert(startIndex + size - 1 <= mCommitIndex);
     return mLog->getEntries(startIndex, mMaxLenInBytes, size, entries);
   }
@@ -177,18 +177,18 @@ class RaftCore : public RaftInterface {
   void requestVote();
 
   /// receive AE_req, reply AE_resp
-  void handleAppendEntriesRequest(const raft::AppendEntries::Request &request,
-                                  raft::AppendEntries::Response *response);
+  void handleAppendEntriesRequest(const AppendEntries::Request &request,
+                                  AppendEntries::Response *response);
 
   /// receive AE_resp
-  void handleAppendEntriesResponse(const raft::AppendEntries::Response &response);
+  void handleAppendEntriesResponse(const AppendEntries::Response &response);
 
   /// receive RV_req, reply RV_resp
-  void handleRequestVoteRequest(const raft::RequestVote::Request &request,
-                                raft::RequestVote::Response *response);
+  void handleRequestVoteRequest(const RequestVote::Request &request,
+                                RequestVote::Response *response);
 
   /// receive RV_resp
-  void handleRequestVoteResponse(const raft::RequestVote::Response &response);
+  void handleRequestVoteResponse(const RequestVote::Response &response);
 
   /// receive ClientRequests
   void handleClientRequests(ClientRequests clientRequests);
@@ -237,7 +237,7 @@ class RaftCore : public RaftInterface {
   void printStatus(const std::string &reason) const;
 
   /// metrics
-  static void printMetrics(const raft::AppendEntries::Metrics &metrics);
+  static void printMetrics(const AppendEntries::Metrics &metrics);
 
   /**
    * configurable vars

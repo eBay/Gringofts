@@ -23,7 +23,7 @@ namespace gringofts {
 namespace raft {
 namespace v2 {
 
-RaftCore::RaftCore(const char *configPath) :
+RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt) :
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -305,7 +305,7 @@ void RaftCore::appendEntries() {
     }
 
     /// build AE_req
-    raft::AppendEntries::Request request;
+    AppendEntries::Request request;
     (*request.mutable_metrics()).set_request_create_time(TimeUtil::currentTimeInNanos());
 
     auto currentTerm = mLog->getCurrentTerm();
@@ -313,7 +313,7 @@ void RaftCore::appendEntries() {
     auto prevLogIndex = peer.mNextIndex - 1;
     auto prevLogTerm = termOfLogEntryAt(prevLogIndex);
 
-    std::vector<raft::LogEntry> entries;
+    std::vector<LogEntry> entries;
     uint64_t batchSize = 0;
 
     if (!peer.mSuppressBulkData) {
@@ -374,7 +374,7 @@ void RaftCore::requestVote() {
     auto lastLogIndex = mLog->getLastLogIndex();
     auto lastLogTerm = termOfLogEntryAt(lastLogIndex);
 
-    raft::RequestVote::Request request;
+    RequestVote::Request request;
 
     request.set_term(currentTerm);
     request.set_candidate_id(mSelfInfo.mId);
@@ -396,8 +396,8 @@ void RaftCore::requestVote() {
   }
 }
 
-void RaftCore::handleAppendEntriesRequest(const raft::AppendEntries::Request &request,
-                                          raft::AppendEntries::Response *response) {
+void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
+                                          AppendEntries::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare AE_resp
@@ -446,7 +446,7 @@ void RaftCore::handleAppendEntriesRequest(const raft::AppendEntries::Request &re
     return;
   }
 
-  std::vector<raft::LogEntry> entries;
+  std::vector<LogEntry> entries;
   entries.reserve(request.entries().size());
 
   auto index = request.prev_log_index();
@@ -507,7 +507,7 @@ void RaftCore::handleAppendEntriesRequest(const raft::AppendEntries::Request &re
   updateElectionTimePoint();
 }
 
-void RaftCore::handleAppendEntriesResponse(const raft::AppendEntries::Response &response) {
+void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term()) {
@@ -570,8 +570,8 @@ void RaftCore::handleAppendEntriesResponse(const raft::AppendEntries::Response &
   }
 }
 
-void RaftCore::handleRequestVoteRequest(const raft::RequestVote::Request &request,
-                                        raft::RequestVote::Response *response) {
+void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
+                                        RequestVote::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare RV_resp
@@ -615,7 +615,7 @@ void RaftCore::handleRequestVoteRequest(const raft::RequestVote::Request &reques
   }
 }
 
-void RaftCore::handleRequestVoteResponse(const raft::RequestVote::Response &response) {
+void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term() || mRaftRole != RaftRole::Candidate) {
@@ -664,7 +664,7 @@ void RaftCore::handleClientRequests(ClientRequests clientRequests) {
   auto currentTerm = mLog->getCurrentTerm();
   auto lastLogIndex = mLog->getLastLogIndex();
 
-  std::vector<raft::LogEntry> entries;
+  std::vector<LogEntry> entries;
   entries.reserve(clientRequests.size());
 
   for (auto &clientRequest : clientRequests) {
@@ -784,7 +784,7 @@ void RaftCore::becomeLeader() {
   }
 
   /// append noop
-  raft::LogEntry entry;
+  LogEntry entry;
 
   entry.set_term(mLog->getCurrentTerm());
   entry.set_index(mLog->getLastLogIndex() + 1);
@@ -928,7 +928,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   startLogIndex = std::max(firstLogIndex, startLogIndex);
 
   for (auto i = startLogIndex; i <= lastLogIndex; ++i) {
-    raft::LogEntry entry;
+    LogEntry entry;
     if (!mLog->getEntry(i, &entry)) {
       continue;
     }
@@ -937,7 +937,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   }
 }
 
-void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
+void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
   if (metrics.entries_count() == 0) {
     /// avoid printing trace for heartbeat
     return;
