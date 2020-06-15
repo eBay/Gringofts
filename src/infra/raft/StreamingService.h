@@ -40,11 +40,11 @@ class StreamingService : public Streaming::Service {
                           GetEntries::Response *response) override;
 
  private:
-  static GetMeta_Role resolveRole(RaftRole role) {
+  static GetMeta_Role resolveRole(raft::RaftRole role) {
     switch (role) {
-      case RaftRole::Leader: return GetMeta_Role_LEADER;
-      case RaftRole::Follower: return GetMeta_Role_FOLLOWER;
-      case RaftRole::Candidate: return GetMeta_Role_CANDIDATE;
+      case raft::RaftRole::Leader: return GetMeta_Role_LEADER;
+      case raft::RaftRole::Follower: return GetMeta_Role_FOLLOWER;
+      case raft::RaftRole::Candidate: return GetMeta_Role_CANDIDATE;
       default: return GetMeta_Role_UNKNOWN_ROLE;
     }
   }
