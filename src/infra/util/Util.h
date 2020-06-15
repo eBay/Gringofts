@@ -65,7 +65,6 @@ class Singleton {
 class Util final {
  public:
   /// get official name of host
-  /// such as, phxfasrtprocessunit-2985366.phx02.dev.ebayc3.com
   static std::string getHostname() {
     constexpr uint64_t kBufferSize = 1024;
     char buffer[kBufferSize];
@@ -76,7 +75,7 @@ class Util final {
     /// make sure it is null-terminated
     buffer[kBufferSize - 1] = '\0';
 
-    /// TODO(bigeng): gethostbyname is obsolete, and not thread-safe
+    /// TODO: gethostbyname is obsolete, and not thread-safe
     ///               need replace it
     struct hostent *h = gethostbyname(buffer);
     assert(h != nullptr);

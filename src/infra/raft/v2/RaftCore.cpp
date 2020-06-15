@@ -62,7 +62,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
 void RaftCore::initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt) {
   if (clusterConfOpt) {
     assert(*clusterConfOpt != "");
-    /// N.B.: when using etcd, the assumption is two PUs will never run on the same host,
+    /// N.B.: when using external conf, the assumption is two raft instances will never run on the same host,
     ///       otherwise below logic will break.
     auto hostname = Util::getHostname();
 
