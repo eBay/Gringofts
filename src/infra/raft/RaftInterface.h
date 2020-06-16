@@ -27,6 +27,22 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
+using MemberId = uint64_t;
+/// 0 should not be used as mId
+constexpr MemberId kBadID = 0;
+
+struct MemberInfo {
+  MemberId mId = kBadID;
+  /// host:port
+  std::string mAddress;
+  std::string toString() const {
+    return std::to_string(mId) + "@" + mAddress;
+  }
+  bool operator < (const MemberInfo &other) const {
+    return mId < other.mId;
+  }
+};
+
 //////////////////////////// Client Request ////////////////////////////
 
 struct ClientRequest {
@@ -43,9 +59,9 @@ using ClientRequests = std::vector<ClientRequest>;
 //////////////////////////// Raft Interface ////////////////////////////
 
 enum class RaftRole {
-  Leader     = 0,
-  Follower   = 1,
-  Candidate  = 2
+  Leader = 0,
+  Follower = 1,
+  Candidate = 2
 };
 
 class RaftInterface {
@@ -53,8 +69,8 @@ class RaftInterface {
   RaftInterface() = default;
 
   /// forbidden copy/move
-  RaftInterface(const RaftInterface&) = delete;
-  RaftInterface& operator=(const RaftInterface&) = delete;
+  RaftInterface(const RaftInterface &) = delete;
+  RaftInterface &operator=(const RaftInterface &) = delete;
 
   virtual ~RaftInterface() = default;
 

@@ -29,8 +29,7 @@ namespace raft {
 
 RaftLogStore::RaftLogStore(const std::shared_ptr<RaftInterface> &raftImpl,
                            const std::shared_ptr<CryptoUtil> &crypto)
-     : mRaftImpl(raftImpl)
-     , mCrypto(crypto) {
+    : mRaftImpl(raftImpl), mCrypto(crypto) {
   mPersistLoop = std::thread(&RaftLogStore::persistLoopMain, this);
 }
 
@@ -48,7 +47,7 @@ void RaftLogStore::refresh() {
 
   do {
     term1 = mRaftImpl->getCurrentTerm();
-    role  = mRaftImpl->getRaftRole();
+    role = mRaftImpl->getRaftRole();
     term2 = mRaftImpl->getCurrentTerm();
   } while (term1 != term2);
 
@@ -65,7 +64,7 @@ void RaftLogStore::refresh() {
    * this transition: term is not changed, leader become non-leader.
    */
   if (mLogStoreTerm == term1 && mLogStoreRole == RaftRole::Leader
-                             && role != RaftRole::Leader) {
+      && role != RaftRole::Leader) {
     SPDLOG_WARN("Term is not changed, Leader become non-Leader. "
                 "Just skip this transition.");
     return;

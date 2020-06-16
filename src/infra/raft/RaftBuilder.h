@@ -25,7 +25,7 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
-inline std::shared_ptr<RaftInterface> buildRaftImpl(const char *configPath) {
+inline std::shared_ptr<RaftInterface> buildRaftImpl(const char *configPath, std::optional<std::string> clusterConfOpt) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Failed to load config file {}.", configPath);
@@ -36,7 +36,7 @@ inline std::shared_ptr<RaftInterface> buildRaftImpl(const char *configPath) {
   SPDLOG_INFO("Build raft impl version {}.", version);
 
   if (version == "v2") {
-    return std::make_shared<v2::RaftCore>(configPath);
+    return std::make_shared<v2::RaftCore>(configPath, clusterConfOpt);
   } else {
     SPDLOG_ERROR("Unknown raft implement version {}.", version);
     exit(1);

@@ -28,7 +28,7 @@ std::unique_ptr<Command> CommandDecoderImpl::decodeCommandFromString(
   switch (metaData.getType()) {
     case INCREASE_COMMAND: {
       command = std::make_unique<IncreaseCommand>(
-          metaData.getCreatedTimeInNanos(), payload.data());
+          metaData.getCreatedTimeInNanos(), std::string(payload));
       break;
     }
     default:SPDLOG_INFO("Unknown command type: {}", metaData.getType());

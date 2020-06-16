@@ -154,7 +154,7 @@ class RaftCommandEventStoreTest : public ::testing::Test {
     INIReader reader("../test/infra/es/store/config/aes.ini");
     mCrypto = std::make_shared<CryptoUtil>();
     mCrypto->init(reader);
-    mRaftImpl = raft::buildRaftImpl("../test/infra/es/store/config/raft.ini");
+    mRaftImpl = raft::buildRaftImpl("../test/infra/es/store/config/raft.ini", std::nullopt);
     mCommandEventStore = std::make_unique<RaftCommandEventStore>(mRaftImpl, mCrypto);
     mCommandDecoder = std::make_shared<DummyCommandDecoder>();
     mEventDecoder = std::make_shared<DummyEventDecoder>();

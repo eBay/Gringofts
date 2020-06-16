@@ -23,7 +23,7 @@ namespace gringofts {
 namespace raft {
 namespace v2 {
 
-RaftCore::RaftCore(const char *configPath) :
+RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt) :
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -33,7 +33,7 @@ RaftCore::RaftCore(const char *configPath) :
   }
 
   initConfigurableVars(iniReader);
-  initClusterConf(iniReader);
+  initClusterConf(iniReader, clusterConfOpt);
   initStorage(iniReader);
   initService(iniReader);
 }
@@ -59,17 +59,31 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum);
 }
 
-void RaftCore::initClusterConf(const INIReader &iniReader) {
-  auto clusterConf = iniReader.Get("raft.default", "cluster.conf", "");
-  auto selfId = iniReader.GetInteger("raft.default", "self.id", 0);
-  assert(!clusterConf.empty() && selfId > 0);
+void RaftCore::initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt) {
+  if (clusterConfOpt) {
+    assert(*clusterConfOpt != "");
+    /// N.B.: when using external conf, the assumption is two raft instances will never run on the same host,
+    ///       otherwise below logic will break.
+    auto hostname = Util::getHostname();
 
-  SPDLOG_INFO("read raft cluster conf from local, "
-              "cluster.conf={}, self.id={}", clusterConf, selfId);
+    SPDLOG_INFO("raft cluster conf passed from external, "
+                "cluster.conf={}, hostname={}", *clusterConfOpt, hostname);
 
-  initClusterConfImpl(clusterConf, [selfId](uint64_t peerId,
-                                            const std::string &host,
-                                            const std::string &port) { return peerId == selfId; });
+    initClusterConfImpl(*clusterConfOpt, [hostname](uint64_t peerId,
+                                                    const std::string &host,
+                                                    const std::string &port) { return host == hostname; });
+  } else {
+    auto clusterConf = iniReader.Get("raft.default", "cluster.conf", "");
+    auto selfId = iniReader.GetInteger("raft.default", "self.id", 0);
+    assert(!clusterConf.empty() && selfId > 0);
+
+    SPDLOG_INFO("read raft cluster conf from local, "
+                "cluster.conf={}, self.id={}", clusterConf, selfId);
+
+    initClusterConfImpl(clusterConf, [selfId](uint64_t peerId,
+                                              const std::string &host,
+                                              const std::string &port) { return peerId == selfId; });
+  }
 }
 
 /**
@@ -99,8 +113,8 @@ void RaftCore::initClusterConfImpl(const std::string &clusterConf,
     std::string addr = host + ":" + port;
 
     if (isSelf(peerId, host, port)) {
-      mSelfId = peerId;
-      mSelfAddress = addr;
+      mSelfInfo.mId = peerId;
+      mSelfInfo.mAddress = addr;
     } else {
       Peer peer;
       peer.mId = peerId;
@@ -109,9 +123,9 @@ void RaftCore::initClusterConfImpl(const std::string &clusterConf,
     }
   }
 
-  assert(mSelfId != kBadID);
+  assert(mSelfInfo.mId != kBadID);
   SPDLOG_INFO("cluster.size={}, self.id={}, self.address={}",
-              mPeers.size() + 1, mSelfId, mSelfAddress);
+              mPeers.size() + 1, mSelfInfo.mId, mSelfInfo.mAddress);
 }
 
 void RaftCore::initStorage(const INIReader &iniReader) {
@@ -145,7 +159,7 @@ void RaftCore::initService(const INIReader &iniReader) {
   auto tlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
 
   /// init RaftServer
-  mServer = std::make_unique<RaftServer>(mSelfAddress, tlsConfOpt, &mAeRvQueue);
+  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, tlsConfOpt, &mAeRvQueue);
 
   /// init RaftClient
   for (const auto &p : mPeers) {
@@ -214,6 +228,9 @@ void RaftCore::receiveMessage() {
   } else {
     return;
   }
+
+  TEST_POINT_WITH_TWO_ARGS(mTPProcessor,
+      TPRegistry::RaftCore_receiveMessage_interceptIncoming, &mSelfInfo, event.get());
 
   /// AE_req
   if (event->mType == RaftEventBase::Type::AppendEntriesRequest) {
@@ -305,14 +322,14 @@ void RaftCore::appendEntries() {
     }
 
     (*request.mutable_metrics()).set_term(currentTerm);
-    (*request.mutable_metrics()).set_leader_id(mSelfId);
+    (*request.mutable_metrics()).set_leader_id(mSelfInfo.mId);
     (*request.mutable_metrics()).set_entries_count(batchSize);
     (*request.mutable_metrics()).set_entries_reading_done_time(TimeUtil::currentTimeInNanos());
 
     auto commitIndex = std::min(mCommitIndex.load(), prevLogIndex + batchSize);
 
     request.set_term(currentTerm);
-    request.set_leader_id(mSelfId);
+    request.set_leader_id(mSelfInfo.mId);
     request.set_prev_log_index(prevLogIndex);
     request.set_prev_log_term(prevLogTerm);
     request.set_commit_index(commitIndex);
@@ -360,7 +377,7 @@ void RaftCore::requestVote() {
     RequestVote::Request request;
 
     request.set_term(currentTerm);
-    request.set_candidate_id(mSelfId);
+    request.set_candidate_id(mSelfInfo.mId);
     request.set_last_log_index(lastLogIndex);
     request.set_last_log_term(lastLogTerm);
     request.set_create_time_in_nano(TimeUtil::currentTimeInNanos());
@@ -385,12 +402,12 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
 
   /// prepare AE_resp
   (*response->mutable_metrics()) = request.metrics();
-  (*response->mutable_metrics()).set_follower_id(mSelfId);
+  (*response->mutable_metrics()).set_follower_id(mSelfInfo.mId);
   (*response->mutable_metrics()).set_response_create_time(TimeUtil::currentTimeInNanos());
 
   response->set_term(currentTerm);
   response->set_success(false);
-  response->set_id(mSelfId);
+  response->set_id(mSelfInfo.mId);
   response->set_saved_term(request.term());
   response->set_saved_prev_log_index(request.prev_log_index());
   response->set_last_log_index(mLog->getLastLogIndex());
@@ -561,7 +578,7 @@ void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
   response->set_term(currentTerm);
   response->set_vote_granted(false);
   response->set_create_time_in_nano(TimeUtil::currentTimeInNanos());
-  response->set_id(mSelfId);
+  response->set_id(mSelfInfo.mId);
   response->set_saved_term(request.term());
 
   if (request.term() < currentTerm) {
@@ -767,7 +784,7 @@ void RaftCore::becomeLeader() {
   }
 
   /// append noop
-  raft::LogEntry entry;
+  LogEntry entry;
 
   entry.set_term(mLog->getCurrentTerm());
   entry.set_index(mLog->getLastLogIndex() + 1);
@@ -787,6 +804,9 @@ void RaftCore::electionTimeout() {
     return;
   }
 
+  TEST_POINT_WITH_TWO_ARGS(mTPProcessor, TPRegistry::RaftCore_electionTimeout_interceptTimeout,
+      &mSelfInfo, &mElectionTimePointInNano);
+
   if (mElectionTimePointInNano > TimeUtil::currentTimeInNanos()) {
     return;
   }
@@ -799,7 +819,7 @@ void RaftCore::electionTimeout() {
   /// increment currentTerm
   mLog->setCurrentTerm(++currentTerm);
   /// vote for self
-  mLog->setVoteFor(mSelfId);
+  mLog->setVoteFor(mSelfInfo.mId);
   /// clear leaderHint
   mLeaderId = 0;
   /// reset election timer
@@ -908,7 +928,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   startLogIndex = std::max(firstLogIndex, startLogIndex);
 
   for (auto i = startLogIndex; i <= lastLogIndex; ++i) {
-    raft::LogEntry entry;
+    LogEntry entry;
     if (!mLog->getEntry(i, &entry)) {
       continue;
     }
@@ -945,6 +965,11 @@ void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
               elapseInMillis(metrics.response_create_time(), metrics.entries_writing_done_time()),
               elapseInMillis(metrics.response_send_time(), metrics.response_event_enqueue_time()),
               elapseInMillis(metrics.response_event_enqueue_time(), metrics.response_event_dequeue_time()));
+}
+
+/// for UT
+RaftCore::RaftCore(const char *configPath, TestPointProcessor *processor): RaftCore(configPath, std::nullopt) {
+  mTPProcessor = processor;
 }
 
 }  /// namespace v2

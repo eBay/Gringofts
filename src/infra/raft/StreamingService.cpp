@@ -44,8 +44,8 @@ StreamingService::~StreamingService() {
 }
 
 grpc::Status StreamingService::GetMeta(grpc::ServerContext *context,
-                                          const GetMeta::Request *request,
-                                          GetMeta::Response *response) {
+                                       const GetMeta::Request *request,
+                                       GetMeta::Response *response) {
   response->set_code(0);
 
   /// populate meta
@@ -59,7 +59,10 @@ grpc::Status StreamingService::GetMeta(grpc::ServerContext *context,
   response->set_term(term);
   response->set_last_index(lastIndex);
   response->set_commit_index(commitIndex);
-  response->set_leader_hint(std::to_string(*leaderHint));
+  if (leaderHint) {
+    assert(*leaderHint != 0);
+    response->set_leader_hint(std::to_string(*leaderHint));
+  }
 
   return grpc::Status::OK;
 }

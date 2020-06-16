@@ -23,7 +23,7 @@ class RaftMonitorAdaptorTest : public ::testing::Test {
  protected:
   void SetUp() override {
     Util::executeCmd("mkdir ../test/infra/raft/node_1");
-    mRaftImpl = std::make_shared<raft::v2::RaftCore>("../test/infra/raft/config/raft_1.ini");
+    mRaftImpl = std::make_shared<raft::v2::RaftCore>("../test/infra/raft/config/raft_1.ini", std::nullopt);
   }
 
   void TearDown() override {

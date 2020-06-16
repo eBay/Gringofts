@@ -22,9 +22,9 @@ namespace gringofts {
 namespace storage {
 
 SegmentLog::MetaStorage::MetaStorage(const std::string &logDir)
-    : currentTermFilePath(logDir + "/current_term")
-    , voteForFilePath(logDir + "/vote_for")
-    , firstIndexFilePath(logDir + "/first_index") {}
+    : currentTermFilePath(logDir + "/current_term"),
+      voteForFilePath(logDir + "/vote_for"),
+      firstIndexFilePath(logDir + "/first_index") {}
 
 void SegmentLog::MetaStorage::persistCurrentTerm(uint64_t term) const {
   FileUtil::setFileContentWithSync(currentTermFilePath, std::to_string(term));
@@ -68,8 +68,8 @@ uint64_t SegmentLog::MetaStorage::recoverFirstIndex() const {
 void SegmentLog::init() {
   /// recover meta data
   mCurrentTerm = mMetaStorage.recoverCurrentTerm();
-  mVoteFor     = mMetaStorage.recoverVoteFor();
-  mFirstIndex  = mMetaStorage.recoverFirstIndex();
+  mVoteFor = mMetaStorage.recoverVoteFor();
+  mFirstIndex = mMetaStorage.recoverFirstIndex();
 
   /// recover closed/active segments
   listSegments();
@@ -102,15 +102,15 @@ void SegmentLog::listSegments() {
       uint64_t firstIndex = std::stoull(closedSegment[1]);
       uint64_t lastIndex = std::stoull(closedSegment[2]);
       SPDLOG_INFO("find closed segment: {}, firstIndex={}, lastIndex={}",
-                                                 fileName, firstIndex, lastIndex);
+                  fileName, firstIndex, lastIndex);
 
       assert(mClosedSegments.find(firstIndex) == mClosedSegments.end());
       mClosedSegments[firstIndex] = std::make_shared<Segment>(
-                                                 mLogDir, firstIndex, lastIndex, mCrypto);
+          mLogDir, firstIndex, lastIndex, mCrypto);
     } else if (std::regex_search(fileName, activeSegment, activeSegmentRegex)) {
       uint64_t firstIndex = std::stoull(activeSegment[1]);
       SPDLOG_INFO("find active segment: {}, firstIndex={}",
-                                                 fileName, firstIndex);
+                  fileName, firstIndex);
       assert(!mActiveSegment);
       mActiveSegment = std::make_shared<Segment>(mLogDir, firstIndex, mCrypto);
     } else {
@@ -123,12 +123,12 @@ void SegmentLog::recoverSegments() {
   SegmentPtr prevSegPtr;
 
   /// verify closedSegment
-  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end(); ) {
+  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
     auto segmentPtr = iter->second;
 
     assert(segmentPtr->getFirstIndex() <= segmentPtr->getLastIndex());
     assert(!prevSegPtr || segmentPtr->getFirstIndex() == prevSegPtr->getLastIndex() + 1);
-    assert(prevSegPtr  || mFirstIndex >= segmentPtr->getFirstIndex());
+    assert(prevSegPtr || mFirstIndex >= segmentPtr->getFirstIndex());
 
     /// ignore retained segment
     if (!prevSegPtr && mFirstIndex > segmentPtr->getLastIndex()) {
@@ -316,7 +316,7 @@ void SegmentLog::truncatePrefix(uint64_t firstIndexKept) {
   std::lock_guard<std::mutex> lock(mMutex);
 
   /// closed segments
-  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end(); ) {
+  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
     auto segmentPtr = iter->second;
     if (segmentPtr->getLastIndex() < firstIndexKept) {
       iter = mClosedSegments.erase(iter);

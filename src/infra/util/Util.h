@@ -64,6 +64,26 @@ class Singleton {
  */
 class Util final {
  public:
+  /// get official name of host
+  static std::string getHostname() {
+    constexpr uint64_t kBufferSize = 1024;
+    char buffer[kBufferSize];
+
+    auto ret = gethostname(buffer, sizeof buffer);
+    assert(ret == 0);
+
+    /// make sure it is null-terminated
+    buffer[kBufferSize - 1] = '\0';
+
+    /// TODO: gethostbyname is obsolete, and not thread-safe
+    /// need replace it
+    struct hostent *h = gethostbyname(buffer);
+    assert(h != nullptr);
+
+    SPDLOG_INFO("hostname is: {}", h->h_name);
+    return h->h_name;
+  }
+
   /// execute a shell cmd and return the result
   /// ATTENTION: should only call this method within unit test.
   ///            call popen() and fork() in production code is dangerous.

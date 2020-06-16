@@ -9,6 +9,7 @@
 - Peicheng (Kevin) Yu
 - Qi Hu
 - Qi (Jacky) Jia
+- Qiawu (Chandler) Cai
 - Xiang (Jacky) Cheng
 - Yanyu (Vivien) Shen
 - Yu Hu

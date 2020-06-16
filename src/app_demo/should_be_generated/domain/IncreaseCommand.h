@@ -38,7 +38,7 @@ class IncreaseCommand : public Command {
   }
 
   void decodeFromString(std::string_view encodedString) override {
-    mRequest.ParseFromString(encodedString.data());
+    mRequest.ParseFromString(std::string(encodedString));
   }
 
   int getValue() const {

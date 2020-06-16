@@ -25,9 +25,7 @@ namespace v2 {
 RaftServer::RaftServer(const std::string &ipPort,
                        std::optional<TlsConf> tlsConfOpt,
                        EventQueue *aeRvQueue)
-    : mIpPort(ipPort)
-    , mTlsConfOpt(std::move(tlsConfOpt))
-    , mAeRvQueue(aeRvQueue) {
+    : mIpPort(ipPort), mTlsConfOpt(std::move(tlsConfOpt)), mAeRvQueue(aeRvQueue) {
   mServerLoop = std::thread(&RaftServer::serverLoopMain, this);
 }
 
@@ -90,8 +88,7 @@ void RaftServer::serverLoopMain() {
 
 RaftClient::RaftClient(const std::shared_ptr<grpc::Channel> &channel,
                        uint64_t peerId, EventQueue *aeRvQueue)
-    : mStub(Raft::NewStub(channel))
-    , mPeerId(peerId), mAeRvQueue(aeRvQueue) {
+    : mStub(Raft::NewStub(channel)), mPeerId(peerId), mAeRvQueue(aeRvQueue) {
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
 }
@@ -119,7 +116,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
   call->mPeerId = mPeerId;
 
   std::chrono::time_point deadline = std::chrono::system_clock::now()
-          + std::chrono::milliseconds(RaftConstants::RequestVote::kRpcTimeoutInMillis);
+      + std::chrono::milliseconds(RaftConstants::RequestVote::kRpcTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
   call->mResponseReader = mStub->PrepareAsyncRequestVoteV2(&call->mContext, request, &mCompletionQueue);
@@ -135,7 +132,7 @@ void RaftClient::appendEntries(const AppendEntries::Request &request) {
   call->mPeerId = mPeerId;
 
   std::chrono::time_point deadline = std::chrono::system_clock::now()
-          + std::chrono::milliseconds(RaftConstants::AppendEntries::kRpcTimeoutInMillis);
+      + std::chrono::milliseconds(RaftConstants::AppendEntries::kRpcTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
   call->mResponseReader = mStub->PrepareAsyncAppendEntriesV2(&call->mContext, request, &mCompletionQueue);
@@ -180,7 +177,7 @@ void RaftClient::clientLoopMain() {
       auto event = std::make_shared<EventType>();
       event->mType = RaftEventBase::Type::RequestVoteResponse;
       event->mPayload = std::unique_ptr<RequestVoteClientCall>(
-                                           dynamic_cast<RequestVoteClientCall *>(call));
+          dynamic_cast<RequestVoteClientCall *>(call));
       mAeRvQueue->enqueue(event);
     } else if (call->getType() == RaftEventBase::Type::AppendEntriesResponse) {
       using EventType = RaftEvent<std::unique_ptr<AppendEntriesClientCall>>;
@@ -188,15 +185,15 @@ void RaftClient::clientLoopMain() {
       auto event = std::make_shared<EventType>();
       event->mType = RaftEventBase::Type::AppendEntriesResponse;
       event->mPayload = std::unique_ptr<AppendEntriesClientCall>(
-                                           dynamic_cast<AppendEntriesClientCall *>(call));
+          dynamic_cast<AppendEntriesClientCall *>(call));
 
       (*event->mPayload->mResponse.mutable_metrics())
-                          .set_response_event_enqueue_time(TimeUtil::currentTimeInNanos());
+          .set_response_event_enqueue_time(TimeUtil::currentTimeInNanos());
 
       mAeRvQueue->enqueue(event);
     } else {
       SPDLOG_ERROR("RaftClient receive unknown event type: {}",
-              static_cast<uint64_t>(call->getType()));
+                   static_cast<uint64_t>(call->getType()));
       assert(0);
     }
   }
