@@ -76,7 +76,7 @@ class Util final {
     buffer[kBufferSize - 1] = '\0';
 
     /// TODO: gethostbyname is obsolete, and not thread-safe
-    ///               need replace it
+    /// need replace it
     struct hostent *h = gethostbyname(buffer);
     assert(h != nullptr);
 
