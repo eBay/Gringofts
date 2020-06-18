@@ -33,7 +33,7 @@ set(GRINGOFTS_UTIL_SRC
 add_library(gringofts_infra_util STATIC
         ${GRINGOFTS_UTIL_SRC})
 add_dependencies(gringofts_infra_util gringofts_store_proto_library)
-target_link_libraries(gringofts_infra_util ${GRINGOFTS_LIBRARIES})
+target_link_libraries(gringofts_infra_util ${GRINGOFTS_LIBRARIES} gringofts_store_proto_library)
 
 add_library(gringofts_infra STATIC
         ${GRINGOFTS_INFRA_SRC})
