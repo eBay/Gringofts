@@ -56,7 +56,7 @@ target_link_libraries(app_demo demo_proto_library)
 # executables
 add_executable(DemoApp
         should_be_generated/app/Main.cpp)
-target_link_libraries(DemoApp app_demo app_util infra ${LIBRARIES})
+target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra ${GRINGOFTS_LIBRARIES})
 
 #################################################################################################
 #

@@ -1,35 +1,30 @@
 /************************************************************************
 Copyright 2019-2020 eBay Inc.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
     https://www.apache.org/licenses/LICENSE-2.0
-    
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-Portions of this source code module modified from third party code:
-
-1. OpenSSL
-URL: https://wiki.openssl.org/index.php/EVP_Symmetric_Encryption_and_Decryption
-License: Apache-syle license; see https://www.openssl.org/source/license.html
-Originally licensed under the Apache 2.0 license.
 **************************************************************************/
 
 #include "CryptoUtil.h"
 
+#include <google/protobuf/text_format.h>
 #include <vector>
+
 #include "FileUtil.h"
 #include "TimeUtil.h"
+#include "../es/store/generated/store.pb.h"
 
 namespace gringofts {
 
 void CryptoUtil::init(const INIReader &reader) {
-  if (mEnable) {
+  if (mEnabled) {
     SPDLOG_ERROR("Set AES key twice.");
     exit(1);
   }
@@ -49,73 +44,117 @@ void CryptoUtil::init(const INIReader &reader) {
     return;
   }
 
-  std::string encryptedKey = FileUtil::getFileContent(keyFileName);
-  decodeBase64Key(encryptedKey, mKey, kKeyLen);
-  mEnable = true;
+  std::string content = FileUtil::getFileContent(keyFileName);
+  gringofts::es::EncryptSecKeySet keySet;
+  assert(google::protobuf::TextFormat::ParseFromString(content, &keySet));
+  mAllKeys.clear();
+  mDescendingSecKeyVersions.clear();
+  for (auto keyAndVersion : keySet.keys()) {
+    auto version = keyAndVersion.version();
+    assert(version > SecretKey::kInvalidSecKeyVersion);
+    mAllKeys[version].mVersion = version;
+    decodeBase64Key(keyAndVersion.key(), mAllKeys[version].mKey, SecretKey::kKeyLen);
+    if (version > mLatestVersion) {
+      mLatestVersion = version;
+    }
+    mDescendingSecKeyVersions.push_back(version);
+  }
+  sort(mDescendingSecKeyVersions.rbegin(), mDescendingSecKeyVersions.rend());
+  assert(mLatestVersion > 0);
+  assert(!mAllKeys.empty());
+  assert(!mDescendingSecKeyVersions.empty());
+  mLatestVersionGauge.set(mLatestVersion);
+
+  mEnabled = true;
   SPDLOG_INFO("Raft log and snapshot will be encrypted.");
 }
 
-void CryptoUtil::init(const std::string &key) {
-  if (mEnable) {
+void CryptoUtil::init(SecKeyVersion version, const std::string &key) {
+  if (mEnabled) {
     SPDLOG_ERROR("Set AES key twice.");
     exit(1);
   }
-  if (key.size() != kKeyLen) {
-    SPDLOG_ERROR("invalid key size, expect {}, got {}", kKeyLen, key.size());
+  if (key.size() != SecretKey::kKeyLen || version <= SecretKey::kInvalidSecKeyVersion) {
+    SPDLOG_ERROR("invalid key size or version, expect {}, got {}", SecretKey::kKeyLen, key.size());
     exit(1);
   }
 
-  memcpy(mKey, key.c_str(), kKeyLen);
-  mEnable = true;
+  mAllKeys.clear();
+  mDescendingSecKeyVersions.clear();
+  mAllKeys[version].mVersion = version;
+  memcpy(mAllKeys[version].mKey, key.c_str(), SecretKey::kKeyLen);
+  mLatestVersion = version;
+  mDescendingSecKeyVersions.push_back(version);
+  assert(mLatestVersion > 0);
+  assert(mAllKeys.size() == 1);
+  assert(mDescendingSecKeyVersions.size() == 1);
+  mLatestVersionGauge.set(mLatestVersion);
+
+  mEnabled = true;
   SPDLOG_INFO("Raft log and snapshot will be encrypted.");
 }
 
-void CryptoUtil::encrypt(std::string *payload) const {
-  if (!mEnable) {
-    return;
+void CryptoUtil::assertValidVersion(SecKeyVersion version) const {
+  if (mAllKeys.find(version) == mAllKeys.end()) {
+    SPDLOG_ERROR("invalid key version: {}", version);
+    exit(1);
   }
+}
+
+int CryptoUtil::encrypt(std::string *payload, SecKeyVersion version) const {
+  if (!mEnabled) {
+    return 0;
+  }
+  assertValidVersion(version);
 
   std::vector<unsigned char> buffer;
   buffer.resize(payload->size() + AES_BLOCK_SIZE);
 
-  auto cipherLen = encrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
-                           payload->size(), mKey, mIV, &buffer[0]);
-
-  payload->assign(reinterpret_cast<const char *>(&buffer[0]),
-                  cipherLen);
+  auto cipherLen = 0;
+  auto res = encrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
+                     payload->size(), mAllKeys.at(version).mKey, mIV, &buffer[0], &cipherLen);
+  if (res == 0) {
+    payload->assign(reinterpret_cast<const char *>(&buffer[0]),
+                    cipherLen);
+  }
+  return res;
 }
 
-void CryptoUtil::decrypt(std::string *payload) const {
-  if (!mEnable) {
-    return;
+int CryptoUtil::decrypt(std::string *payload, SecKeyVersion version) const {
+  if (!mEnabled) {
+    return 0;
   }
+  assertValidVersion(version);
 
   std::vector<unsigned char> buffer;
   buffer.resize(payload->size());
 
-  auto plainLen = decrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
-                          payload->size(), mKey, mIV, &buffer[0]);
-
-  payload->assign(reinterpret_cast<const char *>(&buffer[0]),
-                  plainLen);
+  auto plainLen = 0;
+  auto res = decrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
+                     payload->size(), mAllKeys.at(version).mKey, mIV, &buffer[0], &plainLen);
+  if (res == 0) {
+    payload->assign(reinterpret_cast<const char *>(&buffer[0]), plainLen);
+  }
+  return res;
 }
 
-std::string CryptoUtil::hmac(const std::string &payload) const {
+std::string CryptoUtil::hmac(const std::string &payload, SecKeyVersion version) const {
   return hmac(reinterpret_cast<const unsigned char *>(payload.c_str()),
-              payload.size());
+              payload.size(), version);
 }
 
-std::string CryptoUtil::hmac(const unsigned char *d, std::size_t n) const {
-  if (!mEnable) {
+std::string CryptoUtil::hmac(const unsigned char *d, std::size_t n, SecKeyVersion version) const {
+  if (!mEnabled) {
     return "";
   }
+  assertValidVersion(version);
 
   unsigned char digest[EVP_MAX_MD_SIZE];
   unsigned int len = 0;
 
   /// Using sha256 hash engine here.
   /// You may use other hash engines. e.g., EVP_md5(), EVP_sha224(), EVP_sha512(), etc
-  auto *ptr = HMAC(EVP_sha256(), mKey, kKeyLen, d, n, digest, &len);
+  auto *ptr = HMAC(EVP_sha256(), mAllKeys.at(version).mKey, SecretKey::kKeyLen, d, n, digest, &len);
 
   assert(ptr != nullptr);
   assert(len == 32);  /// output length of SHA256 should be 32 bytes (a.k.a. 256 bits).
@@ -137,28 +176,28 @@ void CryptoUtil::decodeBase64Key(const std::string &base64,
   auto len = BIO_read(bio, key, keyLen);
   if (len != keyLen) {
     // len should equal keyLen, else something went horribly wrong
-    SPDLOG_ERROR("Decode AES key error. expected: {}, actual: {}", kKeyLen, len);
+    SPDLOG_ERROR("Decode AES key error. expected: {}, actual: {}", SecretKey::kKeyLen, len);
     exit(1);
   }
   BIO_free_all(bio);
 }
 
-void CryptoUtil::handleErrors() {
+/// TODO(https://jirap.corp.ebay.com/browse/RTCUTOFF-3882): Deprecate fam/fas state machine v1 (full memory)
+int CryptoUtil::handleErrors() {
   ERR_print_errors_fp(stderr);
-  exit(1);
+  return -1;
 }
 
 int CryptoUtil::encrypt(const unsigned char *plain, int plainLen,
                         const unsigned char *key, const unsigned char *iv,
-                        unsigned char *cipher) {
+                        unsigned char *cipher, int *cipherLen) {
   EVP_CIPHER_CTX *ctx;
 
   int len;
-  int cipherLen;
 
   /** Create and initialise the context */
   if (!(ctx = EVP_CIPHER_CTX_new())) {
-    handleErrors();
+    return handleErrors();
   }
 
   /**
@@ -169,7 +208,7 @@ int CryptoUtil::encrypt(const unsigned char *plain, int plainLen,
    * is 128 bits
    */
   if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, key, iv)) {
-    handleErrors();
+    return handleErrors();
   }
 
   /**
@@ -177,36 +216,35 @@ int CryptoUtil::encrypt(const unsigned char *plain, int plainLen,
    * EVP_EncryptUpdate can be called multiple times if necessary
    */
   if (1 != EVP_EncryptUpdate(ctx, cipher, &len, plain, plainLen)) {
-    handleErrors();
+    return handleErrors();
   }
-  cipherLen = len;
+  *cipherLen = len;
 
   /**
    * Finalise the encryption. Further cipher bytes may be written at
    * this stage.
    */
   if (1 != EVP_EncryptFinal_ex(ctx, cipher + len, &len)) {
-    handleErrors();
+    return handleErrors();
   }
-  cipherLen += len;
+  *cipherLen += len;
 
   /** Clean up */
   EVP_CIPHER_CTX_free(ctx);
 
-  return cipherLen;
+  return 0;
 }
 
 int CryptoUtil::decrypt(const unsigned char *cipher, int cipherLen,
                         const unsigned char *key, const unsigned char *iv,
-                        unsigned char *plain) {
+                        unsigned char *plain, int *plainLen) {
   EVP_CIPHER_CTX *ctx;
 
   int len;
-  int plainLen;
 
   /** Create and initialise the context */
   if (!(ctx = EVP_CIPHER_CTX_new())) {
-    handleErrors();
+    return handleErrors();
   }
 
   /**
@@ -217,7 +255,9 @@ int CryptoUtil::decrypt(const unsigned char *cipher, int cipherLen,
    * is 128 bits
    */
   if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, key, iv)) {
-    handleErrors();
+    SPDLOG_ERROR("error when decrypting init");
+    EVP_CIPHER_CTX_free(ctx);
+    return handleErrors();
   }
 
   /**
@@ -225,27 +265,31 @@ int CryptoUtil::decrypt(const unsigned char *cipher, int cipherLen,
    * EVP_DecryptUpdate can be called multiple times if necessary
    */
   if (1 != EVP_DecryptUpdate(ctx, plain, &len, cipher, cipherLen)) {
-    handleErrors();
+    SPDLOG_ERROR("error when decrypting update");
+    EVP_CIPHER_CTX_free(ctx);
+    return handleErrors();
   }
-  plainLen = len;
+  *plainLen = len;
 
   /**
    * Finalise the decryption. Further plaintext bytes may be written at
    * this stage.
    */
   if (1 != EVP_DecryptFinal_ex(ctx, plain + len, &len)) {
-    handleErrors();
+    SPDLOG_ERROR("error when finalize decrypting");
+    EVP_CIPHER_CTX_free(ctx);
+    return handleErrors();
   }
-  plainLen += len;
+  *plainLen += len;
 
   /** Clean up */
   EVP_CIPHER_CTX_free(ctx);
 
-  return plainLen;
+  return 0;
 }
 
 void CryptoUtil::beginEncryption(uint64_t bufferSize) {
-  if (!mEnable) {
+  if (!mEnabled) {
     SPDLOG_WARN("AES is not enabled, will not encrypt.");
     return;
   }
@@ -262,7 +306,7 @@ void CryptoUtil::beginEncryption(uint64_t bufferSize) {
    * IV size for *most* modes is the same as the block size. For AES this
    * is 128 bits
    */
-  if (1 != EVP_EncryptInit_ex(mCtx, EVP_aes_256_cbc(), nullptr, mKey, mIV)) {
+  if (1 != EVP_EncryptInit_ex(mCtx, EVP_aes_256_cbc(), nullptr, mAllKeys.at(mLatestVersion).mKey, mIV)) {
     handleErrors();
   }
 
@@ -275,7 +319,7 @@ void CryptoUtil::beginEncryption(uint64_t bufferSize) {
 }
 
 void CryptoUtil::encryptUint64ToFile(std::ofstream &ofs, uint64_t content) {
-  if (mEnable) {
+  if (mEnabled) {
     bufferOrEncrypt(ofs, reinterpret_cast<const unsigned char *>(&content), sizeof(uint64_t));
   } else {
     FileUtil::writeUint64ToFile(ofs, content);
@@ -284,7 +328,7 @@ void CryptoUtil::encryptUint64ToFile(std::ofstream &ofs, uint64_t content) {
 
 void CryptoUtil::encryptStrToFile(std::ofstream &ofs, const std::string &content) {
   auto len = content.length();
-  if (mEnable) {
+  if (mEnabled) {
     encryptUint64ToFile(ofs, len);
     bufferOrEncrypt(ofs, reinterpret_cast<const unsigned char *>(content.c_str()), len);
   } else {
@@ -338,7 +382,7 @@ void CryptoUtil::bufferOrEncrypt(std::ofstream &ofs, const unsigned char *conten
 }
 
 void CryptoUtil::commitEncryption(std::ofstream &ofs) {
-  if (!mEnable) {
+  if (!mEnabled) {
     SPDLOG_WARN("AES is not enabled, will not commit encryption.");
     return;
   }
@@ -367,7 +411,7 @@ void CryptoUtil::commitEncryption(std::ofstream &ofs) {
 }
 
 void CryptoUtil::beginDecryption(uint64_t bufferSize) {
-  if (!mEnable) {
+  if (!mEnabled) {
     SPDLOG_WARN("AES is not enabled, will not decrypt.");
     return;
   }
@@ -384,7 +428,7 @@ void CryptoUtil::beginDecryption(uint64_t bufferSize) {
    * IV size for *most* modes is the same as the block size. For AES this
    * is 128 bits
    */
-  if (1 != EVP_DecryptInit_ex(mCtx, EVP_aes_256_cbc(), nullptr, mKey, mIV)) {
+  if (1 != EVP_DecryptInit_ex(mCtx, EVP_aes_256_cbc(), nullptr, mAllKeys.at(mLatestVersion).mKey, mIV)) {
     handleErrors();
   }
 
@@ -397,7 +441,7 @@ void CryptoUtil::beginDecryption(uint64_t bufferSize) {
 }
 
 uint64_t CryptoUtil::decryptUint64FromFile(std::ifstream &ifs) {
-  if (mEnable) {
+  if (mEnabled) {
     uint64_t content;
     readOrDecrypt(ifs, reinterpret_cast<unsigned char *>(&content), sizeof(uint64_t));
     return content;
@@ -407,7 +451,7 @@ uint64_t CryptoUtil::decryptUint64FromFile(std::ifstream &ifs) {
 }
 
 std::string CryptoUtil::decryptStrFromFile(std::ifstream &ifs) {
-  if (mEnable) {
+  if (mEnabled) {
     auto length = decryptUint64FromFile(ifs);
     std::vector<char> buffer;
     buffer.resize(length + 1);
@@ -420,7 +464,7 @@ std::string CryptoUtil::decryptStrFromFile(std::ifstream &ifs) {
 }
 
 void CryptoUtil::readOrDecrypt(std::ifstream &ifs, unsigned char *buffer, std::size_t length) {
-  if (!mEnable) {
+  if (!mEnabled) {
     return;
   }
 
@@ -475,7 +519,7 @@ void CryptoUtil::readOrDecrypt(std::ifstream &ifs, unsigned char *buffer, std::s
 }
 
 void CryptoUtil::commitDecryption(std::ifstream &ifs) {
-  if (!mEnable) {
+  if (!mEnabled) {
     SPDLOG_WARN("AES is not enabled, will not commit decryption.");
     return;
   }

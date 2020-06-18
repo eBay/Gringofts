@@ -96,6 +96,7 @@ TEST_F(RaftCoreTest, BasicTest) {
 
   for (uint64_t i = 2; i <= 10; ++i) {
     gringofts::raft::LogEntry entry;
+    entry.mutable_version()->set_secret_key_version(SecretKey::kInvalidSecKeyVersion);
     entry.set_index(i);
     entry.set_term(1);
     entry.set_noop(false);
@@ -150,6 +151,7 @@ TEST_F(RaftCoreTest, BasicTest) {
 
     {
       gringofts::raft::LogEntry entry;
+      entry.mutable_version()->set_secret_key_version(SecretKey::kInvalidSecKeyVersion);
       entry.set_term(1);
       entry.set_index(2);
       entry.set_noop(true);
@@ -158,6 +160,7 @@ TEST_F(RaftCoreTest, BasicTest) {
     }
     {
       gringofts::raft::LogEntry entry;
+      entry.mutable_version()->set_secret_key_version(SecretKey::kInvalidSecKeyVersion);
       entry.set_term(2);
       entry.set_index(3);
       entry.set_noop(true);

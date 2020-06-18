@@ -20,7 +20,6 @@ limitations under the License.
 #include <memory>
 #include <mutex>
 
-#include "../../util/CryptoUtil.h"
 #include "../../util/FileUtil.h"
 #include "Log.h"
 #include "Segment.h"
@@ -66,6 +65,10 @@ class SegmentLog : public Log {
   ~SegmentLog() override = default;
 
   void init();
+
+  SecKeyVersion getLatestSecKeyVersion() const override {
+    return mCrypto->getLatestSecKeyVersion();
+  }
 
   /// append
   bool appendEntry(const raft::LogEntry &entry) override;

@@ -246,8 +246,17 @@ void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
     void *entryAddr = reinterpret_cast<uint8_t *>(mDataMemPtr) + meta.offset;
     entry.SerializeToArray(entryAddr, meta.length);
 
-    /// make sure about data safety
-    createHMAC(&meta);
+    if (mCrypto->isEnabled()) {
+      if (entry.version().secret_key_version() == SecretKey::kInvalidSecKeyVersion) {
+        /// for compatibility: if no version field, use oldest one
+        const auto &descendingVersions = mCrypto->getDescendingVersions();
+        assert(!descendingVersions.empty());
+        auto oldestVersion = descendingVersions.back();
+        createHMAC(&meta, oldestVersion);
+      } else {
+        createHMAC(&meta, entry.version().secret_key_version());
+      }
+    }
 
     /// update dataOffset
     dataOffset += meta.length;
@@ -469,24 +478,28 @@ void Segment::dropSegment() const {
   assert(::rename(metaFromPath.c_str(), metaToPath.c_str()) == 0);
 }
 
-void Segment::createHMAC(LogMeta *meta) const {
+void Segment::createHMAC(LogMeta *meta, SecKeyVersion version) const {
+  /// crypto disabled HMAC
+  if (!mCrypto->isEnabled()) {
+    return;
+  }
+
   auto *entryAddr = reinterpret_cast<const char *>(mDataMemPtr) + meta->offset;
 
   auto message = std::to_string(meta->index) + std::string(entryAddr, meta->length);
-  auto digest = mCrypto->hmac(message);
-
-  /// crypto disabled HMAC
-  if (digest.empty()) {
-    return;
-  }
+  auto digest = mCrypto->hmac(message, version);
 
   assert(digest.size() == sizeof(meta->digest));
   ::memcpy(meta->digest, digest.c_str(), digest.size());
 }
 
 void Segment::verifyHMAC(const LogMeta &meta) const {
-  std::string expectDigest(meta.digest, sizeof(meta.digest));
+  /// crypto disabled HMAC
+  if (!mCrypto->isEnabled()) {
+    return;
+  }
 
+  std::string expectDigest(meta.digest, sizeof(meta.digest));
   /// no HMAC for this entry
   if (expectDigest == std::string(sizeof(meta.digest), '\0')) {
     return;
@@ -494,11 +507,17 @@ void Segment::verifyHMAC(const LogMeta &meta) const {
 
   auto *entryAddr = static_cast<const char *>(getEntryAddr(meta.offset));
   auto message = std::to_string(meta.index) + std::string(entryAddr, meta.length);
-  auto realDigest = mCrypto->hmac(message);
-
-  /// crypto disabled HMAC
-  if (realDigest.empty()) {
-    return;
+  std::string realDigest;
+  const auto &descendingVersions = mCrypto->getDescendingVersions();
+  auto versionCnt = descendingVersions.size();
+  uint64_t recentKeyIndex = mRecentUsedSecKeyIndex;
+  for (auto i = 0; i < versionCnt; ++i) {
+    auto tryVersionIndex = (recentKeyIndex + i + versionCnt) % versionCnt;
+    realDigest = mCrypto->hmac(message, descendingVersions[tryVersionIndex]);
+    if (!realDigest.empty() && realDigest == expectDigest) {
+      mRecentUsedSecKeyIndex = tryVersionIndex;
+      break;
+    }
   }
 
   /// take effect iff this entry has HMAC and HMAC is enabled in crypto.

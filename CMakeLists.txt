@@ -192,12 +192,12 @@ include_directories(third_party/inih/cpp)
 
 # abseil-cpp
 set(CMAKE_CXX_STANDARD 17)
-add_subdirectory(third_party/abseil-cpp)
+add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
 include_directories(third_party/abseil-cpp)
 set(ABSL_LIBS absl::strings absl::base)
 
 # prometheus
-add_subdirectory(third_party/prometheus-cpp)
+add_subdirectory(third_party/prometheus-cpp EXCLUDE_FROM_ALL)
 include_directories(third_party/prometheus-cpp/core/include)
 include_directories(third_party/prometheus-cpp/pull/include)
 set(MONITOR_LIBS prometheus-cpp::pull prometheus-cpp::core)
@@ -246,7 +246,7 @@ check_lib_exist(sqlite3)
 
 
 # collect all libs when they all exist
-set(LIBRARIES pthread sqlite3.a dl ${ABSL_LIBS} ${OPENSSL_LIBS} ${Boost_LIBRARIES}
+set(GRINGOFTS_LIBRARIES pthread sqlite3.a dl ${ABSL_LIBS} ${OPENSSL_LIBS} ${Boost_LIBRARIES}
         ${MONITOR_LIBS} ${ROCKSDB_LIBS} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF} lib_inih)
 
 # Protobuf build by cmake
@@ -258,12 +258,28 @@ add_subdirectory(src/app_demo)
 
 add_subdirectory(test)
 
+# expose to parent
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(hasParent)
+    message(STATUS "Gringofts as a library")
+    set(GRINGOFTS_INCL
+            Gringofts/src
+            Gringofts/test
+            Gringofts/third_party/abseil-cpp
+            Gringofts/third_party/prometheus-cpp/core/include
+            Gringofts/third_party/prometheus-cpp/pull/include
+            Gringofts/third_party/spdlog/include
+            Gringofts/third_party/inih/cpp PARENT_SCOPE)
+    set(GRINGOFTS_LIB ${GRINGOFTS_LIBRARIES} PARENT_SCOPE)
+endif()
+
+
 set(ALL_SRC
         src
         test)
 
 # custom targets
-add_custom_target(check
+add_custom_target(gringofts_check
         COMMAND third_party/cpplint/cpplint.py --recursive ${ALL_SRC} 2>&1 > /var/tmp/cpplint.out)
-add_custom_target(docs
+add_custom_target(gringofts_docs
         COMMAND doxygen docs/Doxyfile)

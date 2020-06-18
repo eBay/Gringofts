@@ -50,6 +50,7 @@ class InMemoryLog : public Log {
   bool getEntry(uint64_t index, raft::LogEntry *entry) const override {
     if (index == 0) {
       raft::LogEntry dummy;
+      dummy.mutable_version()->set_secret_key_version(getLatestSecKeyVersion());
       dummy.set_term(0);
       dummy.set_index(0);
       *entry = dummy;
