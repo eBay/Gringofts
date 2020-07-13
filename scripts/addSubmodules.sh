@@ -66,6 +66,7 @@ else
   git submodule update --init --recursive
 fi
 # CodeCoverage
-wget https://raw.githubusercontent.com/bilke/cmake-modules/819ad94ebd33c80da2772dc82319f77cc14bf175/CodeCoverage.cmake
+wget https://raw.githubusercontent.com/bilke/cmake-modules/0503702f2ef733aa8f6a0c2015db89b085c5ac57/CodeCoverage.cmake
+cp CodeCoverage.cmake "$DIR"/cmake/clang-7/CodeCoverage.cmake
 mv CodeCoverage.cmake "$DIR"/cmake/g++-7/CodeCoverage.cmake
 patch "$DIR"/cmake/g++-7/CodeCoverage.cmake "$DIR"/cmake/g++-7/CodeCoverage.patch

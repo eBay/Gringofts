@@ -26,8 +26,6 @@ class LogTest : public ::testing::Test {
   void TearDown() override {}
 
   void everythingAboutLog(Log *log);
-
-  static const SecKeyVersion defaultVersion = 1;
 };
 
 void LogTest::everythingAboutLog(Log *log) {
@@ -150,7 +148,7 @@ TEST_F(LogTest, HMACTest) {
   auto cryptoDisableHMAC = std::make_shared<CryptoUtil>();
 
   auto cryptoEnableHMAC = std::make_shared<CryptoUtil>();
-  cryptoEnableHMAC->init(defaultVersion, "01234567890123456789012345678901");
+  cryptoEnableHMAC->init("01234567890123456789012345678901");
 
   std::string str4KiB(4 * 1024, 'a');
 
