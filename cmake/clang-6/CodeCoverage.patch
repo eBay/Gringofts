@@ -1,0 +1,222 @@
+diff --git a/CodeCoverage.cmake b/CodeCoverage.cmake.bk
+index a81ca0b..2eb397b 100644
+--- a/CodeCoverage.cmake
++++ b/CodeCoverage.cmake.bk
+@@ -69,7 +69,7 @@
+ include(CMakeParseArguments)
+ 
+ # Check prereqs
+-find_program( GCOV_PATH gcov )
++set( GCOV_PATH llvm-gcov.sh )
+ find_program( LCOV_PATH  NAMES lcov lcov.bat lcov.exe lcov.perl)
+ find_program( GENHTML_PATH NAMES genhtml genhtml.perl genhtml.bat )
+ find_program( GCOVR_PATH gcovr PATHS ${CMAKE_SOURCE_DIR}/scripts/test)
+@@ -88,29 +88,29 @@ elseif(NOT CMAKE_COMPILER_IS_GNUCXX)
+ endif()
+ 
+ set(COVERAGE_COMPILER_FLAGS "-g -O0 --coverage -fprofile-arcs -ftest-coverage"
+-    CACHE INTERNAL "")
++        CACHE INTERNAL "")
+ 
+ set(CMAKE_CXX_FLAGS_COVERAGE
+-    ${COVERAGE_COMPILER_FLAGS}
+-    CACHE STRING "Flags used by the C++ compiler during coverage builds."
+-    FORCE )
++        ${COVERAGE_COMPILER_FLAGS}
++        CACHE STRING "Flags used by the C++ compiler during coverage builds."
++        FORCE )
+ set(CMAKE_C_FLAGS_COVERAGE
+-    ${COVERAGE_COMPILER_FLAGS}
+-    CACHE STRING "Flags used by the C compiler during coverage builds."
+-    FORCE )
++        ${COVERAGE_COMPILER_FLAGS}
++        CACHE STRING "Flags used by the C compiler during coverage builds."
++        FORCE )
+ set(CMAKE_EXE_LINKER_FLAGS_COVERAGE
+-    ""
+-    CACHE STRING "Flags used for linking binaries during coverage builds."
+-    FORCE )
++        ""
++        CACHE STRING "Flags used for linking binaries during coverage builds."
++        FORCE )
+ set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE
+-    ""
+-    CACHE STRING "Flags used by the shared libraries linker during coverage builds."
+-    FORCE )
++        ""
++        CACHE STRING "Flags used by the shared libraries linker during coverage builds."
++        FORCE )
+ mark_as_advanced(
+-    CMAKE_CXX_FLAGS_COVERAGE
+-    CMAKE_C_FLAGS_COVERAGE
+-    CMAKE_EXE_LINKER_FLAGS_COVERAGE
+-    CMAKE_SHARED_LINKER_FLAGS_COVERAGE )
++        CMAKE_CXX_FLAGS_COVERAGE
++        CMAKE_C_FLAGS_COVERAGE
++        CMAKE_EXE_LINKER_FLAGS_COVERAGE
++        CMAKE_SHARED_LINKER_FLAGS_COVERAGE )
+ 
+ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+     message(WARNING "Code coverage results with an optimised (non-Debug) build may be misleading")
+@@ -136,7 +136,7 @@ function(SETUP_TARGET_FOR_COVERAGE_LCOV)
+ 
+     set(options NONE)
+     set(oneValueArgs NAME)
+-    set(multiValueArgs EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES LCOV_ARGS GENHTML_ARGS)
++    set(multiValueArgs EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES)
+     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+ 
+     if(NOT LCOV_PATH)
+@@ -150,38 +150,38 @@ function(SETUP_TARGET_FOR_COVERAGE_LCOV)
+     # Setup target
+     add_custom_target(${Coverage_NAME}
+ 
+-        # Cleanup lcov
+-        COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -directory . --zerocounters
+-        # Create baseline to make sure untouched files show up in the report
+-        COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -c -i -d . -o ${Coverage_NAME}.base
++            # Cleanup lcov
++            COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -directory .. --zerocounters
++            # Create baseline to make sure untouched files show up in the report
++            COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -c -i -d .. -o ${Coverage_NAME}.base
+ 
+-        # Run tests
+-        COMMAND ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
++            # Run tests
++            COMMAND ${Coverage_EXECUTABLE}
+ 
+-        # Capturing lcov counters and generating report
+-        COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} --directory . --capture --output-file ${Coverage_NAME}.info
+-        # add baseline counters
+-        COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -a ${Coverage_NAME}.base -a ${Coverage_NAME}.info --output-file ${Coverage_NAME}.total
+-        COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} --remove ${Coverage_NAME}.total ${COVERAGE_LCOV_EXCLUDES} --output-file ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+-        COMMAND ${GENHTML_PATH} ${Coverage_GENHTML_ARGS} -o ${Coverage_NAME} ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+-        COMMAND ${CMAKE_COMMAND} -E remove ${Coverage_NAME}.base ${Coverage_NAME}.total ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
++            # Capturing lcov counters and generating report
++            COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} --directory .. --capture --output-file ${Coverage_NAME}.info
++            # add baseline counters
++            COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -a ${Coverage_NAME}.base -a ${Coverage_NAME}.info --output-file ${Coverage_NAME}.total
++            COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} --remove ${Coverage_NAME}.total ${COVERAGE_LCOV_EXCLUDES} --output-file ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
++            COMMAND ${GENHTML_PATH} --branch-coverage -o ${Coverage_NAME} ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
++            COMMAND ${CMAKE_COMMAND} -E remove ${Coverage_NAME}.base ${Coverage_NAME}.total ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+ 
+-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+-        DEPENDS ${Coverage_DEPENDENCIES}
+-        COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
+-    )
++            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
++            DEPENDS ${Coverage_DEPENDENCIES}
++            COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
++            )
+ 
+     # Show where to find the lcov info report
+     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+-        COMMAND ;
+-        COMMENT "Lcov code coverage info report saved in ${Coverage_NAME}.info."
+-    )
++            COMMAND ;
++            COMMENT "Lcov code coverage info report saved in ${Coverage_NAME}.info."
++            )
+ 
+     # Show info where to find the report
+     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+-        COMMAND ;
+-        COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+-    )
++            COMMAND ;
++            COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
++            )
+ 
+ endfunction() # SETUP_TARGET_FOR_COVERAGE_LCOV
+ 
+@@ -218,24 +218,29 @@ function(SETUP_TARGET_FOR_COVERAGE_GCOVR_XML)
+     endforeach()
+ 
+     add_custom_target(${Coverage_NAME}
+-        # Run tests
+-        ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
++            # Run tests
++            ${Coverage_EXECUTABLE}
+ 
+-        # Running gcovr
+-        COMMAND ${GCOVR_PATH} --xml
+-            -r ${PROJECT_SOURCE_DIR} ${GCOVR_EXCLUDES}
++            # Running gcovr
++            COMMAND ${GCOVR_PATH} --xml
++            -k -r ../.. ${GCOVR_EXCLUDES}
+             --object-directory=${PROJECT_BINARY_DIR}
+             -o ${Coverage_NAME}.xml
+-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+-        DEPENDS ${Coverage_DEPENDENCIES}
+-        COMMENT "Running gcovr to produce Cobertura code coverage report."
+-    )
++            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
++            DEPENDS ${Coverage_DEPENDENCIES}
++            COMMENT "Running gcovr to produce Cobertura code coverage report."
++
++            # Move *.gcov to ROOT/target/gcov-reports
++            COMMAND rm -rf ${PROJECT_BINARY_DIR}/target
++            COMMAND mkdir -p ${PROJECT_BINARY_DIR}/target/gcov-reports
++            COMMAND mv ${PROJECT_BINARY_DIR}/*.gcov ${PROJECT_BINARY_DIR}/target/gcov-reports
++            )
+ 
+     # Show info where to find the report
+     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+-        COMMAND ;
+-        COMMENT "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
+-    )
++            COMMAND ;
++            COMMENT "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
++            )
+ 
+ endfunction() # SETUP_TARGET_FOR_COVERAGE_GCOVR_XML
+ 
+@@ -272,27 +277,27 @@ function(SETUP_TARGET_FOR_COVERAGE_GCOVR_HTML)
+     endforeach()
+ 
+     add_custom_target(${Coverage_NAME}
+-        # Run tests
+-        ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
++            # Run tests
++            ${Coverage_EXECUTABLE}
+ 
+-        # Create folder
+-        COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
++            # Create folder
++            COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
+ 
+-        # Running gcovr
+-        COMMAND ${GCOVR_PATH} --html --html-details
+-            -r ${PROJECT_SOURCE_DIR} ${GCOVR_EXCLUDES}
++            # Running gcovr
++            COMMAND ${GCOVR_PATH} --html --html-details
++            -r ../.. ${GCOVR_EXCLUDES}
+             --object-directory=${PROJECT_BINARY_DIR}
+             -o ${Coverage_NAME}/index.html
+-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+-        DEPENDS ${Coverage_DEPENDENCIES}
+-        COMMENT "Running gcovr to produce HTML code coverage report."
+-    )
++            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
++            DEPENDS ${Coverage_DEPENDENCIES}
++            COMMENT "Running gcovr to produce HTML code coverage report."
++            )
+ 
+     # Show info where to find the report
+     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+-        COMMAND ;
+-        COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+-    )
++            COMMAND ;
++            COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
++            )
+ 
+ endfunction() # SETUP_TARGET_FOR_COVERAGE_GCOVR_HTML
+ 
+@@ -300,4 +305,4 @@ function(APPEND_COVERAGE_COMPILER_FLAGS)
+     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COVERAGE_COMPILER_FLAGS}" PARENT_SCOPE)
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COVERAGE_COMPILER_FLAGS}" PARENT_SCOPE)
+     message(STATUS "Appending code coverage compiler flags: ${COVERAGE_COMPILER_FLAGS}")
+-endfunction() # APPEND_COVERAGE_COMPILER_FLAGS
++endfunction() # APPEND_COVERAGE_COMPILER_FLAGS
+\ No newline at end of file

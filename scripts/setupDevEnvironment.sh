@@ -9,20 +9,29 @@ SECONDS=0
 WORKING_DIR=$(pwd)
 echo "working dir=$WORKING_DIR"
 
-EXECUTOR=$(whoami)
-if [[ "$EXECUTOR" != "root" ]]; then
-  echo "Run this script with sudo as some operations need root access"
-  exit 1
-fi
 
 echo "Kicking off setup process, it will take a while, go and get a cup of coffee."
 
 set -x
 
 # Set up dependencies
-bash "$SCRIPTS_DIR"/downloadDependencies.sh
-bash "$SCRIPTS_DIR"/installDependencies.sh
-
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "MAC OS"
+  bash "$SCRIPTS_DIR"/downloadDependencies-macos.sh
+  bash "$SCRIPTS_DIR"/installDependencies-macos.sh
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  echo "Linux OS"
+  # linux need root access
+  EXECUTOR=$(whoami)
+  if [[ "$EXECUTOR" != "root" ]]; then
+    echo "Run this script with sudo as some operations need root access"
+    exit 1
+  fi
+  bash "$SCRIPTS_DIR"/downloadDependencies.sh
+  bash "$SCRIPTS_DIR"/installDependencies.sh
+else
+  echo "unknown OS"
+fi
 set +x
 
 ELAPSED=$SECONDS
