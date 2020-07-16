@@ -239,7 +239,7 @@ class FileUtil final {
   static void writeStrToFile(std::ofstream &ofs, const std::string &content) {
     writeUint64ToFile(ofs, content.length());
     ofs.write(content.c_str(), content.length());
-    /// TODO: Enhance file read/write error handling
+    // TODO(https://jirap.corp.ebay.com/browse/RTCUTOFF-1109): Enhance file read/write error handling
     checkFileState(ofs);
   }
 

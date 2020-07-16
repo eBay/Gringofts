@@ -19,9 +19,9 @@ limitations under the License.
 #include "../es/store/CommandEventEncodeWrapper.h"
 
 namespace {
-using ::gringofts::es::CommandEntry;
-using ::gringofts::es::EventEntry;
-using ::gringofts::es::RaftPayload;
+using gringofts::es::CommandEntry;
+using gringofts::es::EventEntry;
+using gringofts::es::RaftPayload;
 }
 
 namespace gringofts {
@@ -80,8 +80,9 @@ void RaftLogStore::persistAsync(const std::shared_ptr<Command> &command,
                                 const std::vector<std::shared_ptr<Event>> &events,
                                 uint64_t index,
                                 RequestHandle *requestHandle) {
-  raft::LogEntry entry;
+  gringofts::raft::LogEntry entry;
 
+  entry.mutable_version()->set_secret_key_version(mCrypto->getLatestSecKeyVersion());
   entry.set_term(mLogStoreTerm);
   entry.set_index(index);
   entry.set_noop(false);
@@ -107,7 +108,9 @@ void RaftLogStore::dequeue() {
   uint64_t ts2InNano = TimeUtil::currentTimeInNanos();
 
   /// in-place encryption
-  mCrypto->encrypt(clientRequest.mEntry.mutable_payload());
+  assert(mCrypto->encrypt(
+      clientRequest.mEntry.mutable_payload(),
+      clientRequest.mEntry.version().secret_key_version()) == 0);
   assert(clientRequest.mEntry.ByteSizeLong() <= kMaxPayLoadSizeInBytes);
 
   uint64_t ts3InNano = TimeUtil::currentTimeInNanos();

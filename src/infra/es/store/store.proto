@@ -33,3 +33,11 @@ message RaftPayload {
     CommandEntry command = 1;
     repeated EventEntry events = 2;
 }
+
+message EncryptSecKeySet {
+message EncryptSecKey {
+    uint64 version = 1;
+    string key = 2;
+}
+repeated EncryptSecKey keys = 1;
+}

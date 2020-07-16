@@ -263,7 +263,17 @@ void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<raft::LogEntry> *
       continue;
     }
 
-    mCrypto->decrypt(entry.mutable_payload());
+    if (mCrypto->isEnabled()) {
+      if (entry.version().secret_key_version() == SecretKey::kInvalidSecKeyVersion) {
+        /// for compatibility: if no version field, use oldest version
+        const auto &allVersions = mCrypto->getDescendingVersions();
+        assert(!allVersions.empty());
+        auto oldestVersion = allVersions.back();
+        assert(mCrypto->decrypt(entry.mutable_payload(), oldestVersion) == 0);
+      } else {
+        assert(mCrypto->decrypt(entry.mutable_payload(), entry.version().secret_key_version()) == 0);
+      }
+    }
 
     RaftPayload payload;
     assert(payload.ParseFromString(entry.payload()));

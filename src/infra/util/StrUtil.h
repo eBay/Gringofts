@@ -63,6 +63,33 @@ class StrUtil final {
 
     return hex;
   }
+
+  /**
+   * Compliance with Golang multi-lines
+   * [multilines]
+   * two_lines = how about \
+   *            continuation lines?
+   * https://github.com/go-ini/ini/blob/master/testdata/full.ini
+   */
+  static std::vector<std::string> tokenizeGoMultiLines(const std::string &str, char delim) {
+    std::string temp = std::regex_replace(str, std::regex("\\\\+"), "");
+    return tokenize(std::ref(temp), delim);
+  }
+
+  static void replace(std::string *str, const std::string &old, const std::string &rep) {
+    // Find and replace
+    size_t pos = str->find(old);
+    if (pos != std::string::npos) {
+      str->replace(pos, old.length(), rep);
+    }
+  }
+
+  /**
+   * check string has suffix or not
+   */
+  static bool endsWith(const std::string &str, const std::string &suffix) {
+    return str.size() >= suffix.size() && 0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
+  }
 };
 
 }  /// namespace gringofts

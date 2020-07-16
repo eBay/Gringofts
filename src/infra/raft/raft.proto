@@ -8,12 +8,17 @@ service Raft {
     rpc AppendEntriesV2 (AppendEntries.Request) returns (AppendEntries.Response) {}
 }
 
+message VersionInfo {
+    uint64 secret_key_version = 1;
+}
+
 message LogEntry {
     uint64 term = 1; // term of this entry
     uint64 index = 2; // index of this entry, can be a virtual index, different from physical file index due to log rotation, etc.
     bool noop = 3; // the first entry when a new leader will send to all followers
     uint64 checksum = 4; // checksum of the payload
     bytes payload = 5; // one payload may contain multiple content, e.g., commands, events
+    VersionInfo version = 6;
 }
 
 message RequestVote {
