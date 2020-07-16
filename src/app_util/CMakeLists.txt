@@ -12,19 +12,8 @@ ADD_PROTO_RESOURCE(
         "protos/netadmin.proto"
         ${proto_generated_dir})
 
-# Source files
-set(APP_UTIL_SRC
-        AppInfo.h
-        CommandEventDecoderImpl.h
-        CommandProcessLoop.h
-        EventApplyLoop.h
-        NetAdminServer.h
-        NetAdminServiceProvider.h)
-
 # Library
 set(APP_UTIL_LIBS boost_system.a ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF} lib_inih)
 
-add_library(app_util STATIC
-        ${APP_UTIL_SRC})
-add_dependencies(app_util netadmin_proto_library)
-target_link_libraries(app_util netadmin_proto_library ${APP_UTIL_LIBS})
+add_library(app_util INTERFACE)
+target_link_libraries(app_util INTERFACE netadmin_proto_library ${APP_UTIL_LIBS})
