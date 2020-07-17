@@ -30,13 +30,13 @@ class CommandEventDecodeWrapper {
   static std::unique_ptr<Command> decodeCommand(const es::CommandEntry &commandEntry,
                                                 const CommandDecoder &commandDecoder) {
     return commandDecoder.decodeCommandFromString(CommandMetaData{commandEntry},
-                                                  commandEntry.entry().c_str());
+                                                  std::string_view{commandEntry.entry()});
   }
 
   static std::unique_ptr<Event> decodeEvent(const es::EventEntry &eventEntry,
                                             const EventDecoder &eventDecoder) {
     return eventDecoder.decodeEventFromString(EventMetaData{eventEntry},
-                                              eventEntry.entry().c_str());
+                                              std::string_view{eventEntry.entry()});
   }
 };
 

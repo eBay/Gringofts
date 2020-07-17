@@ -30,7 +30,6 @@ set(APP_DEMO_AUTOGEN
         should_be_generated/domain/post/BundleExposePublisher.cpp)
 
 set(APP_DEMO_SRC
-        v1/AppStateMachine.cpp
         v2/RocksDBBackedAppStateMachine.cpp
         execution/IncreaseApplier.cpp
         execution/IncreaseHandler.cpp)

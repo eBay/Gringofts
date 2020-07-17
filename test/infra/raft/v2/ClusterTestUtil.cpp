@@ -39,6 +39,7 @@ void ClusterTestUtil::setupAllServers(
 }
 
 void ClusterTestUtil::killAllServers() {
+  mRaftInstConfigs.clear();
   mRaftInsts.clear();
   mRaftInstClients.clear();
   SPDLOG_INFO("killing all servers");
@@ -50,6 +51,7 @@ void ClusterTestUtil::setupServer(const std::string &configPath) {
   std::shared_ptr<RaftCore> raftImpl(new RaftCore(configPath.c_str(), &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
   assert(mRaftInsts.find(member) == mRaftInsts.end());
+  mRaftInstConfigs[member] = configPath;
   mRaftInsts[member] = raftImpl;
   mRaftInstClients[member] = std::make_unique<RaftClient>(
       grpc::CreateChannel(member.toString(), grpc::InsecureChannelCredentials()),
@@ -59,6 +61,7 @@ void ClusterTestUtil::setupServer(const std::string &configPath) {
 
 void ClusterTestUtil::killServer(const MemberInfo &member) {
   assert(mRaftInsts.find(member) != mRaftInsts.end());
+  mRaftInstConfigs.erase(member);
   SPDLOG_INFO("killing server {}", member.toString());
   mRaftInsts.erase(member);
   SPDLOG_INFO("server {} is down", member.toString());
@@ -88,6 +91,9 @@ int ClusterTestUtil::sendClientRequest(
     uint32_t retryLimit) {
   auto leader = waitAndGetLeader();
   assert(mRaftInsts.find(leader) != mRaftInsts.end());
+  /// init a crypto same as the server to encrypt client requests
+  auto crypto = std::make_shared<gringofts::CryptoUtil>();
+  crypto->init(INIReader(mRaftInstConfigs[leader]));
 
   auto retry = retryLimit;
   while (retry-- > 0) {
@@ -100,11 +106,13 @@ int ClusterTestUtil::sendClientRequest(
     auto startIndex = mRaftInsts[leader]->getLastLogIndex() + 1;
     for (auto i = 0; i < data.size(); ++i) {
       gringofts::raft::LogEntry entry;
+      entry.mutable_version()->set_secret_key_version(crypto->getLatestSecKeyVersion());
       entry.set_term(mRaftInsts[leader]->getCurrentTerm());
       (*entryIndexes)[i] = startIndex + i;
       entry.set_index(startIndex + i);
       entry.set_noop(false);
       entry.set_payload(data[i]);
+      assert(crypto->encrypt(entry.mutable_payload(), entry.version().secret_key_version()) == 0);
       ClientRequest req = {entry, &handler};
       reqs.emplace_back(req);
     }
@@ -122,10 +130,17 @@ int ClusterTestUtil::sendClientRequest(
   return -1;
 }
 
-bool ClusterTestUtil::getEntry(const MemberInfo &member, uint64_t index, gringofts::raft::LogEntry *entry) {
+bool ClusterTestUtil::getDecryptedEntry(const MemberInfo &member, uint64_t index, gringofts::raft::LogEntry *entry) {
   assert(mRaftInsts.find(member) != mRaftInsts.end());
   /// we have to use mLog since the RaftCore::getEntry has limit
-  return mRaftInsts[member]->mLog->getEntry(index, entry);
+  bool res = mRaftInsts[member]->mLog->getEntry(index, entry);
+  if (res) {
+    /// init same crypto as the server to decrypt client requests
+    auto crypto = std::make_shared<gringofts::CryptoUtil>();
+    crypto->init(INIReader(mRaftInstConfigs[member]));
+    assert(crypto->decrypt(entry->mutable_payload(), entry->version().secret_key_version()) == 0);
+  }
+  return res;
 }
 
 MemberInfo ClusterTestUtil::waitAndGetLeader() {

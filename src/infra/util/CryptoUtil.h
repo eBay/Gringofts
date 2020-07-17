@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef SRC_INFRA_UTIL_CRYPTOUTIL_H_
 #define SRC_INFRA_UTIL_CRYPTOUTIL_H_
 
+#include <algorithm>
 #include <openssl/aes.h>
 #include <openssl/bio.h>
 #include <openssl/conf.h>
@@ -25,9 +26,21 @@ limitations under the License.
 #include <INIReader.h>
 #include <spdlog/spdlog.h>
 
-#include "../es/Crypto.h"
+#include "../monitor/MonitorTypes.h"
 
 namespace gringofts {
+
+using SecKeyVersion = uint64_t;
+
+struct SecretKey {
+  /// Use EVP_aes_256_cbc, 32 bytes equals 256 bit
+  static constexpr uint64_t kKeyLen = 32;
+  static constexpr SecKeyVersion kInvalidSecKeyVersion = 0;
+
+  SecKeyVersion mVersion = kInvalidSecKeyVersion;
+  /// A 256 bit key
+  unsigned char mKey[kKeyLen] = {0};
+};
 
 /**
  * This class is a wrapper for openssl functions, which is used to
@@ -35,9 +48,9 @@ namespace gringofts {
  * 2) generate hmac, via SHA256. BTW, SHA256 reuses key of AES CBC 256,
  *    since it can accept key with any len.
  */
-class CryptoUtil : public Crypto {
+class CryptoUtil {
  public:
-  CryptoUtil() {
+  CryptoUtil() : mLatestVersionGauge(getGauge("key_version", {})) {
     /// set up IV
     memset(mIV, 0x00, AES_BLOCK_SIZE);
   }
@@ -46,81 +59,66 @@ class CryptoUtil : public Crypto {
   CryptoUtil &operator=(const CryptoUtil &) = delete;
 
   void init(const INIReader &reader);
-  void init(const std::string &key);
+  void init(SecKeyVersion version, const std::string &key);
+
+  bool isEnabled() { return mEnabled; }
+  /// sorted versions in ascending order
+  const std::vector<SecKeyVersion>& getDescendingVersions() const {
+    return mDescendingSecKeyVersions;
+  }
+  SecKeyVersion getLatestSecKeyVersion() const { return mLatestVersion; }
 
   /// do a in-place encryption on std::string,
   /// if not enabled, do nothing.
-  void encrypt(std::string *) const;
+  /// return 0 if success
+  int encrypt(std::string *, SecKeyVersion version) const;
 
-  /// do a in-place decryption on std::string,
+  /// do a in-place decryption on std::string using the specified key version,
   /// if not enabled, do nothing.
-  void decrypt(std::string *) const;
+  /// return 0 if success
+  int decrypt(std::string *payload, SecKeyVersion version) const;
 
-  /// return hmac_sha256, if not enabled, return empty str.
-  std::string hmac(const std::string &) const;
+  /// return hmac_sha256 using the specified key version, if not enabled, return empty str.
+  std::string hmac(const std::string &, SecKeyVersion version) const;
 
-  /// return hmac_sha256 for n bytes at d, if not enabled, return empty str.
-  std::string hmac(const unsigned char *d, std::size_t n) const;
-
-  void beginEncryption(uint64_t bufferSize) override;
-  void encryptUint64ToFile(std::ofstream &ofs, uint64_t content) override;
-  void encryptStrToFile(std::ofstream &ofs, const std::string &content) override;
-  void commitEncryption(std::ofstream &ofs) override;
-
-  void beginDecryption(uint64_t bufferSize) override;
-  uint64_t decryptUint64FromFile(std::ifstream &ifs) override;
-  std::string decryptStrFromFile(std::ifstream &ifs) override;
-  void commitDecryption(std::ifstream &ifs) override;
+  /// return hmac_sha256 for n bytes at d using the specified key version, if not enabled, return empty str.
+  std::string hmac(const unsigned char *d, std::size_t n, SecKeyVersion version) const;
 
  private:
+  void assertValidVersion(SecKeyVersion version) const;
   /// decode aes key from base64 to raw bytes
   static void decodeBase64Key(const std::string &base64,
                               unsigned char *key, int keyLen);
 
   /// print error msg from openssl and abort
-  static void handleErrors();
+  static int handleErrors();
 
   /// plain text -> cipher text
-  /// return len of cipher text
+  /// cipher: encrypted text
+  /// cipherLen: encrypted text length
+  /// return 0 if success
   static int encrypt(const unsigned char *plain, int plainLen,
                      const unsigned char *key, const unsigned char *iv,
-                     unsigned char *cipher);
+                     unsigned char *cipher, int *cipherLen);
 
   /// cipher text -> plain text
-  /// return len of plain text
+  /// plain: decrypted text
+  /// plainLen: decrypted text length
+  /// return 0 if success
   static int decrypt(const unsigned char *cipher, int cipherLen,
                      const unsigned char *key, const unsigned char *iv,
-                     unsigned char *plain);
+                     unsigned char *plain, int *plainLen);
 
   /// Whether aes feature is enable
-  bool mEnable = false;
+  bool mEnabled = false;
 
-  /// Use EVP_aes_256_cbc, 32 bytes equals 256 bit
-  static constexpr uint64_t kKeyLen = 32;
-  /// A 256 bit key
-  unsigned char mKey[kKeyLen];
-
+  std::vector<SecKeyVersion> mDescendingSecKeyVersions;
+  std::map<SecKeyVersion, SecretKey> mAllKeys;
+  SecKeyVersion mLatestVersion = SecretKey::kInvalidSecKeyVersion;
   /// A 128 bit IV
   unsigned char mIV[AES_BLOCK_SIZE];
 
-  static constexpr auto kPlainMaxLen = 1 << 30;  // 1G
-
-  std::vector<unsigned char> mPlainBuffer;
-  uint64_t mPlainBufferSize = 0;
-
-  uint64_t mCurrentOffset = 0;
-
-  std::vector<unsigned char> mCipherBuffer;
-  uint64_t mCipherBufferSize = 0;
-
-  /// control disk I/O rate of taking snapshot by
-  /// limiting the frequency of flushing cipher buffer
-  uint64_t mLastFlushTimeInNano = 0;
-
-  EVP_CIPHER_CTX *mCtx;
-
-  void bufferOrEncrypt(std::ofstream &ofs, const unsigned char *content, size_t length);
-  void readOrDecrypt(std::ifstream &ifs, unsigned char *content, size_t length);
+  mutable santiago::MetricsCenter::GaugeType mLatestVersionGauge;
 };
 
 }  /// namespace gringofts

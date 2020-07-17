@@ -109,8 +109,28 @@ class Util final {
     return data;
   }
 
+  /**
+   * get current version according to the current work directory
+   * ebay deploy path is like /ebay/cronus/software/service_nodes/.ENV3rs710p46dq.fasrtprocessunit-app__ENV3rs710p46dq.fasrtprocessunit-app__ENV3rs710p46dq-LVS-CLjsb6td10vi52g-10.149.253.56/installed-packages/magellan_trinidad_bas/1.0.1_2_1562809884239.unx/cronus
+   * the last second value is the release version
+   * @return release version
+   */
   static std::string getCurrentVersion() {
-    return "1.0.0";
+    namespace fs = boost::filesystem;
+    std::string cwd = fs::current_path().string();
+    SPDLOG_INFO("current work directory is {}", cwd);
+    return getReleaseVersion(cwd);
+  }
+
+  static std::string getReleaseVersion(const std::string &cwd) {
+    const char *suffix = "unx";
+    const char *unknownVersion = "UNKNOWN";
+    auto tokens = StrUtil::tokenize(cwd, '/');
+    if (tokens.size() < 2) {
+      return unknownVersion;
+    }
+    auto &version = tokens[tokens.size() - 2];
+    return StrUtil::endsWith(version, suffix) ? version : unknownVersion;
   }
 };
 

@@ -18,12 +18,31 @@ limitations under the License.
 
 namespace gringofts::test {
 
-TEST(UtilTest, getCurrentVersionTest) {
+TEST(UtilTest, ReleaseVersionTest) {
+  /// init
+  const char *testCWD =
+      "/ebay/cronus/software/service_nodes"
+      "/.ENV3rs710p46dq.fasrtprocessunit-app__ENV3rs710p46dq."
+      "fasrtprocessunit-app__ENV3rs710p46dq-LVS-CLjsb6td10vi52g-10.149.253.56"
+      "/installed-packages/magellan_trinidad_bas"
+      "/1.0.1_2_1562809884239.unx/cronus";
+
   /// behavior
-  const auto &version = Util::getCurrentVersion();
+  const auto &version = Util::getReleaseVersion(testCWD);
 
   /// assert
-  EXPECT_EQ(version, "1.0.0");
+  EXPECT_EQ(version, "1.0.1_2_1562809884239.unx");
+}
+
+TEST(UtilTest, UnknownVersionTest) {
+  /// init
+  const char *testCWD = "1.0.1_2_1562809884239.unx";
+
+  /// behavior
+  const auto &version = Util::getReleaseVersion(testCWD);
+
+  /// assert
+  EXPECT_EQ(version, "UNKNOWN");
 }
 
 }  /// namespace gringofts::test

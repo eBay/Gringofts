@@ -62,6 +62,7 @@ void storageABTest(uint64_t runCount, const std::string &logDir,
   for (uint64_t i = 1; i <= runCount; ++i) {
     LogEntry entry;
 
+    entry.mutable_version()->set_secret_key_version(crypto->getLatestSecKeyVersion());
     entry.set_term(i);
     entry.set_payload(getRandomPayload());
 

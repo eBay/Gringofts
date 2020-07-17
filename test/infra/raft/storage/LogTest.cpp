@@ -26,6 +26,8 @@ class LogTest : public ::testing::Test {
   void TearDown() override {}
 
   void everythingAboutLog(Log *log);
+
+  static const SecKeyVersion defaultVersion = 1;
 };
 
 void LogTest::everythingAboutLog(Log *log) {
@@ -35,14 +37,17 @@ void LogTest::everythingAboutLog(Log *log) {
     std::string str4KiB(4 * 1024, 'a');
 
     raft::LogEntry entry1;
+    entry1.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry1.set_index(1);
     entry1.set_payload(str10KiB);
 
     raft::LogEntry entry2;
+    entry2.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry2.set_index(2);
     entry2.set_payload(str4KiB);
 
     raft::LogEntry entry3;
+    entry3.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry3.set_index(3);
     entry3.set_payload(str4KiB);
 
@@ -58,10 +63,12 @@ void LogTest::everythingAboutLog(Log *log) {
     std::string str4KiB(4 * 1024, 'a');
 
     raft::LogEntry entry4;
+    entry4.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry4.set_index(4);
     entry4.set_payload(str4KiB);
 
     raft::LogEntry entry5;
+    entry5.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry5.set_index(5);
     entry5.set_payload(str4KiB);
 
@@ -148,7 +155,7 @@ TEST_F(LogTest, HMACTest) {
   auto cryptoDisableHMAC = std::make_shared<CryptoUtil>();
 
   auto cryptoEnableHMAC = std::make_shared<CryptoUtil>();
-  cryptoEnableHMAC->init("01234567890123456789012345678901");
+  cryptoEnableHMAC->init(defaultVersion, "01234567890123456789012345678901");
 
   std::string str4KiB(4 * 1024, 'a');
 
@@ -157,6 +164,7 @@ TEST_F(LogTest, HMACTest) {
                                           segmentDataSizeLimit, segmentMetaSizeLimit);
   for (auto i = 1; i <= 10; ++i) {
     raft::LogEntry entry;
+    entry.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry.set_index(i);
     entry.set_payload(str4KiB);
     log->appendEntry(entry);
@@ -172,6 +180,7 @@ TEST_F(LogTest, HMACTest) {
   /// append 10 entries meanwhile enable HMAC
   for (auto i = 11; i <= 20; ++i) {
     raft::LogEntry entry;
+    entry.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
     entry.set_index(i);
     entry.set_payload(str4KiB);
     log->appendEntry(entry);

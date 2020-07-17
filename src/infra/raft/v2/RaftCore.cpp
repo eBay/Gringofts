@@ -786,6 +786,7 @@ void RaftCore::becomeLeader() {
   /// append noop
   LogEntry entry;
 
+  entry.mutable_version()->set_secret_key_version(mLog->getLatestSecKeyVersion());
   entry.set_term(mLog->getCurrentTerm());
   entry.set_index(mLog->getLastLogIndex() + 1);
   entry.set_noop(true);

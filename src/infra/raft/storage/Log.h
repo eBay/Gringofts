@@ -22,6 +22,7 @@ limitations under the License.
 
 #include <spdlog/spdlog.h>
 
+#include "../../util/CryptoUtil.h"
 #include "../generated/raft.grpc.pb.h"
 
 namespace gringofts {
@@ -38,6 +39,10 @@ class Log {
   /// Log is not copyable
   Log(const Log &) = delete;
   Log &operator=(const Log &) = delete;
+
+  virtual SecKeyVersion getLatestSecKeyVersion() const {
+    return SecretKey::kInvalidSecKeyVersion;
+  }
 
   /// append
   virtual bool appendEntry(const raft::LogEntry &entry) = 0;

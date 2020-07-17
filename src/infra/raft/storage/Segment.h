@@ -70,7 +70,9 @@ class Segment final {
         mIsActive(true),
         mFirstIndex(firstIndex),
         mLastIndex(firstIndex - 1),
-        mCrypto(crypto) { createActiveSegment(); }
+        mCrypto(crypto) {
+          createActiveSegment();
+        }
 
   /// Ctor for active segment
   /// need recover
@@ -80,7 +82,9 @@ class Segment final {
         mIsActive(true),
         mFirstIndex(firstIndex),
         mLastIndex(firstIndex - 1),
-        mCrypto(crypto) { /** lazy recover */ }
+        mCrypto(crypto) {
+          /** lazy recover */
+        }
 
   /// Ctor for closed segment
   /// need recover
@@ -90,7 +94,9 @@ class Segment final {
         mIsActive(false),
         mFirstIndex(firstIndex),
         mLastIndex(lastIndex),
-        mCrypto(crypto) { /** lazy recover */ }
+        mCrypto(crypto) {
+          /** lazy recover */
+        }
 
   ~Segment();
 
@@ -155,7 +161,7 @@ class Segment final {
 
   /// create HMAC based on index and payload
   /// Attention: all fields of LogMeta except digest should be ready.
-  void createHMAC(LogMeta *meta) const;
+  void createHMAC(LogMeta *meta, SecKeyVersion version) const;
 
   /// verify HMAC based on index and payload
   /// Attention: take effect iff this entry has HMAC and HMAC is enabled in crypto.
@@ -182,6 +188,9 @@ class Segment final {
 
   /// crypto for HMAC
   std::shared_ptr<CryptoUtil> mCrypto;
+  /// record the recently used key version for quick decryption, inited as 0 so that it points to the latest version
+  /// i.e., descendingSecKeyVersions[mRecentUsedSecKeyIndex]
+  mutable std::atomic<uint64_t> mRecentUsedSecKeyIndex = 0;
 };
 
 }  /// namespace storage

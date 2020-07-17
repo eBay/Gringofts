@@ -74,7 +74,7 @@ class ClusterTestUtil {
     MemberInfo getMemberInfo(const MemberInfo &member);
     uint64_t getCommitIndex(const MemberInfo &member);
     uint64_t getLastLogIndex(const MemberInfo &member);
-    bool getEntry(const MemberInfo &member, uint64_t index, gringofts::raft::LogEntry *entry);
+    bool getDecryptedEntry(const MemberInfo &member, uint64_t index, trinidad::raft::LogEntry *entry);
 
     MemberInfo waitAndGetLeader();
     bool waitLogForAll(uint64_t index);
@@ -98,6 +98,7 @@ class ClusterTestUtil {
     /// event queue should be destroyed after RaftClient
     EventQueue mAeRvQueue;
 
+    std::map<MemberInfo, std::string> mRaftInstConfigs;
     std::map<MemberInfo, std::shared_ptr<RaftCore>> mRaftInsts;
     /// serve as client to send request to raft cluster
     std::map<MemberInfo, std::unique_ptr<RaftClient>> mRaftInstClients;
