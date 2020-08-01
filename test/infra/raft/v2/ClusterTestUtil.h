@@ -61,7 +61,7 @@ class ClusterTestUtil {
     void setupAllServers(const std::vector<std::string> &configPaths);
     void setupAllServers(const std::vector<std::string> &configPaths, const std::vector<SyncPoint> &points);
     void killAllServers();
-    void setupServer(const std::string &configPath);
+    MemberInfo setupServer(const std::string &configPath);
     void killServer(const MemberInfo &member);
 
     /// send request in sync
@@ -94,7 +94,7 @@ class ClusterTestUtil {
       SyncPointProcessor::getInstance().reset(points);
     }
 
- private:
+ protected:
     /// event queue should be destroyed after RaftClient
     EventQueue mAeRvQueue;
 
