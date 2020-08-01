@@ -46,7 +46,7 @@ void ClusterTestUtil::killAllServers() {
   SyncPointProcessor::getInstance().tearDown();
 }
 
-void ClusterTestUtil::setupServer(const std::string &configPath) {
+MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   SPDLOG_INFO("starting server using {}", configPath);
   std::shared_ptr<RaftCore> raftImpl(new RaftCore(configPath.c_str(), &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
@@ -57,6 +57,7 @@ void ClusterTestUtil::setupServer(const std::string &configPath) {
       grpc::CreateChannel(member.toString(), grpc::InsecureChannelCredentials()),
       raftImpl->mSelfInfo.mId,
       &mAeRvQueue);
+  return member;
 }
 
 void ClusterTestUtil::killServer(const MemberInfo &member) {
