@@ -28,13 +28,13 @@ limitations under the License.
 
 namespace gringofts {
 
-enum TPRegistry {
-  /// format: class_method_purpose
-  RaftCore_receiveMessage_interceptIncoming,
-  RaftCore_electionTimeout_interceptTimeout
-};
+using PointKey = uint32_t;
 
-using PointKey = TPRegistry;
+struct TPRegistry {
+  /// format: class_method_purpose
+  static constexpr PointKey RaftCore_receiveMessage_interceptIncoming = 0;
+  static constexpr PointKey RaftCore_electionTimeout_interceptTimeout = 1;
+};
 
 class TestPointProcessor {
  public:
