@@ -51,6 +51,7 @@ void RaftServer::serverLoopMain() {
   pthread_setname_np(pthread_self(), "RaftServer");
 
   grpc::ServerBuilder builder;
+  builder.SetMaxReceiveMessageSize(INT_MAX);
   builder.AddListeningPort(mIpPort, TlsUtil::buildServerCredentials(mTlsConfOpt));
   builder.RegisterService(&mService);
 
