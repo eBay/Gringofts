@@ -164,8 +164,10 @@ void RaftCore::initService(const INIReader &iniReader) {
   /// init RaftClient
   for (const auto &p : mPeers) {
     auto &peer = p.second;
+    grpc::ChannelArguments chArgs;
+    chArgs.SetMaxReceiveMessageSize(INT_MAX);
     mClients[peer.mId] = std::make_unique<RaftClient>(
-        grpc::CreateChannel(peer.mAddress, TlsUtil::buildChannelCredentials(tlsConfOpt)),
+        grpc::CreateCustomChannel(peer.mAddress, TlsUtil::buildChannelCredentials(tlsConfOpt), chArgs),
         peer.mId,
         &mAeRvQueue);
   }

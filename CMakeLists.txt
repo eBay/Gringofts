@@ -228,6 +228,8 @@ set(INIH_SRC
 
 add_library(lib_inih STATIC
         ${INIH_SRC})
+target_compile_definitions(lib_inih PRIVATE INI_MAX_LINE=1024)
+
 
 # check library exists
 function(check_lib_exist LIB_NAME)
