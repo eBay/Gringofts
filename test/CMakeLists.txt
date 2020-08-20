@@ -20,6 +20,8 @@ set(UNIT_TEST_SRC
         infra/mpscqueue/MpscDoubleBufferQueueTest.cpp
         infra/raft/monitor/RaftMonitorAdaptorTest.cpp
         infra/raft/storage/LogTest.cpp
+        infra/raft/v2/ClusterTestUtil.cpp
+        infra/raft/v2/FixedMembershipTest.cpp
         infra/raft/v2/RaftCoreTest.cpp
         infra/util/BigDecimalTest.cpp
         infra/util/CryptoUtilTest.cpp
@@ -28,7 +30,8 @@ set(UNIT_TEST_SRC
         infra/util/RandomUtilTest.cpp
         infra/util/TimeUtilTest.cpp
         infra/util/TlsUtilTest.cpp
-        infra/util/UtilTest.cpp)
+        test_util/SyncPointProcessor.cpp
+        )
 
 # unit-test on googletest
 include_directories(BEFORE ../third_party/gtest/googletest)

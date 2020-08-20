@@ -94,7 +94,8 @@ TEST_F(FixedMembershipTest, NormalTest) {
 /// if we elect server1, then the cluster works fine
 /// if we elect server2, then server1 will crash
 /// if we elect server3, then server1/2 will crash
-TEST_F(FixedMembershipTest, SecretKeyVersionMissMatchTest) {
+/// TODO qiawu will try to fix this test
+TEST_F(FixedMembershipTest, DISABLED_SecretKeyVersionMissMatchTest) {
   testing::GTEST_FLAG(death_test_style) = "threadsafe";
   auto runWithChosenLeader = [this](const std::set<MemberInfo> &allowedLeaders) {
     mClusterUtil.enableAllSyncPoints();

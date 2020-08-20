@@ -74,7 +74,7 @@ class ClusterTestUtil {
     MemberInfo getMemberInfo(const MemberInfo &member);
     uint64_t getCommitIndex(const MemberInfo &member);
     uint64_t getLastLogIndex(const MemberInfo &member);
-    bool getDecryptedEntry(const MemberInfo &member, uint64_t index, trinidad::raft::LogEntry *entry);
+    bool getDecryptedEntry(const MemberInfo &member, uint64_t index, raft::LogEntry *entry);
 
     MemberInfo waitAndGetLeader();
     bool waitLogForAll(uint64_t index);

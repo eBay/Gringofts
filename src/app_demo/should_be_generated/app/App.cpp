@@ -101,7 +101,7 @@ void App::initMonitor(const INIReader &reader) {
 
   auto &appInfo = Singleton<santiago::AppInfo>::getInstance();
   auto appName = "demoApp";
-  auto appVersion = Util::getCurrentVersion();
+  auto appVersion = "demoVersion";
   auto appEnv = reader.Get("app", "env", "unknown");
   appInfo.setAppInfo(appName, appVersion, appEnv);
 
