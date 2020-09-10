@@ -75,6 +75,8 @@ class RocksDBBackedAppStateMachine : public v2::AppStateMachine {
 
   /// latest index that have been flushed to RocksDB
   uint64_t mLastFlushedIndex = 0;
+
+  void writeSerializedProcessState(const std::string &newSerializedState) override;
 };
 
 }  /// namespace v2

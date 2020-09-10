@@ -12,8 +12,22 @@ ADD_PROTO_RESOURCE(
         "protos/netadmin.proto"
         ${gringofts_proto_generated_dir})
 
+# split.proto
+ADD_PROTO_RESOURCE(
+        gringofts_split_proto_library
+        "protos/split.proto"
+        ${gringofts_proto_generated_dir})
+
+set(GRINGOFTS_APP_UTIL_SRC
+        split/RequestCallData.cpp
+        split/RequestReceiver.cpp
+        split/SplitCommand.cpp
+        split/SplitEvent.cpp
+        split/SplitManager.cpp
+        )
+
 # Library
 set(GRINGOFTS_APP_UTIL_LIBS ${Boost_LIBRARIES} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF} lib_inih)
 
-add_library(gringofts_app_util INTERFACE)
-target_link_libraries(gringofts_app_util INTERFACE gringofts_netadmin_proto_library ${GRINGOFTS_APP_UTIL_LIBS})
+add_library(gringofts_app_util STATIC ${GRINGOFTS_APP_UTIL_SRC})
+target_link_libraries(gringofts_app_util gringofts_netadmin_proto_library gringofts_split_proto_library ${GRINGOFTS_APP_UTIL_LIBS})

@@ -23,6 +23,8 @@ limitations under the License.
 #include "../infra/es/store/SnapshotUtil.h"
 #include "../infra/util/CryptoUtil.h"
 
+#include "split/SplitEvent.h"
+#include "split/SplitManager.h"
 #include "CommandEventDecoderImpl.h"
 #include "NetAdminServiceProvider.h"
 
@@ -111,6 +113,10 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
 
   void swapStateAndTeardown(StateMachine &target) override {  // NOLINT [runtime/references]
     std::lock_guard<std::mutex> lock(mLoopMutex);
+    /// for process state it is init in EAL
+    /// but we want to copy it to CPL
+    auto & processCommandStateMachine = dynamic_cast<ProcessCommandStateMachine &>(target);
+    processCommandStateMachine.initProcessState(mAppStateMachine->readProcessState());
     target.swapState(mAppStateMachine.get());
     mReadonlyCommandEventStore->teardown();
     mShouldRecover = true;
@@ -180,7 +186,7 @@ void EventApplyLoopBase<StateMachineType>::run() {
 
     auto &events = (*commandEventsOpt).second;
     for (auto &eventPtr : events) {
-      mAppStateMachine->applyEvent(*eventPtr);
+      split::SplitManager::wrapper(*eventPtr, *mAppStateMachine);
     }
 
     uint64_t ts3InNano = TimeUtil::currentTimeInNanos();
@@ -241,17 +247,18 @@ class EventApplyLoop;  /// not defined
 
 template<typename MemoryBackedStateMachineType>
 class EventApplyLoop<MemoryBackedStateMachineType, false>
-        : public EventApplyLoopBase<MemoryBackedStateMachineType> {
+    : public EventApplyLoopBase<MemoryBackedStateMachineType> {
  public:
   EventApplyLoop(const INIReader &reader,
                  const std::shared_ptr<CommandEventDecoder> &decoder,
                  std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
                  const std::string &snapshotDir)
-         : EventApplyLoopBase<MemoryBackedStateMachineType>(reader,
-                                                            decoder,
-                                                            std::move(readonlyCommandEventStore),
-                                                            snapshotDir) {
+      : EventApplyLoopBase<MemoryBackedStateMachineType>(reader,
+                                                         decoder,
+                                                         std::move(readonlyCommandEventStore),
+                                                         snapshotDir) {
     initStateMachine(reader);
+    split::SplitManager::initWithSplitState(reader, *(this->mAppStateMachine));
     /// recover state
     recoverSelf();
   }
@@ -326,17 +333,18 @@ class EventApplyLoop<MemoryBackedStateMachineType, false>
 
 template<typename RocksDBBackedStateMachineType>
 class EventApplyLoop<RocksDBBackedStateMachineType, true>
-        : public EventApplyLoopBase<RocksDBBackedStateMachineType> {
+    : public EventApplyLoopBase<RocksDBBackedStateMachineType> {
  public:
   EventApplyLoop(const INIReader &reader,
                  const std::shared_ptr<CommandEventDecoder> &decoder,
                  std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
                  const std::string &snapshotDir)
-          : EventApplyLoopBase<RocksDBBackedStateMachineType>(reader,
-                                                              decoder,
-                                                              std::move(readonlyCommandEventStore),
-                                                              snapshotDir) {
+      : EventApplyLoopBase<RocksDBBackedStateMachineType>(reader,
+                                                          decoder,
+                                                          std::move(readonlyCommandEventStore),
+                                                          snapshotDir) {
     initStateMachine(reader);
+    split::SplitManager::initWithSplitState(reader, *(this->mAppStateMachine));
     /// recover state
     recoverSelf();
   }
@@ -356,7 +364,7 @@ class EventApplyLoop<RocksDBBackedStateMachineType, true>
  protected:
   void initStateMachine(const INIReader &iniReader) {
     std::string walDir = iniReader.Get("rocksdb", "wal.dir", "");
-    std::string dbDir  = iniReader.Get("rocksdb", "db.dir", "");
+    std::string dbDir = iniReader.Get("rocksdb", "db.dir", "");
     assert(!walDir.empty() && !dbDir.empty());
 
     this->mAppStateMachine = std::make_unique<RocksDBBackedStateMachineType>(walDir, dbDir);

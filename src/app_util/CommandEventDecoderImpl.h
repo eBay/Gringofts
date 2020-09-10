@@ -17,6 +17,8 @@ limitations under the License.
 
 #include "../infra/common_types.h"
 #include "../infra/es/CommandEventDecoder.h"
+#include "split/SplitCommand.h"
+#include "split/SplitEvent.h"
 
 namespace gringofts {
 namespace app {
@@ -34,11 +36,26 @@ class CommandEventDecoderImpl : public CommandEventDecoder {
 
   std::unique_ptr<Event> decodeEventFromString(const EventMetaData &metaData,
                                                std::string_view payload) const override {
+
+    switch (metaData.getType()) {
+      case split::SPILT_EVENT: {
+        auto command = std::make_unique<split::SplitEvent>(metaData.getCreatedTimeInNanos(), std::string(payload));
+        command->setPartialMetaData(metaData);
+        return command;
+      }
+    }
     return mEventDecoderImpl.decodeEventFromString(metaData, payload);
   }
 
   std::unique_ptr<Command> decodeCommandFromString(const CommandMetaData &metaData,
                                                    std::string_view payload) const override {
+    switch (metaData.getType()) {
+      case split::SPILT_COMMAND: {
+        auto event = std::make_unique<split::SplitCommand>(metaData.getCreatedTimeInNanos(), std::string(payload));
+        event->setPartialMetaData(metaData);
+        return event;
+      }
+    }
     return mCommandDecoderImpl.decodeCommandFromString(metaData, payload);
   }
 

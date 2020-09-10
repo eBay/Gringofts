@@ -18,6 +18,8 @@ namespace gringofts {
 namespace demo {
 namespace v2 {
 
+const char *kProcessStateKey = "processStateKey";
+
 void RocksDBBackedAppStateMachine::setValue(uint64_t value) {
   assert(mValue + 1 == value);
   SPDLOG_INFO("set value from {} to {}", mValue, value);
@@ -139,7 +141,27 @@ void RocksDBBackedAppStateMachine::loadFromRocksDB() {
     SPDLOG_ERROR("Error in RocksDB: {}. Exiting...", status.ToString());
     assert(0);
   }
+
+  /// load isProcessing
+  status = mRocksDB->Get(rocksdb::ReadOptions(), kProcessStateKey, &value);
+  if (status.ok()) {
+    initProcessState(value);
+  } else if (status.IsNotFound()) {
+    mValue = 0;
+  } else {
+    SPDLOG_ERROR("Error in RocksDB: {}. Exiting...", status.ToString());
+    assert(0);
+  }
 }
+
+void RocksDBBackedAppStateMachine::writeSerializedProcessState(const std::string &newSerializedState) {
+  /// save in RocksDB
+  auto status = mWriteBatch.Put(kProcessStateKey, newSerializedState);
+  if (!status.ok()) {
+    SPDLOG_ERROR("Error writing RocksDB: {}. Exiting...", status.ToString());
+    assert(0);
+  }
+};
 
 }  /// namespace v2
 }  /// namespace demo

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package gringofts.app.split;
+
+// The netAdmin service definition.
+service SplitService {
+  rpc Split (SplitRequest) returns (SplitResponse) {}
+}
+
+message SplitRequest {
+}
+
+message SplitResponse {
+  uint32 code = 1;
+  string message = 2;
+  string reserved = 3; // leaderHint if the persistence is backed by Raft
+}

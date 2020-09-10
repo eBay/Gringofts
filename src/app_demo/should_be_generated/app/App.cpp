@@ -88,6 +88,8 @@ App::App(const char *configPath) : mIsShutdown(false) {
   mRequestReceiver = ::std::make_unique<RequestReceiver>(reader, mCommandQueue);
   mNetAdminServer = ::std::make_unique<app::NetAdminServer>(reader, mEventApplyLoop);
   mPostServer = std::make_unique<BundleExposePublisher>(reader, std::move(mReadonlyCommandEventStoreForPostServer));
+
+  mSplitManager = std::make_unique<app::split::SplitManager>(reader, mCommandQueue);
 }
 
 App::~App() {
@@ -238,6 +240,10 @@ void App::startPostServerLoop() {
   });
 }
 
+void App::startSplitServer() {
+  mSplitManager->run();
+}
+
 void App::run() {
   if (mIsShutdown) {
     SPDLOG_WARN("App is already down. Will not run again.");
@@ -253,6 +259,7 @@ void App::run() {
     startEventApplyLoop();
     startProcessCommandLoop();
     startPostServerLoop();
+    startSplitServer();
 
     // wait for all threads to exit
     mPostServerThread.join();
@@ -277,6 +284,7 @@ void App::shutdown() {
     mCommandProcessLoop->shutdown();
     mEventApplyLoop->shutdown();
     mCommandEventStore->shutdown();
+    mSplitManager->shutDown();
     if (mPostServer != nullptr) {
       mPostServer->shutdown();
     }

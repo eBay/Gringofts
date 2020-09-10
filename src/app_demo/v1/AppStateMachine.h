@@ -77,6 +77,8 @@ class AppStateMachine final : public demo::AppStateMachine {
     return another.mValue == mValue;
   }
 
+  void writeSerializedProcessState(const std::string &newSerializedState) override {};
+
  private:
   uint64_t mValue = 0;
 };

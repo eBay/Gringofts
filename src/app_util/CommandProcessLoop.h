@@ -76,6 +76,10 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   /// The main function under standalone mode.
   void run() override;
 
+  /// stop process command, but loop still running
+  /// for pending split
+  void stopProcessCommand() { mReceiveCommand = true; }
+
   /// The main function under distributed mode.
   /// Do real business stuff iff current node is leader and has the latest state.
   void runDistributed() override;
@@ -83,6 +87,9 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   void shutdown() override { mShouldExit = true; }
 
  protected:
+  /// for split process
+  void processCommandInternal(std::shared_ptr<Command> command);
+
   /// distributed mode
   void onBecomeLeader(std::shared_ptr<Command> command);
 
@@ -124,6 +131,8 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   std::shared_ptr<CommandEventDecoder> mCommandEventDecoder;
   CryptoUtil mCrypto;
   std::string mSnapshotDir;
+
+  std::atomic_bool mReceiveCommand;
 
   /// metrics
   santiago::MetricsCenter::CounterType processed_command_total;
@@ -193,11 +202,36 @@ void CommandProcessLoopBase<StateMachineType>::runDistributed() {
 
       /// Accept
       if (transition == Transition::SameLeader) {
-        processCommand(command);
+        processCommandInternal(command);
       }
     } catch (const QueueStoppedException &e) {
       SPDLOG_WARN("input command queue has been closed: {}", e.what());
       shutdown();
+    }
+  }
+}
+
+template<typename StateMachineType>
+void CommandProcessLoopBase<StateMachineType>::processCommandInternal(std::shared_ptr<Command> command) {
+  /// for split
+  if (command->getType() == split::SPILT_COMMAND) {
+    const auto &splitCommand = dynamic_cast<const split::SplitCommand &>(*command);
+    command->setId(++this->mLastCommandId);
+    auto event = std::make_shared<split::SplitEvent>(0, splitCommand.getRequest());
+    split::SplitManager::wrapper(*event, *mAppStateMachine);
+    mCommandEventStore->persistAsync(command,
+                                     {event},
+                                     200,
+                                     "Success");
+  } else {
+    ProcessState state = mAppStateMachine->readProcessState();
+    const char *reason = nullptr;
+    if (state.isProcessing(&reason)) {
+      processCommand(command);
+    } else if (reason != nullptr) {
+      command->onPersistFailed(reason, std::nullopt);
+    } else {
+      command->onPersistFailed("unknown reason cause process stoppeded", std::nullopt);
     }
   }
 }
@@ -232,7 +266,7 @@ void CommandProcessLoopBase<StateMachineType>::onBecomeLeader(std::shared_ptr<Co
               (ts3InNano - ts2InNano) / 1000000.0);
 
   /// Start processing command
-  processCommand(command);
+  processCommandInternal(command);
 }
 
 template<typename StateMachineType>
@@ -272,7 +306,7 @@ std::optional<Id> CommandProcessLoopBase<StateMachineType>::replayEvents(std::op
 
     for (auto &eventPtr : events) {
       eventCount += 1;
-      mAppStateMachine->applyEvent(*eventPtr);
+      split::SplitManager::wrapper(*eventPtr, *mAppStateMachine);
       applied_event_total.increase();
     }
 

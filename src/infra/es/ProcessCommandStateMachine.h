@@ -17,6 +17,7 @@ limitations under the License.
 
 #include "StateMachine.h"
 #include "Command.h"
+#include "../util/PodUtil.h"
 
 namespace gringofts {
 
@@ -29,6 +30,30 @@ struct ProcessHint {
    * A human-readable message that gives more details on the process result
    */
   std::string mMessage;
+};
+
+/**
+ *  since it is a POD class
+ *  it can be persisted as a string with it raw data
+ */
+static const char *kPendingSplitReason = "is pending split";
+struct ProcessState {
+  enum SplitState {
+    MAIN_INSTANCE,
+    PENDING_SPLIT,
+    READ_SPLIT_TAG,
+    FINISH_SPLIT,
+  };
+  SplitState mSplitState;
+
+  bool isProcessing(const char **reason) {
+    /// when instance is pending split, it will stop receive request
+    if (mSplitState == PENDING_SPLIT) {
+      *reason = kPendingSplitReason;
+      return false;
+    }
+    return true;
+  }
 };
 
 /**
@@ -89,6 +114,41 @@ class ProcessCommandStateMachine : public StateMachine {
    * Update metrics which are exposed to external for monitoring purpose
    */
   virtual void updateMetrics() const {}
+
+  /**
+   * read ProcessState
+   * @return
+   */
+  virtual ProcessState readProcessState() const { return mProcessState; };
+  virtual void writeSerializedProcessState(const std::string &newSerializedState) {};
+  /**
+   * write ProcessState
+   * @param newState
+   */
+  void writeProcessState(const ProcessState &newState) {
+    mProcessState = newState;
+    writeSerializedProcessState(PodUtil<ProcessState>::Serialize(mProcessState));
+  };
+
+  /**
+   * init ProcessState from persisted storage or default value
+   * @param newState
+   */
+  void initProcessState(const ProcessState &newState) { mProcessState = newState; };
+  /**
+   * init ProcessState from string
+   * @param newStateString
+   */
+  void initProcessState(const std::string &newSerializedString) {
+    mProcessState = PodUtil<ProcessState>::Deserialize(
+        newSerializedString);
+  };
+ protected:
+  /**
+   * is processing should be persisted in stateMachine
+   * default is stored into memory
+   * */
+  std::atomic<ProcessState> mProcessState;
 };
 
 }  /// namespace gringofts

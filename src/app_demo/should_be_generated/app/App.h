@@ -24,6 +24,7 @@ limitations under the License.
 #include "../../../app_util/CommandEventDecoderImpl.h"
 #include "../../../app_util/EventApplyLoop.h"
 #include "../../../app_util/NetAdminServer.h"
+#include "../../../app_util/split/SplitManager.h"
 #include "../../../infra/es/Command.h"
 #include "../../../infra/es/CommandEventStore.h"
 #include "../../../infra/util/CryptoUtil.h"
@@ -75,11 +76,14 @@ class App final {
 
   void startPostServerLoop();
 
+  void startSplitServer();
+
  private:
   DeploymentMode mDeploymentMode = DeploymentMode::Standalone;
 
   BlockingQueue<std::shared_ptr<Command>> mCommandQueue;
   std::unique_ptr<RequestReceiver> mRequestReceiver;
+  std::unique_ptr<app::split::SplitManager> mSplitManager;
   std::unique_ptr<app::CommandProcessLoopInterface> mCommandProcessLoop;
   std::shared_ptr<app::EventApplyLoopInterface> mEventApplyLoop;
   std::unique_ptr<app::NetAdminServer> mNetAdminServer;
