@@ -123,6 +123,14 @@ class RaftCore : public RaftInterface {
     uint64_t leaderId = mLeaderId;
     return leaderId != 0 ? std::optional<uint64_t>(leaderId) : std::nullopt;
   }
+  virtual std::vector<MemberInfo> getClusterMembers() const {
+    std::vector<MemberInfo> cluster;
+    cluster.push_back(mSelfInfo);
+    for (auto &[id, p] : mPeers) {
+      cluster.push_back({id, p.mAddress});
+    }
+    return cluster;
+  }
 
   bool getEntry(uint64_t index, LogEntry *entry) const override {
     assert(index <= mCommitIndex);
