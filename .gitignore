@@ -10,7 +10,6 @@ build/
 cmake_install.cmake
 CMakeCache.txt
 Makefile
-v18.cbp
 CMakeFiles/
 *.cbp
 CodeCoverage.cmake
@@ -29,8 +28,8 @@ src/infra/raft/generated
 # Test-related #
 ################
 code_coverage/
-test_coverage_lcov/
-test_coverage_lcov.*
+gringofts_test_coverage_lcov/
+gringofts_test_coverage_lcov.*
 *cobertura.xml
 code_coverage.*
 test/target/
