@@ -50,9 +50,9 @@ cd ~/temp && version=1.16 && build=1 &&
   cd grpc && git fetch --all --tags --prune &&
   git checkout tags/v$version.$build -b v$version.$build &&
   git submodule update --init
-# download and install pre-requisits for protobuf and grpc
+# download and install pre-requisites for protobuf and grpc
 apt-get install -y autoconf automake libtool curl make unzip libssl-dev
-# download and install pre-requisits for rocksdb
+# download and install pre-requisites for rocksdb
 apt-get install -y libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 # download rocksdb
 cd ~/temp &&
