@@ -70,6 +70,7 @@ void SegmentLog::init() {
   mCurrentTerm = mMetaStorage.recoverCurrentTerm();
   mVoteFor = mMetaStorage.recoverVoteFor();
   mFirstIndex = mMetaStorage.recoverFirstIndex();
+  mFirstIndexGauge.set(mFirstIndex);
 
   /// recover closed/active segments
   listSegments();
@@ -312,6 +313,7 @@ void SegmentLog::truncatePrefix(uint64_t firstIndexKept) {
   ///       the new process would see the latest 'first_log_index'
   mMetaStorage.persistFirstIndex(firstIndexKept);
   mFirstIndex = firstIndexKept;
+  mFirstIndexGauge.set(mFirstIndex);
 
   std::lock_guard<std::mutex> lock(mMutex);
 
@@ -376,6 +378,7 @@ void SegmentLog::truncateSuffix(uint64_t lastIndexKept) {
     /// if all the logs have been cleared, adjust mFirstIndex
     if (mClosedSegments.empty()) {
       mFirstIndex = mLastIndex + 1;
+      mFirstIndexGauge.set(mFirstIndex);
     }
   } while (0);
 

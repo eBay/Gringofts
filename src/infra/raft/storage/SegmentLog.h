@@ -20,7 +20,6 @@ limitations under the License.
 #include <memory>
 #include <mutex>
 
-#include "../../util/CryptoUtil.h"
 #include "../../util/FileUtil.h"
 #include "Log.h"
 #include "Segment.h"
@@ -61,11 +60,16 @@ class SegmentLog : public Log {
         mMetaStorage(logDir),
         mCrypto(crypto),
         mSegmentDataSizeLimit(segmentDataSizeLimit),
-        mSegmentMetaSizeLimit(segmentMetaSizeLimit) { init(); }
+        mSegmentMetaSizeLimit(segmentMetaSizeLimit),
+        mFirstIndexGauge(getGauge("first_index_gauge", {})) { init(); }
 
   ~SegmentLog() override = default;
 
   void init();
+
+  SecKeyVersion getLatestSecKeyVersion() const override {
+    return mCrypto->getLatestSecKeyVersion();
+  }
 
   /// append
   bool appendEntry(const raft::LogEntry &entry) override;
@@ -174,6 +178,7 @@ class SegmentLog : public Log {
   mutable std::mutex mMutex;
   SegmentMap mClosedSegments;
   std::shared_ptr<Segment> mActiveSegment;
+  mutable santiago::MetricsCenter::GaugeType mFirstIndexGauge;
 };
 
 }  /// namespace storage

@@ -108,10 +108,6 @@ class Util final {
     SPDLOG_INFO("Execute command '{}', Output '{}'", cmd, data);
     return data;
   }
-
-  static std::string getCurrentVersion() {
-    return "1.0.0";
-  }
 };
 
 }  /// namespace gringofts

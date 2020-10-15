@@ -14,8 +14,6 @@ limitations under the License.
 
 #include "App.h"
 
-#include "../../v1/AppStateMachine.h"
-
 #include "../../../infra/es/store/DefaultCommandEventStore.h"
 #include "../../../infra/es/store/RaftCommandEventStore.h"
 #include "../../../infra/es/store/ReadonlyDefaultCommandEventStore.h"
@@ -55,19 +53,7 @@ App::App(const char *configPath) : mIsShutdown(false) {
   auto commandEventDecoder = std::make_shared<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>>();
 
   const auto &appVersion = app::AppInfo::appVersion();
-  if (appVersion == "v1") {
-    mEventApplyLoop = std::make_shared<app::EventApplyLoop<v1::AppStateMachine>>(
-        reader, commandEventDecoder, std::move(mReadonlyCommandEventStoreForEventApplyLoop), snapshotDir);
-    mCommandProcessLoop = std::make_unique<CommandProcessLoop<v1::AppStateMachine>>(
-        reader,
-        commandEventDecoder,
-        mDeploymentMode,
-        mEventApplyLoop,
-        mCommandQueue,
-        std::move(mReadonlyCommandEventStoreForCommandProcessLoop),
-        mCommandEventStore,
-        snapshotDir);
-  } else if (appVersion == "v2") {
+  if (appVersion == "v2") {
     mEventApplyLoop =
         std::make_shared<app::EventApplyLoop<v2::RocksDBBackedAppStateMachine>>(
             reader, commandEventDecoder, std::move(mReadonlyCommandEventStoreForEventApplyLoop), snapshotDir);
@@ -115,7 +101,7 @@ void App::initMonitor(const INIReader &reader) {
 
   auto &appInfo = Singleton<santiago::AppInfo>::getInstance();
   auto appName = "demoApp";
-  auto appVersion = Util::getCurrentVersion();
+  auto appVersion = "demoVersion";
   auto appEnv = reader.Get("app", "env", "unknown");
   appInfo.setAppInfo(appName, appVersion, appEnv);
 

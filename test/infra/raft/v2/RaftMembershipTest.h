@@ -14,9 +14,9 @@ limitations under the License.
 #ifndef TEST_INFRA_RAFT_V2_RAFTMEMBERSHIPTEST_H_
 #define TEST_INFRA_RAFT_V2_RAFTMEMBERSHIPTEST_H_
 
-#include <set>
 #include <google/protobuf/text_format.h>
 #include <gtest/gtest.h>
+#include <set>
 
 #include "ClusterTestUtil.h"
 #include "../../../../src/infra/raft/v2/RaftCore.h"
