@@ -24,6 +24,7 @@ limitations under the License.
 #include <INIReader.h>
 
 #include "../../monitor/MonitorTypes.h"
+#include "../../util/DNSResolver.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
@@ -109,7 +110,7 @@ struct Peer {
 
 class RaftCore : public RaftInterface {
  public:
-  RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt);
+  RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt, std::shared_ptr<DNSResolver> dnsResolver);
 
   ~RaftCore() override;
 
@@ -165,7 +166,7 @@ class RaftCore : public RaftInterface {
   void initConfigurableVars(const INIReader &iniReader);
   void initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt);
   void initStorage(const INIReader &iniReader);
-  void initService(const INIReader &iniReader);
+  void initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver);
 
   /// given <peerId, host, port>, determine whether it is itself.
   using IsSelf = std::function<bool(uint64_t peerId,

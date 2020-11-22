@@ -23,7 +23,10 @@ namespace gringofts {
 namespace raft {
 namespace v2 {
 
-RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt) :
+RaftCore::RaftCore(
+    const char *configPath,
+    std::optional<std::string> clusterConfOpt,
+    std::shared_ptr<DNSResolver> dnsResolver) :
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -35,7 +38,7 @@ RaftCore::RaftCore(const char *configPath, std::optional<std::string> clusterCon
   initConfigurableVars(iniReader);
   initClusterConf(iniReader, clusterConfOpt);
   initStorage(iniReader);
-  initService(iniReader);
+  initService(iniReader, dnsResolver);
 }
 
 void RaftCore::initConfigurableVars(const INIReader &iniReader) {
@@ -155,7 +158,7 @@ void RaftCore::initStorage(const INIReader &iniReader) {
   mLog = std::make_unique<storage::SegmentLog>(storageDir, crypto, dataSizeLimit, metaSizeLimit);
 }
 
-void RaftCore::initService(const INIReader &iniReader) {
+void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver) {
   auto tlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
 
   /// init RaftServer
@@ -164,10 +167,10 @@ void RaftCore::initService(const INIReader &iniReader) {
   /// init RaftClient
   for (const auto &p : mPeers) {
     auto &peer = p.second;
-    grpc::ChannelArguments chArgs;
-    chArgs.SetMaxReceiveMessageSize(INT_MAX);
     mClients[peer.mId] = std::make_unique<RaftClient>(
-        grpc::CreateCustomChannel(peer.mAddress, TlsUtil::buildChannelCredentials(tlsConfOpt), chArgs),
+        peer.mAddress,
+        tlsConfOpt,
+        dnsResolver,
         peer.mId,
         &mAeRvQueue);
   }
@@ -970,7 +973,8 @@ void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
 }
 
 /// for UT
-RaftCore::RaftCore(const char *configPath, TestPointProcessor *processor): RaftCore(configPath, std::nullopt) {
+RaftCore::RaftCore(const char *configPath, TestPointProcessor *processor):
+  RaftCore(configPath, std::nullopt, std::make_shared<DNSResolver>()) {
   mTPProcessor = processor;
 }
 

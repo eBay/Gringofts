@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <thread>
 
 #include <grpcpp/server.h>
@@ -24,6 +25,7 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "../../grpc/RequestHandle.h"
+#include "../../util/DNSResolver.h"
 #include "../../util/TimeUtil.h"
 #include "../../util/TlsUtil.h"
 #include "../../common_types.h"
@@ -257,20 +259,29 @@ using RequestVoteClientCall = AsyncClientCall<RequestVote::Response>;
 
 class RaftClient {
  public:
-  RaftClient(const std::shared_ptr<grpc::Channel> &channel,
-             uint64_t peerId, EventQueue *aeRvQueue);
+  RaftClient(const std::string &peerHostname,
+             std::optional<TlsConf> tlsConfOpt,
+             std::shared_ptr<DNSResolver> dnsResolver,
+             uint64_t peerId,
+             EventQueue *aeRvQueue);
   ~RaftClient();
 
   void requestVote(const RequestVote::Request &request);
   void appendEntries(const AppendEntries::Request &request);
 
  private:
+  void refressChannel();
   /// thread function of mClientLoop.
   void clientLoopMain();
 
-  std::unique_ptr<Raft::Stub> mStub;
-  grpc::CompletionQueue mCompletionQueue;
+  std::string mPeerAddress;
+  std::string mResolvedPeerAddress;
+  std::optional<TlsConf> mTLSConfOpt;
+  std::shared_ptr<DNSResolver> mDNSResolver;
   uint64_t mPeerId = 0;
+  std::unique_ptr<Raft::Stub> mStub;
+  std::shared_mutex mMutex;  /// the lock to guarantee thread-safe access of mStub
+  grpc::CompletionQueue mCompletionQueue;
 
   /// event queue
   EventQueue *mAeRvQueue;

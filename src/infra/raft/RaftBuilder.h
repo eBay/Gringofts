@@ -19,13 +19,17 @@ limitations under the License.
 
 #include <INIReader.h>
 
+#include "../util/DNSResolver.h"
 #include "RaftInterface.h"
 #include "v2/RaftCore.h"
 
 namespace gringofts {
 namespace raft {
 
-inline std::shared_ptr<RaftInterface> buildRaftImpl(const char *configPath, std::optional<std::string> clusterConfOpt) {
+inline std::shared_ptr<RaftInterface> buildRaftImpl(
+    const char *configPath,
+    std::optional<std::string> clusterConfOpt,
+    std::shared_ptr<DNSResolver> dnsResolver = nullptr) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Failed to load config file {}.", configPath);
@@ -36,7 +40,11 @@ inline std::shared_ptr<RaftInterface> buildRaftImpl(const char *configPath, std:
   SPDLOG_INFO("Build raft impl version {}.", version);
 
   if (version == "v2") {
-    return std::make_shared<v2::RaftCore>(configPath, clusterConfOpt);
+    if (dnsResolver == nullptr) {
+      /// use default dns resolver
+      dnsResolver = std::make_shared<DNSResolver>();
+    }
+    return std::make_shared<v2::RaftCore>(configPath, clusterConfOpt, dnsResolver);
   } else {
     SPDLOG_ERROR("Unknown raft implement version {}.", version);
     exit(1);

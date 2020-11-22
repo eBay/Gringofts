@@ -87,9 +87,17 @@ void RaftServer::serverLoopMain() {
 
 //////////////////////////// RaftClient ////////////////////////////
 
-RaftClient::RaftClient(const std::shared_ptr<grpc::Channel> &channel,
-                       uint64_t peerId, EventQueue *aeRvQueue)
-    : mStub(Raft::NewStub(channel)), mPeerId(peerId), mAeRvQueue(aeRvQueue) {
+RaftClient::RaftClient(const std::string &peerAddress,
+                       std::optional<TlsConf> tlsConfOpt,
+                       std::shared_ptr<DNSResolver> dnsResolver,
+                       uint64_t peerId,
+                       EventQueue *aeRvQueue) :
+    mPeerAddress(peerAddress),
+    mDNSResolver(dnsResolver),
+    mTLSConfOpt(tlsConfOpt),
+    mPeerId(peerId),
+    mAeRvQueue(aeRvQueue) {
+  refressChannel();
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
 }
@@ -111,6 +119,20 @@ RaftClient::~RaftClient() {
   while (mCompletionQueue.Next(&tag, &ok)) { ; }
 }
 
+void RaftClient::refressChannel() {
+  grpc::ChannelArguments chArgs;
+  chArgs.SetMaxReceiveMessageSize(INT_MAX);
+  auto newResolvedAddress = mDNSResolver->resolve(mPeerAddress);
+  if (newResolvedAddress != mResolvedPeerAddress) {
+    std::unique_lock<std::shared_mutex> lock(mMutex);
+    if (newResolvedAddress != mResolvedPeerAddress) {
+      auto channel = grpc::CreateCustomChannel(newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
+      mStub = Raft::NewStub(channel);
+      mResolvedPeerAddress = newResolvedAddress;
+    }
+  }
+}
+
 void RaftClient::requestVote(const RequestVote::Request &request) {
   auto *call = new RequestVoteClientCall;
 
@@ -120,6 +142,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
       + std::chrono::milliseconds(RaftConstants::RequestVote::kRpcTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
+  std::shared_lock<std::shared_mutex> lock(mMutex);
   call->mResponseReader = mStub->PrepareAsyncRequestVoteV2(&call->mContext, request, &mCompletionQueue);
   call->mResponseReader->StartCall();
   call->mResponseReader->Finish(&call->mResponse,
@@ -136,6 +159,7 @@ void RaftClient::appendEntries(const AppendEntries::Request &request) {
       + std::chrono::milliseconds(RaftConstants::AppendEntries::kRpcTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
+  std::shared_lock<std::shared_mutex> lock(mMutex);
   call->mResponseReader = mStub->PrepareAsyncAppendEntriesV2(&call->mContext, request, &mCompletionQueue);
   call->mResponseReader->StartCall();
   call->mResponseReader->Finish(&call->mResponse,
@@ -169,6 +193,7 @@ void RaftClient::clientLoopMain() {
 
       /// collect gRpc error code metrics
       getCounter("grpc_error_counter", {{"error_code", std::to_string(call->mStatus.error_code())}});
+      refressChannel();
     }
 
     /// enqueue event
