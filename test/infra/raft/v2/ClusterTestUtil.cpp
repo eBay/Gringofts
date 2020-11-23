@@ -16,6 +16,7 @@ limitations under the License.
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
 
+#include "../../../../src/infra/util/DNSResolver.h"
 
 namespace gringofts {
 namespace raft {
@@ -52,7 +53,9 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   assert(mRaftInsts.find(member) == mRaftInsts.end());
   mRaftInsts[member] = raftImpl;
   mRaftInstClients[member] = std::make_unique<RaftClient>(
-      grpc::CreateChannel(member.toString(), grpc::InsecureChannelCredentials()),
+      member.mAddress,
+      std::nullopt,
+      std::make_shared<DNSResolver>(),
       raftImpl->mSelfInfo.mId,
       &mAeRvQueue);
   return member;
