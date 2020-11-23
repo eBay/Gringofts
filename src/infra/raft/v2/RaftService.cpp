@@ -126,6 +126,8 @@ void RaftClient::refressChannel() {
   if (newResolvedAddress != mResolvedPeerAddress) {
     std::unique_lock<std::shared_mutex> lock(mMutex);
     if (newResolvedAddress != mResolvedPeerAddress) {
+      SPDLOG_INFO("refreshing channel, addr {}, new resolved addr {}, old resolved addr ",
+          mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
       auto channel = grpc::CreateCustomChannel(newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
       mStub = Raft::NewStub(channel);
       mResolvedPeerAddress = newResolvedAddress;
