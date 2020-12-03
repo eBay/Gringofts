@@ -152,6 +152,10 @@ MemberInfo ClusterTestUtil::waitAndGetLeader() {
     for (auto &[member, raftImpl] : mRaftInsts) {
       if (raftImpl->mRaftRole == RaftRole::Leader) {
         SPDLOG_INFO("leader {} is elected, waiting for noop", member.toString());
+        auto clusterInfo = raftImpl->getClusterMembers();
+        for (auto m : clusterInfo) {
+          SPDLOG_INFO("cluster member: ", m.toString());
+        }
         uint64_t leaderTerm = raftImpl->getCurrentTerm();
         uint32_t maxWaitNOOPTimes = 5;
         while (maxWaitNOOPTimes-- > 0) {

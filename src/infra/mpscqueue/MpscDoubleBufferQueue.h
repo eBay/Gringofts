@@ -53,6 +53,7 @@ class MpscDoubleBufferQueue final : public MpscQueue<T> {
   void shutdown() override {
     mShouldExit = true;
     mCondVar.notify_one();
+    SPDLOG_INFO("Stop queue");
   }
 
  private:
