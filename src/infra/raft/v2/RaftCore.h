@@ -131,7 +131,8 @@ class RaftCore : public RaftInterface {
       cluster.push_back({id, p.mAddress});
     }
     /// guarantee a unique sort order
-    std::sort(cluster.begin(), cluster.end(), [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
+    std::sort(cluster.begin(), cluster.end(),
+        [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
     return cluster;
   }
 
