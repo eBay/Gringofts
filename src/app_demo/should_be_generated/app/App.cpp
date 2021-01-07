@@ -109,6 +109,7 @@ void App::initMonitor(const INIReader &reader) {
   appInfo.gauge("start_time_guage", {}).set(startTime);
 
   server.Registry(appInfo);
+  server.Registry(Singleton<MonitorCenter>::getInstance());
   SPDLOG_INFO("Init monitor with app name : {} , app version : {}, app env : {}, start time : {}",
               appName,
               appVersion,
