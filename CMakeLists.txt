@@ -56,6 +56,16 @@ if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
         # mac os not support -static-libgcc -static-libstdc++
         unset(CMAKE_EXE_LINKER_FLAGS)
+        # This is a bug in CMake that causes it to prefer the system version over
+        # the one in the specified ROOT folder.
+        set(OPENSSL_ROOT_DIR ${OPENSSL_ROOT_DIR} /usr/local/Cellar/openssl@1.1/1.1.1g/)
+        set(OPENSSL_CRYPTO_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libcrypto.dylib CACHE FILEPATH "" FORCE)
+        set(OPENSSL_SSL_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libssl.dylib CACHE FILEPATH "" FORCE)
+
+        # The detection of cross compilation by -Wpoison-system-directories has false positives on macOS because
+        # --sysroot is implicitly added. Turn the warning off.
+        add_definitions(-Wno-poison-system-directories)
+        add_definitions(-Wno-anon-enum-enum-conversion)
     endif()
     set(FLAG_LIST
             -Wno-c++98-compat-pedantic
