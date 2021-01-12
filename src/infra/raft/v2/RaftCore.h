@@ -124,7 +124,7 @@ class RaftCore : public RaftInterface {
     uint64_t leaderId = mLeaderId;
     return leaderId != 0 ? std::optional<uint64_t>(leaderId) : std::nullopt;
   }
-  virtual std::vector<MemberInfo> getClusterMembers() const override {
+  std::vector<MemberInfo> getClusterMembers() const override {
     std::vector<MemberInfo> cluster;
     cluster.push_back(mSelfInfo);
     for (auto &[id, p] : mPeers) {
