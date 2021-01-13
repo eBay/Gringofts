@@ -23,7 +23,8 @@ class RaftCoreTest : public ::testing::Test {
  protected:
   void SetUp() override {
     Util::executeCmd("mkdir ../test/infra/raft/node_1");
-    mRaftImpl = std::make_shared<RaftCore>("../test/infra/raft/config/raft_1.ini", std::nullopt);
+    mRaftImpl = std::make_shared<RaftCore>("../test/infra/raft/config/raft_1.ini",
+        std::nullopt, std::make_shared<DNSResolver>());
   }
 
   void TearDown() override {

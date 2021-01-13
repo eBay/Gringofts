@@ -16,6 +16,7 @@ limitations under the License.
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
 
+#include "../../../../src/infra/util/DNSResolver.h"
 
 namespace gringofts {
 namespace raft {
@@ -46,7 +47,7 @@ void ClusterTestUtil::killAllServers() {
   SyncPointProcessor::getInstance().tearDown();
 }
 
-void ClusterTestUtil::setupServer(const std::string &configPath) {
+MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   SPDLOG_INFO("starting server using {}", configPath);
   std::shared_ptr<RaftCore> raftImpl(new RaftCore(configPath.c_str(), &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
@@ -54,9 +55,12 @@ void ClusterTestUtil::setupServer(const std::string &configPath) {
   mRaftInstConfigs[member] = configPath;
   mRaftInsts[member] = raftImpl;
   mRaftInstClients[member] = std::make_unique<RaftClient>(
-      grpc::CreateChannel(member.toString(), grpc::InsecureChannelCredentials()),
+      member.mAddress,
+      std::nullopt,
+      std::make_shared<DNSResolver>(),
       raftImpl->mSelfInfo.mId,
       &mAeRvQueue);
+  return member;
 }
 
 void ClusterTestUtil::killServer(const MemberInfo &member) {
@@ -148,6 +152,10 @@ MemberInfo ClusterTestUtil::waitAndGetLeader() {
     for (auto &[member, raftImpl] : mRaftInsts) {
       if (raftImpl->mRaftRole == RaftRole::Leader) {
         SPDLOG_INFO("leader {} is elected, waiting for noop", member.toString());
+        auto clusterInfo = raftImpl->getClusterMembers();
+        for (auto m : clusterInfo) {
+          SPDLOG_INFO("cluster member: ", m.toString());
+        }
         uint64_t leaderTerm = raftImpl->getCurrentTerm();
         uint32_t maxWaitNOOPTimes = 5;
         while (maxWaitNOOPTimes-- > 0) {
