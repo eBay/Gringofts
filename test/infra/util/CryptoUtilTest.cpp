@@ -48,7 +48,6 @@ TEST_F(CryptoUtilTest, EncryptAndDecrypt) {
   EXPECT_EQ(newMessage, oldMessage);
 }
 
-/// TODO(https://jirap.corp.ebay.com/browse/RTCUTOFF-2104): Re-enable this test
 TEST_F(CryptoUtilTest, DISABLED_ExitScenariosTest) {
   /// init
   const auto &reader = INIReader("../test/infra/util/config/aes.ini");
