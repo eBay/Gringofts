@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package goblin.proto;
+
+// meta info alongside with header and value
+message Meta {
+  enum OpType {
+    SINGLE = 0;
+    SET_ADD = 1;
+    SET_REMOVE = 2;
+  }
+  enum DataType {
+    NORMAL = 0;
+    NORMAL_WITH_TTL = 1;
+    OTHERS = 126;
+  }
+
+  DataType dataType = 1;
+  uint64 version = 2;
+  // time-to-live, measured in second
+  uint32 ttl = 3;
+  // expire time, measured in second
+  uint32 deadline = 4;
+  OpType opType = 5;
+}
+
+message SingleValue {
+  bytes value = 1;
+}
+
+message MultiValue {
+  repeated bytes value = 1;
+}
+
+message Data {
+  oneof value {
+    SingleValue singleValue = 2;
+    MultiValue multiValue = 3;
+  }
+}
+
+message Payload {
+  Meta meta = 1;
+  Data data = 2;
+}

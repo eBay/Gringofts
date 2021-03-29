@@ -1,0 +1,320 @@
+syntax = "proto3";
+
+import "common.proto";
+import "userdefine.proto";
+
+package goblin.proto;
+
+// The data type of keys are defined as bytes in this protocol.
+// However, all clients should restrict it as UTF-8 encoded strings.
+
+service KVStore {
+  rpc Connect(Connect.Request) returns (Connect.Response) {}
+  rpc Put(Put.Request) returns (Put.Response) {}
+  rpc Get(Get.Request) returns (Get.Response) {}
+  rpc Delete(Delete.Request) returns (Delete.Response) {}
+
+  // generate kv according to custom logic
+  rpc GenerateKV(GenerateKV.Request) returns (GenerateKV.Response) {}
+
+  // batch operations don't guarantee the order or automcity
+  rpc ExeBatch(ExeBatch.Request) returns (ExeBatch.Response) {}
+  // used when shard migration
+  rpc MigrateBatch(MigrateBatch.Request) returns (MigrateBatch.Response) {}
+
+  // we guarantee the following events to happen in order:
+  // 1. writes/deletes happen to the watched keys
+  // 2. watched changes is delivered to the client
+  // 3. futher reads happen to the watch keys
+  // which means when the client gets read response from #3, it should check if it receives changes from #2
+  rpc Watch(stream Watch.Request) returns (stream Watch.Response) {}
+
+  // run a transaction with a bunch of read/write/deletes in order
+  // these operations will either succeed or failed together
+  rpc Transaction(Transaction.Request) returns (Transaction.Response) {}
+
+  /**************** interactions with KVManager ***************/
+  rpc StartMigration(StartMigration.Request) returns (StartMigration.Response) {}
+  rpc EndMigration(EndMigration.Request) returns (EndMigration.Response) {}
+}
+
+message Connect {
+  message Request {
+    RequestHeader header = 1;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}
+
+message Put {
+  message Request {
+    RequestHeader header = 1;
+    Write.Entry entry = 2;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    Write.Result result = 2;
+  }
+}
+
+message Delete {
+  message Request {
+    RequestHeader header = 1;
+    Remove.Entry entry = 2;
+    // set to true if you wish to get the deleted value
+    bool returnValue = 3;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    Remove.Result result = 2;
+  }
+}
+
+message Get {
+  message Request {
+    RequestHeader header = 1;
+    Read.Entry entry = 2;
+    // choose to read latest value or possibly stale value
+    bool allowStale = 3;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    Read.Result result = 2;
+  }
+}
+
+message ExeBatch {
+  message Request {
+    RequestHeader header = 1;
+    repeated ReadWrite.Entry entries = 2;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    repeated ReadWrite.Result results = 2;
+  }
+}
+
+message MigrateBatch {
+  message Request {
+    RequestHeader header = 1;
+    repeated Write.Entry entries = 2;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    repeated Write.Result results = 2;
+  }
+}
+
+message Watch {
+  message CreateRequest {
+    // if the specified version is outdated, the latest version will be part of notified changes.
+    // if no version is specified, we watch for changes after the latest version
+    // if key does not exists, this "not exist event" will be passed to the client as the first notification
+    repeated Read.Entry entries = 1;
+    // indicate whether to retrieve current value when watch stream is connected
+    bool retrieveOnConnected = 2;
+  }
+  message CancelRequest {
+    string watchId = 1;
+  }
+  message Request {
+    RequestHeader header = 1;
+    oneof value {
+      Watch.CreateRequest createReq = 2;
+      Watch.CancelRequest cancelReq = 3;
+    }
+  }
+  message Change {
+    bytes key = 1;
+    bytes value = 2;
+    uint64 version = 3;
+    EventType eventType = 4;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    string watchId = 2;
+    repeated Change changes = 3;
+  }
+  enum EventType {
+    INVALID = 0;
+    // the initial value when the watch stream is connected
+    INIT_EXIST = 1;
+    // the initial value doesn't exist when the watch stream is connected
+    INIT_NOTEXIST = 2;
+    // the value is overwritten since it is watched
+    OVERWRITTEN = 3;
+    // the value is deleted since it is watched
+    DELETED = 4;
+    // hearbeat message to check connection liveness
+    HEARTBEAT = 5;
+    // server is disconnected with client
+    DISCONNECTED = 6;
+  }
+}
+
+message Transaction {
+  message Request {
+    RequestHeader header = 1;
+    repeated Precondition preconds = 2;
+    repeated ReadWrite.Entry entries = 3;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    // indiviual result for each read/write when the transaction succeeds
+    repeated ReadWrite.Result results = 2;  
+  }
+}
+
+message GenerateKV {
+  message Request {
+    RequestHeader header = 1;
+    Generate.Entry entry = 2;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    Generate.Result result = 2;  
+  }
+}
+
+message StartMigration {
+  message Request {
+    Cluster.ClusterStatus status = 1;
+    RouteInfo routeInfo = 2;
+    Migration.MigrationTask migrationTask = 3;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}
+
+message EndMigration {
+  message Request {
+    Cluster.ClusterStatus status = 1;
+    RouteInfo routeInfo = 2;
+    Migration.MigrationTask migrationTask = 3;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}
+
+message Write {
+  message Entry {
+    bytes key = 1;
+    bytes value = 2;
+    // if false, the kv will be persisted for ever
+    // if true, the kv's ttl will be updated using the ttl provided or existing ttl if no ttl is provided
+    // It is not necessary to set ttl if enableTTL is true
+    bool enableTTL = 3;
+    // ttl measured in seconds
+    // if not specified but previous value with same key has ttl,
+    // we will update ttl of the new key/value
+    uint32 ttl = 4;
+    // this version is only used in shard migration
+    uint64 version = 5;
+  }
+  message Result {
+    ResponseCode code = 1;
+    string message = 2;
+    // for Put.Request, this is the new version of the written key
+    // for Watch.Response, this is the version of the changed key
+    uint64 version = 3;
+  }
+}
+
+message Read {
+  message Entry {
+    bytes key = 1;
+    // for Get.Request, this is the version of the read key
+    uint64 version = 2;
+  }
+  message Result {
+    ResponseCode code = 1;
+    string message = 2;
+    uint64 version = 3;
+    bytes value = 4;
+  }
+}
+
+message Remove {
+  message Entry {
+    bytes key = 1;
+    // for Remove.Request, this is the version of the read key
+    uint64 version = 2;
+  }
+  message Result {
+    ResponseCode code = 1;
+    string message = 2;
+    uint64 version = 3;
+    bytes value = 4;
+  }
+}
+
+message Generate {
+  message Entry {
+    UserDefine.CommandType cmdType = 1;
+    // src keys for read routing
+    repeated bytes srcKeys = 2;
+    // specify tgt keys for write routing
+    // if generated keys are not in tgtKeys, they will be sent back to clients for re-routing
+    repeated bytes tgtKeys = 3;
+    // user defined
+    bytes inputInfo = 4;
+  }
+  message PartialResult {
+    Read.Entry expectedReads = 1;
+    Write.Entry partialWrites = 2;
+  }
+  message Result {
+    ResponseCode code = 1;
+    string message = 2;
+    // partial results will be merged to generate final results
+    repeated PartialResult partials = 3;
+    // user defined
+    bytes outputInfo = 4;
+  }
+}
+
+message ReadWrite {
+  message Entry {
+    oneof value {
+      Write.Entry writeEntry = 1;
+      Read.Entry readEntry = 2;
+      Remove.Entry removeEntry = 3;
+    }
+  }
+  message Result {
+    oneof value {
+      Write.Result writeResult = 1;
+      Read.Result readResult = 2;
+      Remove.Result removeResult = 3;
+    }
+  }
+}
+
+message Precondition {
+  enum CompareOp {
+    EQUAL = 0;
+    GREATER = 1;
+    LESS = 2;
+    NOT_EQUAL = 3;
+  }
+  message VersionCondition {
+    bytes key = 1;
+    uint64 version = 2;
+    CompareOp op = 3;
+  }
+  message ExistCondition {
+    bytes key = 1;
+    bool shouldExist = 2;
+  }
+  // only run when condition is matched
+  oneof preCond {
+    Precondition.ExistCondition existCond = 1;
+    Precondition.VersionCondition versionCond = 2;
+  }
+
+  // we can make precondition support more complicated operations
+}
+

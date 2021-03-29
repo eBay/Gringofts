@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package goblin.proto;
+
+message TransferCommand {
+  string fromAccount = 1;
+  string toAccount = 2;
+  uint64 balance = 3;
+}

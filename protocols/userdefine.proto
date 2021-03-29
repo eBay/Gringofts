@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "transfer.proto";
+
+package goblin.proto;
+
+message UserDefine {
+  enum CommandType {
+    INVALID = 0;
+    TRANSFER = 1;
+  }
+}

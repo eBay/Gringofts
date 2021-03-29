@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package microvault;
+
+service MicroVault {
+    rpc GetSecret (GetSecretRequest) returns (GetSecretResponse);
+    rpc GetKeyInfo (GetKeyInfoRequest) returns (GetKeyInfoResponse);
+    rpc ExportKey (ExportKeyRequest) returns (ExportKeyResponse);
+    rpc Encrypt (EncryptRequest) returns (EncryptResponse);
+    rpc Decrypt (DecryptRequest) returns (DecryptResponse);
+    rpc Sign (SignRequest) returns (SignResponse);
+    rpc Verify (VerifyRequest) returns (VerifyResponse);
+    rpc Seal (SealRequest) returns (SealResponse);
+    rpc Unseal (UnsealRequest) returns (UnsealResponse);
+
+    rpc SealStream (stream SealStreamRequest) returns (stream SealStreamResponse);
+    rpc UnsealStream (stream UnsealStreamRequest) returns (stream UnsealStreamResponse);
+
+    rpc GetCert (GetCertRequest) returns (GetCertResponse);
+}
+
+message GetSecretRequest {
+    string path = 1;
+}
+
+message GetSecretResponse {
+    string value = 1;
+}
+
+message GetKeyInfoRequest {
+    string keyRef = 1;
+}
+
+message GetKeyInfoResponse {
+    KmsKey key = 1;
+}
+
+message ExportKeyRequest {
+    string keyRef = 1;
+}
+
+message ExportKeyResponse {
+    KmsKey key = 1;
+}
+
+message EncryptRequest {
+    string keyRef = 1;
+    bytes data = 4;
+    bytes iv = 5;
+    bytes aad = 6;
+}
+
+message EncryptResponse {
+    bytes data = 1;
+    bytes iv = 2;
+    string keyId = 3;
+}
+
+message DecryptRequest {
+    string keyId = 1;
+    bytes data = 2;
+    bytes iv = 3;
+    bytes aad = 4;
+}
+
+message DecryptResponse {
+    bytes data = 1;
+}
+
+message SignRequest {
+    string keyRef = 1;
+    bytes data = 2;
+}
+
+message SignResponse {
+    bytes signature = 1;
+    string keyId = 2;
+}
+
+message VerifyRequest {
+    string keyId = 1;
+    bytes data = 2;
+    bytes signature = 3;
+}
+
+message VerifyResponse {
+    bool valid = 1;
+}
+
+message SealRequest {
+    string keyRef = 1;
+    bytes data = 2;
+    EnvelopeType envelopeType = 3;
+}
+
+message SealResponse {
+    string envelope = 1;
+}
+
+message UnsealRequest {
+    string envelope = 1;
+    bytes contents = 2;
+}
+
+message UnsealResponse {
+    bytes data = 1;
+}
+
+message KmsKey {
+    string id = 1;
+    string path = 2;
+    string application = 3;
+    string name = 4;
+    int32 version = 5;
+    KeyType type = 6;
+    KeyFormat format = 7;
+    KeyState state = 8;
+    string algorithm = 9;
+    string digest = 10;
+    int32 size = 11;
+    string mode = 12;
+    string padding = 13;
+    int32 authTagLen = 14;
+    bool exportable = 15;
+    bool autoRotate = 16;
+    bool imported = 17;
+    string material = 18;
+    string publicKey = 19;
+    string expiry = 20;
+    repeated KeyUsage usages = 21;
+    map<string, string> sysMeta = 22;
+    map<string, string> userMeta = 23;
+    string createdBy = 24;
+    string updatedBy = 25;
+    string createTime = 26;
+    string updateTime = 27;
+}
+
+// enums
+
+enum EnvelopeType {
+    ENCRYPT_ONLY = 0;
+    SIGN_ONLY = 1;
+    SIGN_AND_EMBED = 2;
+}
+
+enum KeyFormat {
+    RAW = 0;
+    PKCS8 = 1;
+    PGP = 2;
+    GPG = 3;
+    SSH = 4;
+}
+
+enum KeyUsage {
+    ALL = 0;
+    ENCRYPT = 1;
+    SIGN = 2;
+    WRAP = 3;
+}
+
+enum KeyState {
+    PREACTIVE = 0;
+    ACTIVE = 1;
+    DEACTIVATED = 2;
+    COMPROMISED = 3;
+}
+
+enum KeyType {
+    SYMMETRIC = 0;
+    ASYMMETRIC = 1;
+}
+
+message GetCertRequest {
+    string idOrURL = 1;
+    bool onlyLeaf = 2;
+    bool includeKey = 3;
+}
+
+message GetCertResponse {
+    Cert cert = 1;
+}
+
+message Cert {
+    string id = 1;
+    string serial = 2;
+    bytes subjectKeyId = 3;
+    string subject = 4;
+    repeated SAN sans = 5;
+    string certMaterial = 6;
+    string keyMaterial = 7;
+}
+
+message SAN {
+    uint32 generalNameTag = 1;
+    string value = 2;
+}
+
+message SealStreamRequest {
+    string keyRef = 1;
+    bytes data = 2;
+    int32 totalDataSize = 3;
+}
+
+message SealStreamResponse {
+    bytes data = 1;
+    bool hasMoreData = 2;
+}
+
+message UnsealStreamRequest {
+    bytes data = 1;
+    int32 totalDataSize = 2;
+}
+
+message UnsealStreamResponse {
+    bytes data = 1;
+    bool hasMoreData = 2;
+}

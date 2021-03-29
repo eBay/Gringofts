@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package goblin.proto;
+
+// The data type of keys are defined as bytes in this protocol.
+// However, all clients should restrict it as UTF-8 encoded strings.
+
+message WriteEvent {
+  bytes key = 1;
+  bytes value = 2;
+  uint64 version = 3;
+  bool enableTTL = 4;
+  uint32 ttl = 5;
+  uint32 deadline = 6;
+}
+
+message DeleteEvent {
+  bytes key = 1;
+  // the value that is deleted, could be empty if users don't need it
+  bytes deletedValue = 2;
+  // the version that is deleted
+  uint64 deletedVersion = 3;
+  // the version that belongs to this delete log entry
+  uint64 version = 4;
+}
+
+message AppendEvent {
+}
+
+// the type that will be replicated through raft
+message Event {
+  oneof value {
+    WriteEvent writeEvent = 1;
+    DeleteEvent deleteEvent = 2;
+    AppendEvent appendEvent = 3;
+  }
+}
+
+message Bundle {
+  repeated Event events = 1;
+}

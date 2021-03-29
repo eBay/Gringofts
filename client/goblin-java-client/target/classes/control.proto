@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+import "common.proto";
+
+package goblin.proto;
+
+// The data type of keys are defined as bytes in this protocol.
+// However, all clients should restrict it as UTF-8 encoded strings.
+
+service KVManager {
+  // get routing info, invoked either by clients or clusters
+  rpc Router(Router.Request) returns (Router.Response) {}
+
+  // get correct status and necessary info when cluster is on power
+  rpc OnStartup(OnStartup.Request) returns (OnStartup.Response) {}
+
+  // report migration status
+  rpc OnMigration(OnMigration.Request) returns (OnMigration.Response) {}
+
+  // TODO: add heartbeat check for each cluster
+  //rpc OnHealthCheck(OnHealthCheck.Request) returns (OnHealthCheck.Response) {}
+
+  /********** Admin Operations ***********/
+  // TODO: make these automatically without manual efforts
+  rpc AddCluster(AddCluster.Request) returns (AddCluster.Response) {}
+  rpc RemoveCluster(RemoveCluster.Request) returns (RemoveCluster.Response) {}
+
+}
+
+message Router {
+  message Request {
+  }
+  message Response {
+    ResponseHeader header = 1;
+    RouteInfo routeInfo = 2;
+  }
+}
+
+message OnStartup {
+  message Request {
+    Cluster.ClusterAddress cluster = 1;
+  }
+  message Response {
+    ResponseHeader header = 1;
+    Cluster.ClusterStatus status = 2;
+    RouteInfo routeInfo = 3;
+    // not null only when status is EXPORTING or IMPORTING
+    Migration.MigrationTask migrationTask = 4;
+  }
+}
+
+message OnMigration {
+  message Request {
+    Migration.MigrationProgress progress = 1;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}
+
+message AddCluster {
+  message Request {
+    Cluster.ClusterAddress cluster = 1;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}
+
+message RemoveCluster {
+  message Request {
+    Cluster.ClusterAddress cluster = 1;
+  }
+  message Response {
+    ResponseHeader header = 1;
+  }
+}

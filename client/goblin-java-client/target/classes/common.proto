@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+package goblin.proto;
+
+enum ResponseCode {
+  UNKNOWN = 0;
+  PROCESSING = 102;
+  OK = 200;
+  // duplicated request
+  CREATED = 201;
+  // key not exist
+  KEY_NOT_EXIST= 204;
+  // no longer a leader
+  NOT_LEADER = 301;
+  // invalid request
+  BAD_REQUEST = 400;
+  // precond not matched
+  PRECOND_NOT_MATCHED= 409;
+  // route to the wrong node
+  WRONG_ROUTE = 450;
+  // route to the right node, but the data requested is migrated to another node
+  // clients should retry with another node address that the server provides
+  MIGRATED_ROUTE = 451;
+  // clients route info is out of date
+  // clients should refresh its routing info
+  CLIENT_ROUTE_OUT_OF_DATE= 452;
+  // server route info is out of date, it will refresh its routing info
+  // clients should retry with the same address
+  SERVER_ROUTE_OUT_OF_DATE= 453;
+  // general error
+  GENERAL_ERROR = 503;
+}
+
+message Shard {
+  message ShardInfo {
+    uint64 id = 1;
+  }
+  enum ShardFactor {
+    INVALID = 0;
+    /// shard number = 2 ^ shardFactor
+    DEFAULT = 12;
+  }
+}
+
+message Partition {
+  enum PartitionStrategy {
+    HASH_MOD = 0;
+  }
+  message KeyWithShard {
+    string key = 1;
+    Shard.ShardInfo shard = 2;
+  }
+  message PartitionMap {
+    repeated KeyWithShard keyWithShards = 1;
+  }
+  PartitionStrategy strategy = 1;
+  PartitionMap partitionMap = 2;
+  repeated Shard.ShardInfo allShards = 3;
+}
+
+message Placement {
+  enum PlacementStrategy {
+    CONSIST_HASHING = 0;
+  }
+  message ClusterWithShardSet {
+    repeated Shard.ShardInfo shards = 1;
+    Cluster.ClusterAddress cluster = 2;
+  }
+  message PlacementMap {
+    repeated ClusterWithShardSet clusterWithShards = 1;
+  }
+  PlacementStrategy strategy = 1;
+  PlacementMap placementMap = 2;
+  Cluster.ClusterAddressSet allClusters = 3;
+}
+
+message RouteInfo {
+  uint64 version = 1;  // the version will increase once parition or placement info is changed
+  Partition partitionInfo = 2;
+  Placement placementInfo = 3;
+}
+
+message Migration {
+  enum MigrationStatus {
+    NOT_START = 0;
+    PREPARED = 1;
+    RUNNING = 2;
+    SUCCEEDED = 3;
+    FAILED = 4;
+  }
+  enum MigrationShardStatus {
+    INITED = 0;
+    SCANNING = 1;
+    EXPORTING = 2;
+    MIGRATED = 3;
+    STOPPED = 4;
+  }
+  message ShardWithStatus {
+    Shard.ShardInfo shardInfo = 1;
+    MigrationShardStatus status = 2;
+  }
+  message MigrationTask {
+    uint64 taskId = 1; // globally uniquely identify a migration task
+    Cluster.ClusterAddress sourceCluster = 2;
+    Cluster.ClusterAddress targetCluster = 3;
+    repeated ShardWithStatus migrateShards = 4;
+    MigrationStatus overallStatus = 5;
+  }
+  message MigrationEvent {
+    ShardWithStatus migrateShard = 1;
+    bytes message = 2;
+  }
+  message MigrationProgress {
+    uint64 taskId = 1; // globally uniquely identify a migration task
+    repeated MigrationEvent events = 2;
+    MigrationStatus overallStatus = 3;
+    // we can add more info to report the progress of migration
+  }
+}
+
+message Cluster {
+  enum ClusterStatus {
+    INIT = 0;
+    IN_SERVICE = 1;
+    EXPORTING = 2;
+    IMPORTING = 3;
+    OUT_OF_SERVICE = 1000;
+  }
+  message ServerAddress {
+    // format: id@ip:port
+    string hostname = 1;
+  }
+  message ClusterAddress {
+    repeated ServerAddress servers = 1;
+  }
+  message ClusterAddressSet {
+    repeated ClusterAddress clusters = 1;
+  }
+  message ClusterInfo {
+    ClusterAddress addr = 1;
+    ClusterStatus status = 2;
+  }
+  message ClusterInfoSet {
+    repeated ClusterInfo allClustersInfo = 1;
+  }
+  message ClusterSetGlobalInfo {
+    uint64 routeVersion = 1;
+    repeated uint32 clusterIds = 2;
+    uint64 currentMaxMigrationTaskId = 3;
+    repeated uint64 migrationTaskIds = 4;
+  }
+}
+
+message RequestHeader {
+  // the client's known_version, which is the largest version it has ever seen
+  uint64 knownVersion = 1;
+  uint64 routeVersion = 2;
+}
+
+message ResponseHeader {
+  ResponseCode code = 1;
+  string message = 2;
+  // the server will return its committed_version and the client should update its known_version
+  uint64 latestVersion = 3;
+  // only used when the server is no longer a leader
+  string leaderHint = 4;
+  // tell the client to redirect to another cluster, used by shard migration
+  Cluster.ClusterAddress routeHint = 5;
+}
+

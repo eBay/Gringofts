@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.ebay.goblin.client.api.GoblinClientTest" time="8.099" tests="1" errors="0" skipped="0" failures="0">
+  <properties>
+    <property name="gopherProxySet" value="false"/>
+    <property name="awt.toolkit" value="sun.lwawt.macosx.LWCToolkit"/>
+    <property name="java.specification.version" value="11"/>
+    <property name="sun.cpu.isalist" value=""/>
+    <property name="sun.jnu.encoding" value="UTF-8"/>
+    <property name="java.class.path" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/test-classes:/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/classes:/Users/qiacai/.m2/raptor2/io/grpc/grpc-netty-shaded/1.23.0/grpc-netty-shaded-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-core/1.23.0/grpc-core-1.23.0.jar:/Users/qiacai/.m2/raptor2/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar:/Users/qiacai/.m2/raptor2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.jar:/Users/qiacai/.m2/raptor2/io/perfmark/perfmark-api/0.17.0/perfmark-api-0.17.0.jar:/Users/qiacai/.m2/raptor2/io/opencensus/opencensus-api/0.21.0/opencensus-api-0.21.0.jar:/Users/qiacai/.m2/raptor2/io/opencensus/opencensus-contrib-grpc-metrics/0.21.0/opencensus-contrib-grpc-metrics-0.21.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-protobuf/1.23.0/grpc-protobuf-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-api/1.23.0/grpc-api-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-context/1.23.0/grpc-context-1.23.0.jar:/Users/qiacai/.m2/raptor2/com/google/errorprone/error_prone_annotations/2.3.2/error_prone_annotations-2.3.2.jar:/Users/qiacai/.m2/raptor2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar:/Users/qiacai/.m2/raptor2/org/codehaus/mojo/animal-sniffer-annotations/1.17/animal-sniffer-annotations-1.17.jar:/Users/qiacai/.m2/raptor2/com/google/protobuf/protobuf-java/3.9.0/protobuf-java-3.9.0.jar:/Users/qiacai/.m2/raptor2/com/google/guava/guava/26.0-android/guava-26.0-android.jar:/Users/qiacai/.m2/raptor2/org/checkerframework/checker-compat-qual/2.5.2/checker-compat-qual-2.5.2.jar:/Users/qiacai/.m2/raptor2/com/google/j2objc/j2objc-annotations/1.1/j2objc-annotations-1.1.jar:/Users/qiacai/.m2/raptor2/com/google/api/grpc/proto-google-common-protos/1.12.0/proto-google-common-protos-1.12.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-protobuf-lite/1.23.0/grpc-protobuf-lite-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-stub/1.23.0/grpc-stub-1.23.0.jar:/Users/qiacai/.m2/raptor2/org/apache/tomcat/annotations-api/6.0.53/annotations-api-6.0.53.jar:/Users/qiacai/.m2/raptor2/org/projectlombok/lombok/1.18.10/lombok-1.18.10.jar:/Users/qiacai/.m2/raptor2/org/slf4j/slf4j-log4j12/1.7.30/slf4j-log4j12-1.7.30.jar:/Users/qiacai/.m2/raptor2/org/slf4j/slf4j-api/1.7.29/slf4j-api-1.7.29.jar:/Users/qiacai/.m2/raptor2/log4j/log4j/1.2.17/log4j-1.2.17.jar:/Users/qiacai/.m2/raptor2/junit/junit/4.8.2/junit-4.8.2.jar:"/>
+    <property name="java.vm.vendor" value="AdoptOpenJDK"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="java.vendor.url" value="https://adoptopenjdk.net/"/>
+    <property name="user.timezone" value=""/>
+    <property name="java.locale.providers" value="JRE,SPI"/>
+    <property name="java.vm.specification.version" value="11"/>
+    <property name="os.name" value="Mac OS X"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="CN"/>
+    <property name="sun.boot.library.path" value="/Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/lib"/>
+    <property name="sun.java.command" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/surefire/surefirebooter2728800660050467809.jar /Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/surefire 2021-03-02T11-02-48_098-jvmRun1 surefire10205829438315805785tmp surefire_015648658018840275504tmp"/>
+    <property name="jdk.debug" value="release"/>
+    <property name="surefire.test.class.path" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/test-classes:/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/classes:/Users/qiacai/.m2/raptor2/io/grpc/grpc-netty-shaded/1.23.0/grpc-netty-shaded-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-core/1.23.0/grpc-core-1.23.0.jar:/Users/qiacai/.m2/raptor2/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar:/Users/qiacai/.m2/raptor2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.jar:/Users/qiacai/.m2/raptor2/io/perfmark/perfmark-api/0.17.0/perfmark-api-0.17.0.jar:/Users/qiacai/.m2/raptor2/io/opencensus/opencensus-api/0.21.0/opencensus-api-0.21.0.jar:/Users/qiacai/.m2/raptor2/io/opencensus/opencensus-contrib-grpc-metrics/0.21.0/opencensus-contrib-grpc-metrics-0.21.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-protobuf/1.23.0/grpc-protobuf-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-api/1.23.0/grpc-api-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-context/1.23.0/grpc-context-1.23.0.jar:/Users/qiacai/.m2/raptor2/com/google/errorprone/error_prone_annotations/2.3.2/error_prone_annotations-2.3.2.jar:/Users/qiacai/.m2/raptor2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar:/Users/qiacai/.m2/raptor2/org/codehaus/mojo/animal-sniffer-annotations/1.17/animal-sniffer-annotations-1.17.jar:/Users/qiacai/.m2/raptor2/com/google/protobuf/protobuf-java/3.9.0/protobuf-java-3.9.0.jar:/Users/qiacai/.m2/raptor2/com/google/guava/guava/26.0-android/guava-26.0-android.jar:/Users/qiacai/.m2/raptor2/org/checkerframework/checker-compat-qual/2.5.2/checker-compat-qual-2.5.2.jar:/Users/qiacai/.m2/raptor2/com/google/j2objc/j2objc-annotations/1.1/j2objc-annotations-1.1.jar:/Users/qiacai/.m2/raptor2/com/google/api/grpc/proto-google-common-protos/1.12.0/proto-google-common-protos-1.12.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-protobuf-lite/1.23.0/grpc-protobuf-lite-1.23.0.jar:/Users/qiacai/.m2/raptor2/io/grpc/grpc-stub/1.23.0/grpc-stub-1.23.0.jar:/Users/qiacai/.m2/raptor2/org/apache/tomcat/annotations-api/6.0.53/annotations-api-6.0.53.jar:/Users/qiacai/.m2/raptor2/org/projectlombok/lombok/1.18.10/lombok-1.18.10.jar:/Users/qiacai/.m2/raptor2/org/slf4j/slf4j-log4j12/1.7.30/slf4j-log4j12-1.7.30.jar:/Users/qiacai/.m2/raptor2/org/slf4j/slf4j-api/1.7.29/slf4j-api-1.7.29.jar:/Users/qiacai/.m2/raptor2/log4j/log4j/1.2.17/log4j-1.2.17.jar:/Users/qiacai/.m2/raptor2/junit/junit/4.8.2/junit-4.8.2.jar:"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="user.home" value="/Users/qiacai"/>
+    <property name="user.language" value="en"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.version.date" value="2020-01-14"/>
+    <property name="java.home" value="/Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home"/>
+    <property name="file.separator" value="/"/>
+    <property name="basedir" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client"/>
+    <property name="java.vm.compressedOopsMode" value="Zero based"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="jdk.attach.allowAttachSelf" value=""/>
+    <property name="java.awt.graphicsenv" value="sun.awt.CGraphicsEnvironment"/>
+    <property name="surefire.real.class.path" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client/target/surefire/surefirebooter2728800660050467809.jar"/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="java.runtime.version" value="11.0.6+10"/>
+    <property name="user.name" value="qiacai"/>
+    <property name="path.separator" value=":"/>
+    <property name="os.version" value="10.15.7"/>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="java.vendor.version" value="AdoptOpenJDK"/>
+    <property name="localRepository" value="/Users/qiacai/.m2/raptor2"/>
+    <property name="java.vendor.url.bug" value="https://github.com/AdoptOpenJDK/openjdk-support/issues"/>
+    <property name="java.io.tmpdir" value="/var/folders/3x/bwdjfft57jz8y9qp6gtxlhv439d50r/T/"/>
+    <property name="java.version" value="11.0.6"/>
+    <property name="user.dir" value="/Users/qiacai/ebay/codes/Goblin/client/goblin-java-client"/>
+    <property name="os.arch" value="x86_64"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="java.awt.printerjob" value="sun.lwawt.macosx.CPrinterJob"/>
+    <property name="sun.os.patch.level" value="unknown"/>
+    <property name="idea.version2019.3.5" value="true"/>
+    <property name="java.library.path" value="/Users/qiacai/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:."/>
+    <property name="java.vendor" value="AdoptOpenJDK"/>
+    <property name="java.vm.info" value="mixed mode"/>
+    <property name="java.vm.version" value="11.0.6+10"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeBig"/>
+    <property name="java.class.version" value="55.0"/>
+  </properties>
+  <testcase name="testGoblinClient" classname="com.ebay.goblin.client.api.GoblinClientTest" time="8.057"/>
+</testsuite>

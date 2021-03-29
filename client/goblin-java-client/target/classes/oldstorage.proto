@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package goblin.proto.old;
+
+// meta info alongside with header and value
+message Meta {
+  uint64 version = 1;
+  // time-to-live, measured in second
+  uint32 ttl = 2;
+  // expire time, measured in second
+  uint32 deadline = 3;
+}
+
