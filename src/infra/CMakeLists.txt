@@ -25,7 +25,6 @@ set(GRINGOFTS_INFRA_SRC
 
 
 set(GRINGOFTS_UTIL_SRC
-        trail/TrailLog.cpp
         util/BigDecimal.cpp
         util/CryptoUtil.cpp
         util/IdGenerator.cpp
