@@ -154,6 +154,12 @@ class ReadonlyCommandEventStore {
   virtual uint64_t waitTillLeaderIsReadyOrStepDown(uint64_t expectedTerm) const {
     throw std::runtime_error("Not supported");
   }
+  /*
+   * @return true if currently this node is the leader
+   */
+  virtual bool isLeader() const {
+    throw std::runtime_error("Not supported");
+  }
 
   /**
    * Get the current read offset

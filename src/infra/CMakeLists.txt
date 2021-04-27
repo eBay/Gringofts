@@ -25,15 +25,29 @@ set(GRINGOFTS_INFRA_SRC
 
 
 set(GRINGOFTS_UTIL_SRC
+        trail/TrailLog.cpp
         util/BigDecimal.cpp
         util/CryptoUtil.cpp
-        util/IdGenerator.cpp)
+        util/IdGenerator.cpp
+        util/MemoryPool.cpp
+        util/PerfConfig.cpp
+        util/TrackingMemoryResource.cpp)
+set(GRINGOFTS_MONITOR_SRC
+        monitor/santiago/prometheus/PrometheusMetrics.cpp
+        monitor/santiago/Metrics.cpp
+        monitor/santiago/MetricsCenter.cpp
+        monitor/santiago/Server.cpp
+        monitor/MonitorCenter.cpp)
 
 # Libraries
+add_library(gringofts_infra_monitor STATIC
+        ${GRINGOFTS_MONITOR_SRC})
+target_link_libraries(gringofts_infra_monitor ${LIBRARIES})
+
 add_library(gringofts_infra_util STATIC
         ${GRINGOFTS_UTIL_SRC})
 add_dependencies(gringofts_infra_util gringofts_store_proto_library)
-target_link_libraries(gringofts_infra_util gringofts_store_proto_library ${GRINGOFTS_LIBRARIES})
+target_link_libraries(gringofts_infra_util gringofts_infra_monitor gringofts_store_proto_library ${GRINGOFTS_LIBRARIES})
 
 add_library(gringofts_infra STATIC
         ${GRINGOFTS_INFRA_SRC})

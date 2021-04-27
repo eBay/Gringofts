@@ -64,6 +64,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
    * 4) entry at lastIndex is no-op, its logTerm is expectedTerm.
    */
   uint64_t waitTillLeaderIsReadyOrStepDown(uint64_t expectedTerm) const override;
+  bool isLeader() const override;
 
   /// only used by publisher and will be deprecated once pull-mode downstream is enabled
   uint64_t getCurrentOffset() const override { return mAppliedIndex; }
@@ -78,7 +79,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
 
  private:
   /// decrypt entries to bundles
-  void decryptEntries(std::vector<raft::LogEntry> *entries,
+  void decryptEntries(std::vector<trinidad::raft::LogEntry> *entries,
                       std::list<CommandEvents> *bundles);
 
   /// 1) load committed entries between [startIndex, startIndex + size - 1]
@@ -135,7 +136,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
    * optimize for async load
    */
   struct Task {
-    std::vector<raft::LogEntry> entries;
+    std::vector<trinidad::raft::LogEntry> entries;
     std::list<CommandEvents> bundles;
 
     /// 0:initial, 1:doing, 2:done

@@ -29,7 +29,7 @@ class QueueStoppedException : public ::std::exception {
 
 /**
  * A multi-producer single-consumer queue
- * TODO: need some code refacotr later.
+ * TODO(https://jirap.corp.ebay.com/browse/RTCUTOFF-800): need some code refactor later.
  */
 template<typename T>
 class MpscQueue {
@@ -56,6 +56,13 @@ class MpscQueue {
    * @return the total count of items in the consumer queue
    */
   virtual uint64_t size() const = 0;
+
+  /**
+   * Return the total count of items in both consumer and producer queue.
+   * It might not be correct due to concurrent access
+   * @return the total count of items in both consumer and producer queue
+   */
+  virtual uint64_t estimateTotalSize() const = 0;
 
   /**
    * Return true, if queue is empty.

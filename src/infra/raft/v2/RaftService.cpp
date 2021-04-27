@@ -14,8 +14,6 @@ limitations under the License.
 
 #include "RaftService.h"
 
-#include "../../monitor/MonitorTypes.h"
-
 namespace gringofts {
 namespace raft {
 namespace v2 {
@@ -24,8 +22,9 @@ namespace v2 {
 
 RaftServer::RaftServer(const std::string &ipPort,
                        std::optional<TlsConf> tlsConfOpt,
-                       EventQueue *aeRvQueue)
-    : mIpPort(ipPort), mTlsConfOpt(std::move(tlsConfOpt)), mAeRvQueue(aeRvQueue) {
+                       EventQueue *aeRvQueue,
+                       std::shared_ptr<DNSResolver> dnsResolver)
+    : mIpPort(ipPort), mTlsConfOpt(std::move(tlsConfOpt)), mAeRvQueue(aeRvQueue), mDNSResolver(dnsResolver) {
   mServerLoop = std::thread(&RaftServer::serverLoopMain, this);
 }
 
@@ -126,17 +125,17 @@ void RaftClient::refressChannel() {
   if (newResolvedAddress != mResolvedPeerAddress) {
     std::unique_lock<std::shared_mutex> lock(mMutex);
     if (newResolvedAddress != mResolvedPeerAddress) {
-      SPDLOG_INFO("refreshing channel, addr {}, new resolved addr {}, old resolved addr ",
-          mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
+      SPDLOG_INFO("refreshing channel, addr {}, new resolved addr {}, old resolved addr {}",
+                  mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
       auto channel = grpc::CreateCustomChannel(
           newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
-      mStub = Raft::NewStub(channel);
+      mStub = trinidad::raft::Raft::NewStub(channel);
       mResolvedPeerAddress = newResolvedAddress;
     }
   }
 }
 
-void RaftClient::requestVote(const RequestVote::Request &request) {
+void RaftClient::requestVote(const trinidad::raft::RequestVote::Request &request) {
   auto *call = new RequestVoteClientCall;
 
   call->mPeerId = mPeerId;
@@ -153,7 +152,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
                                 reinterpret_cast<void *>(call));
 }
 
-void RaftClient::appendEntries(const AppendEntries::Request &request) {
+void RaftClient::appendEntries(const trinidad::raft::AppendEntries::Request &request) {
   auto *call = new AppendEntriesClientCall;
 
   call->mPeerId = mPeerId;

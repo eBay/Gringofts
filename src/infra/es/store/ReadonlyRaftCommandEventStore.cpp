@@ -18,9 +18,9 @@ limitations under the License.
 #include "CommandEventDecodeWrapper.h"
 
 namespace {
-using ::gringofts::es::CommandEntry;
-using ::gringofts::es::EventEntry;
-using ::gringofts::es::RaftPayload;
+using ::trinidad::es::CommandEntry;
+using ::trinidad::es::EventEntry;
+using ::trinidad::es::RaftPayload;
 }
 
 namespace gringofts {
@@ -156,7 +156,7 @@ uint64_t ReadonlyRaftCommandEventStore::loadBundles(uint64_t startIndex, uint64_
                                                     std::list<CommandEvents> *bundles) {
   uint64_t ts1InNano = TimeUtil::currentTimeInNanos();
 
-  std::vector<raft::LogEntry> entries;
+  std::vector<trinidad::raft::LogEntry> entries;
   size = mRaftImpl->getEntries(startIndex, size, &entries);
 
   uint64_t ts2InNano = TimeUtil::currentTimeInNanos();
@@ -197,7 +197,7 @@ uint64_t ReadonlyRaftCommandEventStore::waitTillLeaderIsReadyOrStepDown(uint64_t
 
     /// step 3 and step 4
     for (auto index = appliedIndex + 1; index <= lastIndex; ++index) {
-      raft::LogEntry entry;
+      trinidad::raft::LogEntry entry;
       assert(mRaftImpl->getEntry(index, &entry));
 
       if (!entry.noop()) {
@@ -211,6 +211,10 @@ uint64_t ReadonlyRaftCommandEventStore::waitTillLeaderIsReadyOrStepDown(uint64_t
       }
     }
   }
+}
+
+bool ReadonlyRaftCommandEventStore::isLeader() const {
+  return mRaftImpl->getRaftRole() == raft::RaftRole::Leader;
 }
 
 void ReadonlyRaftCommandEventStore::loadEntriesThreadMain() {
@@ -256,7 +260,7 @@ void ReadonlyRaftCommandEventStore::loadEntriesThreadMain() {
   }
 }
 
-void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<raft::LogEntry> *entries,
+void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<trinidad::raft::LogEntry> *entries,
                                                    std::list<CommandEvents> *bundles) {
   for (auto &entry : *entries) {
     if (entry.noop()) {

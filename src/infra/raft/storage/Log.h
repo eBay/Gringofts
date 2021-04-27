@@ -45,23 +45,23 @@ class Log {
   }
 
   /// append
-  virtual bool appendEntry(const raft::LogEntry &entry) = 0;
-  virtual bool appendEntries(const std::vector<raft::LogEntry> &entries) = 0;
+  virtual bool appendEntry(const trinidad::raft::LogEntry &entry) = 0;
+  virtual bool appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) = 0;
 
   /// kinds of get
-  virtual bool getEntry(uint64_t index, raft::LogEntry *entry) const = 0;
+  virtual bool getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const = 0;
   virtual bool getTerm(uint64_t index, uint64_t *term) const = 0;
 
   /// result will be filled into entries,
   /// which is an array with at least 'size' items.
   virtual bool getEntries(uint64_t index, uint64_t size,
-                          raft::LogEntry *entries) const = 0;
+                          trinidad::raft::LogEntry *entries) const = 0;
 
   /// return actually fetched entry num,
   /// the fetched log entry is saved in entries.
   virtual uint64_t getEntries(const uint64_t startIndex,
                               const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                              std::vector<raft::LogEntry> *entries) const = 0;
+                              std::vector<trinidad::raft::LogEntry> *entries) const = 0;
 
   /// truncate prefix from [firstIndex, lastIndex] to [firstIndexKept, lastIndex]
   virtual void truncatePrefix(uint64_t firstIndexKept) = 0;
@@ -96,10 +96,10 @@ class Log {
   /**
    * Interface that will be deprecated later
    */
-  void append(const raft::LogEntry &entry) {
+  void append(const trinidad::raft::LogEntry &entry) {
     assert(appendEntry(entry));
   }
-  void append(const std::vector<raft::LogEntry> &entries) {
+  void append(const std::vector<trinidad::raft::LogEntry> &entries) {
     assert(appendEntries(entries));
   }
 

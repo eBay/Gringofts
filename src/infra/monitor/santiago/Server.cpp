@@ -12,33 +12,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 **************************************************************************/
 
-#ifndef SRC_INFRA_MONITOR_MONITORCENTER_H_
-#define SRC_INFRA_MONITOR_MONITORCENTER_H_
+#include "Server.h"
 
-#include <memory>
-#include <mutex>
-#include <thread>
+#include <prometheus/exposer.h>
 
-#include "santiago/Server.h"
+namespace santiago {
+void Server::Registry(santiago::MetricsCenter &center) {
+  mExposerPtr->RegisterCollectable(center.getRegistryPtr());
+}
 
-namespace gringofts {
+Server::Server(const std::string &address, uint16_t port) :
+    mExposerPtr(std::make_shared<prometheus::Exposer>(address + ":" + std::to_string(port))) {
+}
 
-class Monitorable;
-
-class MonitorCenter : public santiago::MetricsCenter {
- public:
-  MonitorCenter();
-  virtual ~MonitorCenter();
-  void registry(std::shared_ptr<Monitorable> monitorable);
- private:
-  void run();
-  void reportGaugeMetrics();
-  std::thread mMonitorThread;
-  std::vector<std::shared_ptr<Monitorable>> mMonitorables;
-  std::mutex mMutex;
-  std::atomic_bool running;
-};
-
-}  /// namespace gringofts
-
-#endif  // SRC_INFRA_MONITOR_MONITORCENTER_H_
+}  /// namespace santiago

@@ -12,33 +12,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 **************************************************************************/
 
-#ifndef SRC_INFRA_MONITOR_MONITORCENTER_H_
-#define SRC_INFRA_MONITOR_MONITORCENTER_H_
+#include "Metrics.h"
 
-#include <memory>
-#include <mutex>
-#include <thread>
+#include "prometheus/PrometheusMetrics.h"
 
-#include "santiago/Server.h"
+namespace santiago {
 
-namespace gringofts {
+template<>
+void Counter<PrometheusCounter>::increase() {
+  return mImplPtr->increase();
+}
 
-class Monitorable;
+template<>
+void Counter<PrometheusCounter>::increase(double val) {
+  return mImplPtr->increase(val);
+}
 
-class MonitorCenter : public santiago::MetricsCenter {
- public:
-  MonitorCenter();
-  virtual ~MonitorCenter();
-  void registry(std::shared_ptr<Monitorable> monitorable);
- private:
-  void run();
-  void reportGaugeMetrics();
-  std::thread mMonitorThread;
-  std::vector<std::shared_ptr<Monitorable>> mMonitorables;
-  std::mutex mMutex;
-  std::atomic_bool running;
-};
+template<>
+double Counter<PrometheusCounter>::value() {
+  return mImplPtr->value();
+}
 
-}  /// namespace gringofts
+template<>
+void Gauge<PrometheusGauge>::set(double value) {
+  return mImplPtr->set(value);
+}
 
-#endif  // SRC_INFRA_MONITOR_MONITORCENTER_H_
+template<>
+double Gauge<PrometheusGauge>::value() {
+  return mImplPtr->value();
+}
+
+
+template <>
+void Summary<PrometheusSummary>::observe(double val) {
+  mImplPtr->observe(val);
+}
+
+}  /// namespace santiago

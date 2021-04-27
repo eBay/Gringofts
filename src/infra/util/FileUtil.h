@@ -28,7 +28,6 @@ limitations under the License.
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
-
 #include <spdlog/spdlog.h>
 
 #include "Util.h"
@@ -239,7 +238,7 @@ class FileUtil final {
   static void writeStrToFile(std::ofstream &ofs, const std::string &content) {
     writeUint64ToFile(ofs, content.length());
     ofs.write(content.c_str(), content.length());
-    /// TODO: Enhance file read/write error handling
+    // TODO: Enhance file read/write error handling
     checkFileState(ofs);
   }
 
@@ -256,7 +255,7 @@ class FileUtil final {
     std::vector<char> buffer;
     buffer.resize(size + 1);
     ifs.read(buffer.data(), size);
-    /// TODO: Enhance file read/write error handling
+    // TODO: Enhance file read/write error handling
     checkFileState(ifs);
     buffer[size] = '\0';
     return std::string(buffer.data());
@@ -270,7 +269,7 @@ class FileUtil final {
   static void writeUint64ToFile(std::ofstream &ofs, uint64_t content) {
     auto size = content;
     ofs.write(reinterpret_cast<const char *>(&size), sizeof(size));
-    /// TODO: Enhance file read/write error handling
+    // TODO: Enhance file read/write error handling
     checkFileState(ofs);
   }
 
@@ -282,7 +281,7 @@ class FileUtil final {
   static uint64_t readUint64FromFile(std::ifstream &ifs) {
     uint64_t size;
     ifs.read(reinterpret_cast<char *>(&size), sizeof(size));
-    /// TODO: Enhance file read/write error handling
+    // TODO: Enhance file read/write error handling
     checkFileState(ifs);
 
     return size;

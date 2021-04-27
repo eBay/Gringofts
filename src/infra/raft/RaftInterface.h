@@ -48,7 +48,7 @@ struct MemberInfo {
 struct ClientRequest {
   /// <index, term> is filled with <mLogStoreIndex, mLogStoreTerm>
   /// raft verifies the write to WAL by checking index and term
-  LogEntry mEntry;
+  trinidad::raft::LogEntry mEntry;
 
   /// Async Callback of Client
   RequestHandle *mRequestHandle = nullptr;
@@ -86,14 +86,14 @@ class RaftInterface {
   /// used by StateMachine to read committed entry at index
   /// return true if succeed, return false if the entry is truncated.
   /// Attention that, index should be less than or equal to commitIndex.
-  virtual bool getEntry(uint64_t index, LogEntry *entry) const = 0;
+  virtual bool getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const = 0;
 
   /// used by StateMachine to read committed entries between
   /// [startIndex, startIndex + size - 1]. if everything is fine,
   /// return number of fetched entries. otherwise, return 0.
   virtual uint64_t getEntries(uint64_t startIndex,
                               uint64_t size,
-                              std::vector<LogEntry> *entries) const = 0;
+                              std::vector<trinidad::raft::LogEntry> *entries) const = 0;
 
   /// used by RaftLogStore to send a batch of client requests
   virtual void enqueueClientRequests(ClientRequests clientRequests) = 0;

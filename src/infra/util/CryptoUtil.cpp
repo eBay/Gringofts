@@ -45,7 +45,7 @@ void CryptoUtil::init(const INIReader &reader) {
   }
 
   std::string content = FileUtil::getFileContent(keyFileName);
-  gringofts::es::EncryptSecKeySet keySet;
+  trinidad::es::EncryptSecKeySet keySet;
   assert(google::protobuf::TextFormat::ParseFromString(content, &keySet));
   mAllKeys.clear();
   mDescendingSecKeyVersions.clear();

@@ -130,6 +130,9 @@ void Segment::recoverActiveOrClosedSegment() {
   /// get file size, mmap
   mMetaSizeLimit = FileUtil::getFileSize(mMetaFd);
   mMetaMemPtr = ::mmap(nullptr, mMetaSizeLimit, PROT_WRITE | PROT_READ, MAP_SHARED, mMetaFd, 0);
+  if (mMetaMemPtr == MAP_FAILED) {
+    SPDLOG_ERROR("MMAP ERROR {}", std::strerror(errno));
+  }
   assert(mMetaMemPtr != MAP_FAILED);
 
   /// recover meta file
@@ -188,7 +191,7 @@ void Segment::closeActiveSegment() {
               mDataOffset / 1024.0 / 1024.0, mMetaOffset / 1024.0 / 1024.0);
 }
 
-bool Segment::shouldRoll(const std::vector<raft::LogEntry> &entries) const {
+bool Segment::shouldRoll(const std::vector<trinidad::raft::LogEntry> &entries) const {
   assert(mIsActive);
 
   uint64_t metaLen = entries.size() * sizeof(LogMeta);
@@ -216,7 +219,7 @@ bool Segment::shouldRoll(const std::vector<raft::LogEntry> &entries) const {
   return false;
 }
 
-void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
+void Segment::appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) {
   assert(mIsActive);
 
   auto beg = TimeUtil::currentTimeInNanos();
@@ -317,7 +320,7 @@ void *Segment::getEntryAddr(uint64_t offset) const {
   return reinterpret_cast<uint8_t *>(mDataMemPtr) + offset;
 }
 
-bool Segment::getEntry(uint64_t index, raft::LogEntry *entry) const {
+bool Segment::getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const {
   if (!isWithInBoundary(index)) {
     return false;
   }
@@ -341,7 +344,7 @@ bool Segment::getTerm(uint64_t index, uint64_t *term) const {
   return true;
 }
 
-bool Segment::getEntries(uint64_t index, uint64_t size, raft::LogEntry *entries) const {
+bool Segment::getEntries(uint64_t index, uint64_t size, trinidad::raft::LogEntry *entries) const {
   if (!isWithInBoundary(index) || !isWithInBoundary(index + size - 1)) {
     return false;
   }
@@ -371,7 +374,7 @@ bool Segment::getEntries(uint64_t index, uint64_t size, raft::LogEntry *entries)
 
 uint64_t Segment::getEntries(const uint64_t startIndex,
                              const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                             std::vector<raft::LogEntry> *entries) const {
+                             std::vector<trinidad::raft::LogEntry> *entries) const {
   assert(isWithInBoundary(startIndex));
 
   auto beg = TimeUtil::currentTimeInNanos();
@@ -404,7 +407,7 @@ uint64_t Segment::getEntries(const uint64_t startIndex,
     /// make sure about data safety
     verifyHMAC(meta);
 
-    raft::LogEntry entry;
+    trinidad::raft::LogEntry entry;
 
     void *entryAddr = getEntryAddr(meta.offset);
     if (!entry.ParseFromArray(entryAddr, meta.length)) {

@@ -72,19 +72,19 @@ class SegmentLog : public Log {
   }
 
   /// append
-  bool appendEntry(const raft::LogEntry &entry) override;
-  bool appendEntries(const std::vector<raft::LogEntry> &entries) override;
+  bool appendEntry(const trinidad::raft::LogEntry &entry) override;
+  bool appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) override;
 
   /// kinds of get
-  bool getEntry(uint64_t index, raft::LogEntry *entry) const override;
+  bool getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const override;
   bool getTerm(uint64_t index, uint64_t *term) const override;
 
   bool getEntries(uint64_t index, uint64_t size,
-                  raft::LogEntry *entries) const override { assert(0); /** does not support */ }
+                  trinidad::raft::LogEntry *entries) const override { assert(0); /** does not support */ }
 
   uint64_t getEntries(const uint64_t startIndex,
                       const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                      std::vector<raft::LogEntry> *entries) const override;
+                      std::vector<trinidad::raft::LogEntry> *entries) const override;
 
   /// truncate prefix/suffix
   void truncatePrefix(uint64_t firstIndexKept) override;
@@ -108,6 +108,10 @@ class SegmentLog : public Log {
   uint64_t getLastLogIndex() const override { return mLastIndex; }
 
   std::string getName() const override { return "SegmentLog"; }
+  void closeActiveSegment();
+  /// mapping table for closed segments
+  using SegmentPtr = std::shared_ptr<Segment>;
+  using SegmentMap = std::map<uint64_t /**firstIndex*/, SegmentPtr>;
 
  private:
   /**
@@ -140,10 +144,6 @@ class SegmentLog : public Log {
     std::string voteForFilePath;
     std::string firstIndexFilePath;
   };
-
-  /// mapping table for closed segments
-  using SegmentPtr = std::shared_ptr<Segment>;
-  using SegmentMap = std::map<uint64_t /**firstIndex*/, SegmentPtr>;
 
   /// recover closed/active segments
   void listSegments();

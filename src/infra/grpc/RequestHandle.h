@@ -20,8 +20,8 @@ limitations under the License.
 #include <grpcpp/grpcpp.h>
 #include <spdlog/spdlog.h>
 
-#include "../../infra/util/TimeUtil.h"
-#include "../monitor/MonitorTypes.h"
+#include "../util/MetricReporter.h"
+#include "../util/TimeUtil.h"
 
 namespace gringofts {
 
@@ -34,14 +34,19 @@ class RequestHandle {
   RequestHandle() = default;
 
   virtual ~RequestHandle() {
-    auto summary = getSummary("request_call_latency_in_ms", {});
-    summary.observe((TimeUtil::currentTimeInNanos() - mCommandCreateTime) / 1000000.0);
+    gringofts::MetricReporter::reportLatency("request_call_latency_in_ms",
+                                             mCommandCreateTime, TimeUtil::currentTimeInNanos(), true, false, false);
   }
 
   /**
    * Wrap the request handling logic
    */
   virtual void proceed() = 0;
+
+  /**
+   * Method called when ok is false after calling Next against the CompletionQueue
+   */
+  virtual void failOver() = 0;
 
   /**
    * Async callback

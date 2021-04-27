@@ -18,8 +18,6 @@ limitations under the License.
 #include <memory>
 #include <string>
 
-#include <prometheus/exposer.h>
-
 #include "MetricsCenter.h"
 
 namespace prometheus {
@@ -29,15 +27,11 @@ class Exposer;
 namespace santiago {
 class Server {
  public:
-  explicit Server(const std::string &address = "0.0.0.0", uint16_t port = 9091) :
-      mExposerPtr(std::make_shared<::prometheus::Exposer>(address + ":" + std::to_string(port))) {}
-
+  explicit Server(const std::string &address = "0.0.0.0", uint16_t port = 9091);
   virtual ~Server() = default;
-  inline void Registry(const santiago::MetricsCenter &center) {
-    mExposerPtr->RegisterCollectable(center.getRegistryPtr());
-  }
+  void Registry(MetricsCenter &);
  private:
-  std::shared_ptr<::prometheus::Exposer> mExposerPtr;
+  std::shared_ptr<prometheus::Exposer> mExposerPtr;
 };
 
 }  /// namespace santiago

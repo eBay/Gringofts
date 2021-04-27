@@ -84,6 +84,7 @@ class TlsUtil final {
 
     grpc::SslServerCredentialsOptions sslOpts;
     sslOpts.pem_key_cert_pairs.push_back(pkcp);
+    sslOpts.pem_root_certs = tlsConf.ca;
 
     SPDLOG_INFO("Server Side TLS enabled.");
     return grpc::SslServerCredentials(sslOpts);

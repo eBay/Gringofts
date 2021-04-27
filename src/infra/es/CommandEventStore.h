@@ -91,6 +91,10 @@ class CommandEventStore {
    * @return the transition result
    */
   virtual Transition detectTransition() { throw std::runtime_error("Not supported"); }
+  /**
+   * Upper layer will call this method to find out who is the leader
+   */
+  virtual std::optional<uint64_t> getLeaderHint() const { throw std::runtime_error("Not supported"); }
 
   /**
    * Consensus protocol has its own keyword about time:

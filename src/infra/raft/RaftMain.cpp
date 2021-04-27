@@ -37,7 +37,7 @@ struct DummyCommand final : gringofts::Command {
 
   void onPersisted(const std::string &message) override {}
 
-  void onPersistFailed(const std::string &errorMessage, std::optional<uint64_t> reserved) override {}
+  void onPersistFailed(uint32_t code, const std::string &errorMessage, std::optional<uint64_t> reserved) override {}
 };
 
 struct DummyEvent final : gringofts::Event {

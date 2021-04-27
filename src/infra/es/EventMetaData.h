@@ -30,8 +30,8 @@ class EventMetaData : public MetaData {
  public:
   EventMetaData() = default;
 
-  explicit EventMetaData(const es::EventEntry &eventEntry) : MetaData(eventEntry),
-                                                             mCommandId(eventEntry.commandid()) {}
+  explicit EventMetaData(const trinidad::es::EventEntry &eventEntry) : MetaData(eventEntry),
+                                                                       mCommandId(eventEntry.commandid()) {}
 
   ~EventMetaData() = default;
 
@@ -45,7 +45,7 @@ class EventMetaData : public MetaData {
     mCommandId = commandId;
   }
 
-  void populateEventEntry(es::EventEntry *eventEntry) const {
+  void populateEventEntry(trinidad::es::EventEntry *eventEntry) const {
     eventEntry->set_type(getType());
     eventEntry->set_id(getId());
     eventEntry->set_commandid(getCommandId());

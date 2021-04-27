@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <assert.h>
 #include <boost/filesystem.hpp>
+#include <fstream>
 #include <netdb.h>
 #include <string>
 #include <unistd.h>
@@ -65,6 +66,7 @@ class Singleton {
 class Util final {
  public:
   /// get official name of host
+  /// such as, phxfasrtprocessunit-2985366.phx02.dev.ebayc3.com
   static std::string getHostname() {
     constexpr uint64_t kBufferSize = 1024;
     char buffer[kBufferSize];
@@ -75,8 +77,8 @@ class Util final {
     /// make sure it is null-terminated
     buffer[kBufferSize - 1] = '\0';
 
-    /// TODO: gethostbyname is obsolete, and not thread-safe
-    /// need replace it
+    /// TODO(bigeng): gethostbyname is obsolete, and not thread-safe
+    ///               need replace it
     struct hostent *h = gethostbyname(buffer);
     assert(h != nullptr);
 
@@ -107,6 +109,36 @@ class Util final {
 
     SPDLOG_INFO("Execute command '{}', Output '{}'", cmd, data);
     return data;
+  }
+
+  /**
+   * get current version according to the current work directory
+   * ebay deploy path is like /ebay/cronus/software/service_nodes/.ENV3rs710p46dq.fasrtprocessunit-app__ENV3rs710p46dq.fasrtprocessunit-app__ENV3rs710p46dq-LVS-CLjsb6td10vi52g-10.149.253.56/installed-packages/magellan_trinidad_bas/1.0.1_2_1562809884239.unx/cronus
+   * the last second value is the release version
+   * @return release version
+   */
+  static std::string getCurrentVersion() {
+    namespace fs = boost::filesystem;
+    std::string cwd = fs::current_path().string();
+    SPDLOG_INFO("current work directory is {}", cwd);
+    return getReleaseVersion(cwd);
+  }
+
+  static std::string getReleaseVersion(const std::string &cwd) {
+    const char *suffix = "unx";
+    const char *unknownVersion = "UNKNOWN";
+    auto tokens = StrUtil::tokenize(cwd, '/');
+    if (tokens.size() < 2) {
+      /// read from version file if deployed in tess
+      std::ifstream fd("conf/app.version");
+      if (!fd) {
+        SPDLOG_INFO("failed to open file conf/app.version");
+        return unknownVersion;
+      }
+      return std::string(std::istreambuf_iterator<char>(fd), std::istreambuf_iterator<char>());
+    }
+    auto &version = tokens[tokens.size() - 2];
+    return StrUtil::endsWith(version, suffix) ? version : unknownVersion;
   }
 };
 

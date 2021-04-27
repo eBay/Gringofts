@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package gringofts.es;
+package trinidad.es;
 
 // payload for RaftCommandEventStore
 

@@ -24,7 +24,7 @@ limitations under the License.
 #include "storage/SegmentLog.h"
 
 using gringofts::RandomUtil;
-using gringofts::raft::LogEntry;
+using trinidad::raft::LogEntry;
 using gringofts::storage::InMemoryLog;
 using gringofts::storage::SegmentLog;
 

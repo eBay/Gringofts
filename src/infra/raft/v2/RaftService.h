@@ -69,7 +69,7 @@ using EventQueue = BlockingQueue<std::shared_ptr<RaftEventBase>>;
 //////////////////////////// CallData ////////////////////////////
 
 struct CallDataBase {
-  CallDataBase(Raft::AsyncService *service,
+  CallDataBase(trinidad::raft::Raft::AsyncService *service,
                grpc::ServerCompletionQueue *completionQueue,
                EventQueue *aeRvQueue)
       : mService(service), mCompletionQueue(completionQueue), mAeRvQueue(aeRvQueue) {}
@@ -80,14 +80,14 @@ struct CallDataBase {
   virtual void failOver() = 0;
   virtual void reply() = 0;
 
-  Raft::AsyncService *mService;
+  trinidad::raft::Raft::AsyncService *mService;
   grpc::ServerCompletionQueue *mCompletionQueue;
   EventQueue *mAeRvQueue;
 };
 
 template<typename RequestType, typename ResponseType>
 struct CallData : public CallDataBase {
-  CallData(Raft::AsyncService *service,
+  CallData(trinidad::raft::Raft::AsyncService *service,
            grpc::ServerCompletionQueue *completionQueue,
            EventQueue *aeRvQueue)
       : CallDataBase(service, completionQueue, aeRvQueue), mResponder(&mContext) {
@@ -121,19 +121,19 @@ struct CallData : public CallDataBase {
 
 template<>
 inline
-void CallData<AppendEntries::Request, AppendEntries::Response>::proceed() {
+void CallData<trinidad::raft::AppendEntries::Request, trinidad::raft::AppendEntries::Response>::proceed() {
   if (mCallStatus == CallStatus::CREATE) {
     mCallStatus = CallStatus::PROCESS;
     mService->RequestAppendEntriesV2(&mContext, &mRequest, &mResponder,
                                      mCompletionQueue, mCompletionQueue, this);
   } else if (mCallStatus == CallStatus::PROCESS) {
-    new CallData<AppendEntries::Request,
-                 AppendEntries::Response>(mService, mCompletionQueue, mAeRvQueue);
+    new CallData<trinidad::raft::AppendEntries::Request,
+                 trinidad::raft::AppendEntries::Response>(mService, mCompletionQueue, mAeRvQueue);
 
     /// payload is a pointer, RaftEvent does not handle
     /// life cycle of CallData, since CallData will suicide itself
-    using EventType = RaftEvent<CallData<AppendEntries::Request,
-                                         AppendEntries::Response> *>;
+    using EventType = RaftEvent<CallData<trinidad::raft::AppendEntries::Request,
+                                         trinidad::raft::AppendEntries::Response> *>;
 
     auto event = std::make_shared<EventType>();
     event->mType = RaftEventBase::Type::AppendEntriesRequest;
@@ -150,19 +150,19 @@ void CallData<AppendEntries::Request, AppendEntries::Response>::proceed() {
 
 template<>
 inline
-void CallData<RequestVote::Request, RequestVote::Response>::proceed() {
+void CallData<trinidad::raft::RequestVote::Request, trinidad::raft::RequestVote::Response>::proceed() {
   if (mCallStatus == CallStatus::CREATE) {
     mCallStatus = CallStatus::PROCESS;
     mService->RequestRequestVoteV2(&mContext, &mRequest, &mResponder,
                                    mCompletionQueue, mCompletionQueue, this);
   } else if (mCallStatus == CallStatus::PROCESS) {
-    new CallData<RequestVote::Request,
-                 RequestVote::Response>(mService, mCompletionQueue, mAeRvQueue);
+    new CallData<trinidad::raft::RequestVote::Request,
+                 trinidad::raft::RequestVote::Response>(mService, mCompletionQueue, mAeRvQueue);
 
     /// payload is a pointer, RaftEvent does not handle
     /// life cycle of CallData, since CallData will suicide itself
-    using EventType = RaftEvent<CallData<RequestVote::Request,
-                                         RequestVote::Response> *>;
+    using EventType = RaftEvent<CallData<trinidad::raft::RequestVote::Request,
+                                         trinidad::raft::RequestVote::Response> *>;
 
     auto event = std::make_shared<EventType>();
     event->mType = RaftEventBase::Type::RequestVoteRequest;
@@ -175,8 +175,8 @@ void CallData<RequestVote::Request, RequestVote::Response>::proceed() {
   }
 }
 
-using AppendEntriesCallData = CallData<AppendEntries::Request, AppendEntries::Response>;
-using RequestVoteCallData = CallData<RequestVote::Request, RequestVote::Response>;
+using AppendEntriesCallData = CallData<trinidad::raft::AppendEntries::Request, trinidad::raft::AppendEntries::Response>;
+using RequestVoteCallData = CallData<trinidad::raft::RequestVote::Request, trinidad::raft::RequestVote::Response>;
 
 //////////////////////////// RaftServer ////////////////////////////
 
@@ -184,7 +184,8 @@ class RaftServer {
  public:
   RaftServer(const std::string &ipPort,
              std::optional<TlsConf> tlsConfOpt,
-             EventQueue *aeRvQueue);
+             EventQueue *aeRvQueue,
+             std::shared_ptr<DNSResolver> dnsResolver);
 
   ~RaftServer();
 
@@ -195,8 +196,9 @@ class RaftServer {
   std::optional<TlsConf> mTlsConfOpt;
 
   std::unique_ptr<grpc::ServerCompletionQueue> mCompletionQueue;
-  Raft::AsyncService mService;
+  trinidad::raft::Raft::AsyncService mService;
   std::unique_ptr<grpc::Server> mServer;
+  std::shared_ptr<DNSResolver> mDNSResolver;
 
   /// event queue
   EventQueue *mAeRvQueue;
@@ -230,30 +232,30 @@ struct AsyncClientCall : public AsyncClientCallBase {
 
 template<>
 inline
-std::string AsyncClientCall<AppendEntries::Response>::toString() const {
+std::string AsyncClientCall<trinidad::raft::AppendEntries::Response>::toString() const {
   return "Leader sending AE_req to Follower " + std::to_string(mPeerId);
 }
 
 template<>
 inline
-RaftEventBase::Type AsyncClientCall<AppendEntries::Response>::getType() const {
+RaftEventBase::Type AsyncClientCall<trinidad::raft::AppendEntries::Response>::getType() const {
   return RaftEventBase::Type::AppendEntriesResponse;
 }
 
 template<>
 inline
-std::string AsyncClientCall<RequestVote::Response>::toString() const {
+std::string AsyncClientCall<trinidad::raft::RequestVote::Response>::toString() const {
   return "Candidate sending RV_req to Follower " + std::to_string(mPeerId);
 }
 
 template<>
 inline
-RaftEventBase::Type AsyncClientCall<RequestVote::Response>::getType() const {
+RaftEventBase::Type AsyncClientCall<trinidad::raft::RequestVote::Response>::getType() const {
   return RaftEventBase::Type::RequestVoteResponse;
 }
 
-using AppendEntriesClientCall = AsyncClientCall<AppendEntries::Response>;
-using RequestVoteClientCall = AsyncClientCall<RequestVote::Response>;
+using AppendEntriesClientCall = AsyncClientCall<trinidad::raft::AppendEntries::Response>;
+using RequestVoteClientCall = AsyncClientCall<trinidad::raft::RequestVote::Response>;
 
 //////////////////////////// RaftClient ////////////////////////////
 
@@ -266,8 +268,8 @@ class RaftClient {
              EventQueue *aeRvQueue);
   ~RaftClient();
 
-  void requestVote(const RequestVote::Request &request);
-  void appendEntries(const AppendEntries::Request &request);
+  void requestVote(const trinidad::raft::RequestVote::Request &request);
+  void appendEntries(const trinidad::raft::AppendEntries::Request &request);
 
  private:
   void refressChannel();
@@ -279,7 +281,7 @@ class RaftClient {
   std::optional<TlsConf> mTLSConfOpt;
   std::shared_ptr<DNSResolver> mDNSResolver;
   uint64_t mPeerId = 0;
-  std::unique_ptr<Raft::Stub> mStub;
+  std::unique_ptr<trinidad::raft::Raft::Stub> mStub;
   std::shared_mutex mMutex;  /// the lock to guarantee thread-safe access of mStub
   grpc::CompletionQueue mCompletionQueue;
 

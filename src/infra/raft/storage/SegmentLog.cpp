@@ -178,6 +178,10 @@ SegmentLog::SegmentPtr SegmentLog::rollActiveSegment() {
   return mActiveSegment;
 }
 
+void SegmentLog::closeActiveSegment() {
+  mActiveSegment->closeActiveSegment();
+}
+
 SegmentLog::SegmentPtr SegmentLog::getSegment(uint64_t index) const {
   std::lock_guard<std::mutex> lock(mMutex);
 
@@ -204,7 +208,7 @@ SegmentLog::SegmentPtr SegmentLog::getSegment(uint64_t index) const {
   return (--iter)->second;
 }
 
-bool SegmentLog::getEntry(uint64_t index, raft::LogEntry *entry) const {
+bool SegmentLog::getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const {
   auto segmentPtr = getSegment(index);
 
   /// segment corresponding to index is removed by truncatedPrefix
@@ -230,7 +234,7 @@ bool SegmentLog::getTerm(uint64_t index, uint64_t *term) const {
 
 uint64_t SegmentLog::getEntries(const uint64_t startIndex,
                                 const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                                std::vector<raft::LogEntry> *entries) const {
+                                std::vector<trinidad::raft::LogEntry> *entries) const {
   uint64_t lastIndex = mLastIndex;
 
   /// heartbeat
@@ -249,7 +253,7 @@ uint64_t SegmentLog::getEntries(const uint64_t startIndex,
   return segmentPtr->getEntries(startIndex, maxLenInBytes, maxBatchSize, entries);
 }
 
-bool SegmentLog::appendEntry(const raft::LogEntry &entry) {
+bool SegmentLog::appendEntry(const trinidad::raft::LogEntry &entry) {
   if (entry.index() != mLastIndex + 1) {
     return false;
   }
@@ -273,7 +277,7 @@ bool SegmentLog::appendEntry(const raft::LogEntry &entry) {
   return true;
 }
 
-bool SegmentLog::appendEntries(const std::vector<raft::LogEntry> &entries) {
+bool SegmentLog::appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) {
   if (entries.empty()) {
     return true;
   }
@@ -315,25 +319,34 @@ void SegmentLog::truncatePrefix(uint64_t firstIndexKept) {
   mFirstIndex = firstIndexKept;
   mFirstIndexGauge.set(mFirstIndex);
 
-  std::lock_guard<std::mutex> lock(mMutex);
+  ///  using a vector to keep all segments that will be deleted
+  ///  for https://jirap.corp.ebay.com/browse/RTCUTOFF-4496 it will cost
+  ///  time to release file in destructor.
+  ///  when lock release, vector destructs won't lock the cirtical path
+  std::vector<SegmentPtr> erasedSegments;
 
-  /// closed segments
-  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
-    auto segmentPtr = iter->second;
-    if (segmentPtr->getLastIndex() < firstIndexKept) {
-      iter = mClosedSegments.erase(iter);
-    } else {
-      return;
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    /// closed segments
+    for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
+      auto segmentPtr = iter->second;
+      if (segmentPtr->getLastIndex() < firstIndexKept) {
+        erasedSegments.push_back(segmentPtr);
+        iter = mClosedSegments.erase(iter);
+      } else {
+        return;
+      }
     }
-  }
 
-  /// active segment
-  assert(mActiveSegment);
-  if (mActiveSegment->getLastIndex() < firstIndexKept) {
-    /// reset empty Storage
-    mLastIndex = mFirstIndex - 1;
-    mActiveSegment = std::make_shared<Segment>(mLogDir, mLastIndex + 1,
-                                               mSegmentDataSizeLimit, mSegmentMetaSizeLimit, mCrypto);
+    /// active segment
+    assert(mActiveSegment);
+    if (mActiveSegment->getLastIndex() < firstIndexKept) {
+      /// reset empty Storage
+      mLastIndex = mFirstIndex - 1;
+      mActiveSegment = std::make_shared<Segment>(mLogDir, mLastIndex + 1,
+                                                 mSegmentDataSizeLimit, mSegmentMetaSizeLimit, mCrypto);
+    }
   }
 }
 

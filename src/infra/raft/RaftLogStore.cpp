@@ -19,9 +19,9 @@ limitations under the License.
 #include "../es/store/CommandEventEncodeWrapper.h"
 
 namespace {
-using ::gringofts::es::CommandEntry;
-using ::gringofts::es::EventEntry;
-using ::gringofts::es::RaftPayload;
+using ::trinidad::es::CommandEntry;
+using ::trinidad::es::EventEntry;
+using ::trinidad::es::RaftPayload;
 }
 
 namespace gringofts {
@@ -29,7 +29,8 @@ namespace raft {
 
 RaftLogStore::RaftLogStore(const std::shared_ptr<RaftInterface> &raftImpl,
                            const std::shared_ptr<CryptoUtil> &crypto)
-    : mRaftImpl(raftImpl), mCrypto(crypto) {
+    : mRaftImpl(raftImpl), mCrypto(crypto),
+      mGaugeRaftBatchSize(gringofts::getGauge("raft_batch_size", {})) {
   mPersistLoop = std::thread(&RaftLogStore::persistLoopMain, this);
 }
 
@@ -80,7 +81,7 @@ void RaftLogStore::persistAsync(const std::shared_ptr<Command> &command,
                                 const std::vector<std::shared_ptr<Event>> &events,
                                 uint64_t index,
                                 RequestHandle *requestHandle) {
-  raft::LogEntry entry;
+  trinidad::raft::LogEntry entry;
 
   entry.mutable_version()->set_secret_key_version(mCrypto->getLatestSecKeyVersion());
   entry.set_term(mLogStoreTerm);
@@ -135,6 +136,7 @@ void RaftLogStore::maySendBatch() {
     return;
   }
 
+  mGaugeRaftBatchSize.set(mBatch.size());
   SPDLOG_INFO("persistLoop send a batch, batchSize={}, elapseTime={}ms",
               mBatch.size(), elapseInMs);
 

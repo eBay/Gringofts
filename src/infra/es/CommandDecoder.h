@@ -34,7 +34,7 @@ class CommandDecoder {
    * @return a unique pointer to the decoded in-memory ::gringofts::Command instance or *nullptr* if failed
    */
   virtual std::unique_ptr<Command> decodeCommandFromString(const CommandMetaData &metaData,
-                                                      std::string_view encodedString) const = 0;
+                                                           std::string_view encodedString) const = 0;
 };
 
 }  /// namespace gringofts

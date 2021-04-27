@@ -24,22 +24,23 @@ namespace gringofts {
 class MetaData {
  public:
   MetaData() = default;
-  explicit MetaData(const es::EventEntry &eventEntry) : mId(eventEntry.id()),
-                                                        mType(eventEntry.type()),
-                                                        mCreatedTimeInNanos(eventEntry.createdtimeinnanos()),
-                                                        mCreatorId(eventEntry.creatorid()),
-                                                        mGroupId(eventEntry.groupid()),
-                                                        mGroupVersion(eventEntry.groupversion()),
-                                                        mTrackingContext(eventEntry.trackingcontext()) {}
+  explicit MetaData(const trinidad::es::EventEntry &eventEntry) : mId(eventEntry.id()),
+                                                                  mType(eventEntry.type()),
+                                                                  mCreatedTimeInNanos(eventEntry.createdtimeinnanos()),
+                                                                  mCreatorId(eventEntry.creatorid()),
+                                                                  mGroupId(eventEntry.groupid()),
+                                                                  mGroupVersion(eventEntry.groupversion()),
+                                                                  mTrackingContext(eventEntry.trackingcontext()) {}
 
-  explicit MetaData(const es::CommandEntry &commandEntry) : mId(commandEntry.id()),
-                                                            mType(commandEntry.type()),
-                                                            mCreatedTimeInNanos(
-                                                                commandEntry.createdtimeinnanos()),
-                                                            mCreatorId(commandEntry.creatorid()),
-                                                            mGroupId(commandEntry.groupid()),
-                                                            mGroupVersion(commandEntry.groupversion()),
-                                                            mTrackingContext(commandEntry.trackingcontext()) {}
+  explicit MetaData(const trinidad::es::CommandEntry &commandEntry) :
+      mId(commandEntry.id()),
+      mType(commandEntry.type()),
+      mCreatedTimeInNanos(
+          commandEntry.createdtimeinnanos()),
+      mCreatorId(commandEntry.creatorid()),
+      mGroupId(commandEntry.groupid()),
+      mGroupVersion(commandEntry.groupversion()),
+      mTrackingContext(commandEntry.trackingcontext()) {}
   virtual ~MetaData() = default;
 
   // getters
@@ -53,6 +54,18 @@ class MetaData {
 
   const TimestampInNanos &getCreatedTimeInNanos() const {
     return mCreatedTimeInNanos;
+  }
+
+  const TimestampInNanos &getProcessTimeInNanos() const {
+    return mProcessTimeInNanos;
+  }
+
+  const TimestampInNanos &getLeaderReadyTimeInNanos() const {
+    return mLeaderReadyTimeInNanos;
+  }
+
+  const TimestampInNanos &getFinishTimeInNanos() const {
+    return mFinishTimeInNanos;
   }
 
   const Id &getCreatorId() const {
@@ -82,6 +95,18 @@ class MetaData {
 
   void setCreatedTimeInNanos(TimestampInNanos createdTimeInNanos) {
     mCreatedTimeInNanos = createdTimeInNanos;
+  }
+
+  void setProcessTimeInNanos(TimestampInNanos processTimeInNanos) {
+    mProcessTimeInNanos = processTimeInNanos;
+  }
+
+  void setLeaderReadyTimeInNanos(TimestampInNanos leaderReadyTimeInNanos) {
+    mLeaderReadyTimeInNanos = leaderReadyTimeInNanos;
+  }
+
+  void setFinishTimeInNanos(TimestampInNanos finishTimeInNanos) {
+    mFinishTimeInNanos = finishTimeInNanos;
   }
 
   void setCreatorId(Id creatorId) {
@@ -119,9 +144,13 @@ class MetaData {
   /**
    * Capture the time in nanos as of the instance has been created
    */
-  TimestampInNanos mCreatedTimeInNanos;
+  TimestampInNanos mCreatedTimeInNanos = 0;
+  TimestampInNanos mProcessTimeInNanos = 0;
+  TimestampInNanos mLeaderReadyTimeInNanos = 0;
+  TimestampInNanos mFinishTimeInNanos = 0;
   /**
    * Identify the creator that generates this instance. It can be interpreted as data source by downstream
+   * Version history: https://wiki.vip.corp.ebay.com/display/PAYMENTS2/FAS+Versions
    */
   Id mCreatorId;
   /**

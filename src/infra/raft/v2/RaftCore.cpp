@@ -14,8 +14,10 @@ limitations under the License.
 
 #include "RaftCore.h"
 
-#include <assert.h>
+#include <absl/strings/str_split.h>
+#include <cassert>
 #include <limits>
+#include <netinet/in.h>
 #include <regex>
 #include <vector>
 
@@ -26,7 +28,7 @@ namespace v2 {
 RaftCore::RaftCore(
     const char *configPath,
     std::optional<std::string> clusterConfOpt,
-    std::shared_ptr<DNSResolver> dnsResolver) :
+    std::shared_ptr<DNSResolver> dnsResolver):
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -65,7 +67,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
 void RaftCore::initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt) {
   if (clusterConfOpt) {
     assert(*clusterConfOpt != "");
-    /// N.B.: when using external conf, the assumption is two raft instances will never run on the same host,
+    /// N.B.: when using etcd, the assumption is two PUs will never run on the same host,
     ///       otherwise below logic will break.
     auto hostname = Util::getHostname();
 
@@ -159,17 +161,16 @@ void RaftCore::initStorage(const INIReader &iniReader) {
 }
 
 void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver) {
-  auto tlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
-
+  mTlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
   /// init RaftServer
-  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, tlsConfOpt, &mAeRvQueue);
+  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, mTlsConfOpt, &mAeRvQueue, dnsResolver);
 
   /// init RaftClient
-  for (const auto &p : mPeers) {
+  for (auto &p : mPeers) {
     auto &peer = p.second;
     mClients[peer.mId] = std::make_unique<RaftClient>(
         peer.mAddress,
-        tlsConfOpt,
+        mTlsConfOpt,
         dnsResolver,
         peer.mId,
         &mAeRvQueue);
@@ -310,7 +311,7 @@ void RaftCore::appendEntries() {
     }
 
     /// build AE_req
-    AppendEntries::Request request;
+    trinidad::raft::AppendEntries::Request request;
     (*request.mutable_metrics()).set_request_create_time(TimeUtil::currentTimeInNanos());
 
     auto currentTerm = mLog->getCurrentTerm();
@@ -318,7 +319,7 @@ void RaftCore::appendEntries() {
     auto prevLogIndex = peer.mNextIndex - 1;
     auto prevLogTerm = termOfLogEntryAt(prevLogIndex);
 
-    std::vector<LogEntry> entries;
+    std::vector<trinidad::raft::LogEntry> entries;
     uint64_t batchSize = 0;
 
     if (!peer.mSuppressBulkData) {
@@ -379,7 +380,7 @@ void RaftCore::requestVote() {
     auto lastLogIndex = mLog->getLastLogIndex();
     auto lastLogTerm = termOfLogEntryAt(lastLogIndex);
 
-    RequestVote::Request request;
+    trinidad::raft::RequestVote::Request request;
 
     request.set_term(currentTerm);
     request.set_candidate_id(mSelfInfo.mId);
@@ -401,8 +402,8 @@ void RaftCore::requestVote() {
   }
 }
 
-void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
-                                          AppendEntries::Response *response) {
+void RaftCore::handleAppendEntriesRequest(const trinidad::raft::AppendEntries::Request &request,
+                                          trinidad::raft::AppendEntries::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare AE_resp
@@ -451,7 +452,7 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
     return;
   }
 
-  std::vector<LogEntry> entries;
+  std::vector<trinidad::raft::LogEntry> entries;
   entries.reserve(request.entries().size());
 
   auto index = request.prev_log_index();
@@ -512,7 +513,7 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
   updateElectionTimePoint();
 }
 
-void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &response) {
+void RaftCore::handleAppendEntriesResponse(const trinidad::raft::AppendEntries::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term()) {
@@ -575,8 +576,8 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
   }
 }
 
-void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
-                                        RequestVote::Response *response) {
+void RaftCore::handleRequestVoteRequest(const trinidad::raft::RequestVote::Request &request,
+                                        trinidad::raft::RequestVote::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare RV_resp
@@ -620,7 +621,7 @@ void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
   }
 }
 
-void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) {
+void RaftCore::handleRequestVoteResponse(const trinidad::raft::RequestVote::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term() || mRaftRole != RaftRole::Candidate) {
@@ -669,7 +670,7 @@ void RaftCore::handleClientRequests(ClientRequests clientRequests) {
   auto currentTerm = mLog->getCurrentTerm();
   auto lastLogIndex = mLog->getLastLogIndex();
 
-  std::vector<LogEntry> entries;
+  std::vector<trinidad::raft::LogEntry> entries;
   entries.reserve(clientRequests.size());
 
   for (auto &clientRequest : clientRequests) {
@@ -789,7 +790,7 @@ void RaftCore::becomeLeader() {
   }
 
   /// append noop
-  LogEntry entry;
+  trinidad::raft::LogEntry entry;
 
   entry.mutable_version()->set_secret_key_version(mLog->getLatestSecKeyVersion());
   entry.set_term(mLog->getCurrentTerm());
@@ -934,7 +935,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   startLogIndex = std::max(firstLogIndex, startLogIndex);
 
   for (auto i = startLogIndex; i <= lastLogIndex; ++i) {
-    LogEntry entry;
+    trinidad::raft::LogEntry entry;
     if (!mLog->getEntry(i, &entry)) {
       continue;
     }
@@ -943,7 +944,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   }
 }
 
-void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
+void RaftCore::printMetrics(const trinidad::raft::AppendEntries::Metrics &metrics) {
   if (metrics.entries_count() == 0) {
     /// avoid printing trace for heartbeat
     return;
@@ -975,7 +976,7 @@ void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
 
 /// for UT
 RaftCore::RaftCore(const char *configPath, TestPointProcessor *processor):
-  RaftCore(configPath, std::nullopt, std::make_shared<DNSResolver>()) {
+    RaftCore(configPath, std::nullopt, std::make_shared<DNSResolver>()) {
   mTPProcessor = processor;
 }
 

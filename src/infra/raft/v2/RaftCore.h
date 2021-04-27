@@ -23,8 +23,7 @@ limitations under the License.
 
 #include <INIReader.h>
 
-#include "../../monitor/MonitorTypes.h"
-#include "../../util/DNSResolver.h"
+#include "../../util/TessDNSResolver.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
@@ -132,18 +131,18 @@ class RaftCore : public RaftInterface {
     }
     /// guarantee a unique sort order
     std::sort(cluster.begin(), cluster.end(),
-        [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
+              [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
     return cluster;
   }
 
-  bool getEntry(uint64_t index, LogEntry *entry) const override {
+  bool getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const override {
     assert(index <= mCommitIndex);
     return mLog->getEntry(index, entry);
   }
 
   uint64_t getEntries(uint64_t startIndex,
                       uint64_t size,
-                      std::vector<LogEntry> *entries) const override {
+                      std::vector<trinidad::raft::LogEntry> *entries) const override {
     assert(startIndex + size - 1 <= mCommitIndex);
     return mLog->getEntries(startIndex, mMaxLenInBytes, size, entries);
   }
@@ -189,18 +188,18 @@ class RaftCore : public RaftInterface {
   void requestVote();
 
   /// receive AE_req, reply AE_resp
-  void handleAppendEntriesRequest(const AppendEntries::Request &request,
-                                  AppendEntries::Response *response);
+  void handleAppendEntriesRequest(const trinidad::raft::AppendEntries::Request &request,
+                                  trinidad::raft::AppendEntries::Response *response);
 
   /// receive AE_resp
-  void handleAppendEntriesResponse(const AppendEntries::Response &response);
+  void handleAppendEntriesResponse(const trinidad::raft::AppendEntries::Response &response);
 
   /// receive RV_req, reply RV_resp
-  void handleRequestVoteRequest(const RequestVote::Request &request,
-                                RequestVote::Response *response);
+  void handleRequestVoteRequest(const trinidad::raft::RequestVote::Request &request,
+                                trinidad::raft::RequestVote::Response *response);
 
   /// receive RV_resp
-  void handleRequestVoteResponse(const RequestVote::Response &response);
+  void handleRequestVoteResponse(const trinidad::raft::RequestVote::Response &response);
 
   /// receive ClientRequests
   void handleClientRequests(ClientRequests clientRequests);
@@ -249,7 +248,7 @@ class RaftCore : public RaftInterface {
   void printStatus(const std::string &reason) const;
 
   /// metrics
-  static void printMetrics(const AppendEntries::Metrics &metrics);
+  static void printMetrics(const trinidad::raft::AppendEntries::Metrics &metrics);
 
   /**
    * configurable vars
@@ -301,6 +300,7 @@ class RaftCore : public RaftInterface {
 
   /// streaming service
   std::unique_ptr<StreamingService> mStreamingService;
+  std::optional<TlsConf> mTlsConfOpt;
 
   /**
    * monitor
