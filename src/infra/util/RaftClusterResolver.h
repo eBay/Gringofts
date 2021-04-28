@@ -19,7 +19,7 @@ limitations under the License.
 
 #include "../etcdcli/EtcdKVClientTLS.h"
 
-namespace trinidad {
+namespace gringofts {
 
 class RaftClusterResolver final {
  public:
@@ -44,6 +44,6 @@ class RaftClusterResolver final {
     return std::make_optional(clusterConf);
   }
 };
-}  /// namespace trinidad
+}  /// namespace gringofts
 
 #endif  // SRC_INFRA_UTIL_RAFTCLUSTERRESOLVER_H_
