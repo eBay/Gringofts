@@ -18,9 +18,9 @@ limitations under the License.
 #include "CommandEventDecodeWrapper.h"
 
 namespace {
-using ::trinidad::es::CommandEntry;
-using ::trinidad::es::EventEntry;
-using ::trinidad::es::RaftPayload;
+using ::gringofts::es::CommandEntry;
+using ::gringofts::es::EventEntry;
+using ::gringofts::es::RaftPayload;
 }
 
 namespace gringofts {
@@ -156,7 +156,7 @@ uint64_t ReadonlyRaftCommandEventStore::loadBundles(uint64_t startIndex, uint64_
                                                     std::list<CommandEvents> *bundles) {
   uint64_t ts1InNano = TimeUtil::currentTimeInNanos();
 
-  std::vector<trinidad::raft::LogEntry> entries;
+  std::vector<gringofts::raft::LogEntry> entries;
   size = mRaftImpl->getEntries(startIndex, size, &entries);
 
   uint64_t ts2InNano = TimeUtil::currentTimeInNanos();
@@ -197,7 +197,7 @@ uint64_t ReadonlyRaftCommandEventStore::waitTillLeaderIsReadyOrStepDown(uint64_t
 
     /// step 3 and step 4
     for (auto index = appliedIndex + 1; index <= lastIndex; ++index) {
-      trinidad::raft::LogEntry entry;
+      gringofts::raft::LogEntry entry;
       assert(mRaftImpl->getEntry(index, &entry));
 
       if (!entry.noop()) {
@@ -260,7 +260,7 @@ void ReadonlyRaftCommandEventStore::loadEntriesThreadMain() {
   }
 }
 
-void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<trinidad::raft::LogEntry> *entries,
+void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<gringofts::raft::LogEntry> *entries,
                                                    std::list<CommandEvents> *bundles) {
   for (auto &entry : *entries) {
     if (entry.noop()) {

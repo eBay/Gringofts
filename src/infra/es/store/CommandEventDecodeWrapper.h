@@ -27,13 +27,13 @@ namespace gringofts {
  */
 class CommandEventDecodeWrapper {
  public:
-  static std::unique_ptr<Command> decodeCommand(const trinidad::es::CommandEntry &commandEntry,
+  static std::unique_ptr<Command> decodeCommand(const gringofts::es::CommandEntry &commandEntry,
                                                 const CommandDecoder &commandDecoder) {
     return commandDecoder.decodeCommandFromString(CommandMetaData{commandEntry},
                                                   std::string_view{commandEntry.entry()});
   }
 
-  static std::unique_ptr<Event> decodeEvent(const trinidad::es::EventEntry &eventEntry,
+  static std::unique_ptr<Event> decodeEvent(const gringofts::es::EventEntry &eventEntry,
                                             const EventDecoder &eventDecoder) {
     return eventDecoder.decodeEventFromString(EventMetaData{eventEntry},
                                               std::string_view{eventEntry.entry()});

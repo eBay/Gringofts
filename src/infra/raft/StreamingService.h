@@ -26,32 +26,32 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
-class StreamingService : public trinidad::raft::Streaming::Service {
+class StreamingService : public gringofts::raft::Streaming::Service {
  public:
   StreamingService(const INIReader &, const RaftInterface &raftImpl);
   ~StreamingService() override;
 
   grpc::Status GetMeta(grpc::ServerContext *context,
-                       const trinidad::raft::GetMeta::Request *request,
-                       trinidad::raft::GetMeta::Response *response) override;
+                       const gringofts::raft::GetMeta::Request *request,
+                       gringofts::raft::GetMeta::Response *response) override;
 
   grpc::Status GetEntries(grpc::ServerContext *context,
-                          const trinidad::raft::GetEntries::Request *request,
-                          trinidad::raft::GetEntries::Response *response) override;
+                          const gringofts::raft::GetEntries::Request *request,
+                          gringofts::raft::GetEntries::Response *response) override;
 
  private:
-  static trinidad::raft::GetMeta_Role resolveRole(raft::RaftRole role) {
+  static gringofts::raft::GetMeta_Role resolveRole(raft::RaftRole role) {
     switch (role) {
-      case raft::RaftRole::Leader: return trinidad::raft::GetMeta_Role_LEADER;
-      case raft::RaftRole::Follower: return trinidad::raft::GetMeta_Role_FOLLOWER;
-      case raft::RaftRole::Candidate: return trinidad::raft::GetMeta_Role_CANDIDATE;
-      default: return trinidad::raft::GetMeta_Role_UNKNOWN_ROLE;
+      case raft::RaftRole::Leader: return gringofts::raft::GetMeta_Role_LEADER;
+      case raft::RaftRole::Follower: return gringofts::raft::GetMeta_Role_FOLLOWER;
+      case raft::RaftRole::Candidate: return gringofts::raft::GetMeta_Role_CANDIDATE;
+      default: return gringofts::raft::GetMeta_Role_UNKNOWN_ROLE;
     }
   }
 
   grpc::Status getEntries(grpc::ServerContext *context,
-                          const trinidad::raft::GetEntries::Request *request,
-                          trinidad::raft::GetEntries::Response *response);
+                          const gringofts::raft::GetEntries::Request *request,
+                          gringofts::raft::GetEntries::Response *response);
 
   const RaftInterface &mRaftImpl;
 

@@ -79,7 +79,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
 
  private:
   /// decrypt entries to bundles
-  void decryptEntries(std::vector<trinidad::raft::LogEntry> *entries,
+  void decryptEntries(std::vector<gringofts::raft::LogEntry> *entries,
                       std::list<CommandEvents> *bundles);
 
   /// 1) load committed entries between [startIndex, startIndex + size - 1]
@@ -136,7 +136,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
    * optimize for async load
    */
   struct Task {
-    std::vector<trinidad::raft::LogEntry> entries;
+    std::vector<gringofts::raft::LogEntry> entries;
     std::list<CommandEvents> bundles;
 
     /// 0:initial, 1:doing, 2:done

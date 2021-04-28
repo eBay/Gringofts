@@ -208,7 +208,7 @@ SegmentLog::SegmentPtr SegmentLog::getSegment(uint64_t index) const {
   return (--iter)->second;
 }
 
-bool SegmentLog::getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const {
+bool SegmentLog::getEntry(uint64_t index, gringofts::raft::LogEntry *entry) const {
   auto segmentPtr = getSegment(index);
 
   /// segment corresponding to index is removed by truncatedPrefix
@@ -234,7 +234,7 @@ bool SegmentLog::getTerm(uint64_t index, uint64_t *term) const {
 
 uint64_t SegmentLog::getEntries(const uint64_t startIndex,
                                 const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                                std::vector<trinidad::raft::LogEntry> *entries) const {
+                                std::vector<gringofts::raft::LogEntry> *entries) const {
   uint64_t lastIndex = mLastIndex;
 
   /// heartbeat
@@ -253,7 +253,7 @@ uint64_t SegmentLog::getEntries(const uint64_t startIndex,
   return segmentPtr->getEntries(startIndex, maxLenInBytes, maxBatchSize, entries);
 }
 
-bool SegmentLog::appendEntry(const trinidad::raft::LogEntry &entry) {
+bool SegmentLog::appendEntry(const gringofts::raft::LogEntry &entry) {
   if (entry.index() != mLastIndex + 1) {
     return false;
   }
@@ -277,7 +277,7 @@ bool SegmentLog::appendEntry(const trinidad::raft::LogEntry &entry) {
   return true;
 }
 
-bool SegmentLog::appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) {
+bool SegmentLog::appendEntries(const std::vector<gringofts::raft::LogEntry> &entries) {
   if (entries.empty()) {
     return true;
   }

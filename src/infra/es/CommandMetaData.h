@@ -30,7 +30,7 @@ namespace gringofts {
 class CommandMetaData : public MetaData {
  public:
   CommandMetaData() = default;
-  explicit CommandMetaData(const trinidad::es::CommandEntry &commandEntry) : MetaData(commandEntry) {}
+  explicit CommandMetaData(const gringofts::es::CommandEntry &commandEntry) : MetaData(commandEntry) {}
   ~CommandMetaData() = default;
 
   // getters
@@ -43,7 +43,7 @@ class CommandMetaData : public MetaData {
     CommandMetaData::mRequestHandle = requestHandle;
   }
 
-  void populateCommandEntry(trinidad::es::CommandEntry *const commandEntry) const {
+  void populateCommandEntry(gringofts::es::CommandEntry *const commandEntry) const {
     commandEntry->set_type(getType());
     commandEntry->set_id(getId());
     commandEntry->set_createdtimeinnanos(getCreatedTimeInNanos());

@@ -72,19 +72,19 @@ class SegmentLog : public Log {
   }
 
   /// append
-  bool appendEntry(const trinidad::raft::LogEntry &entry) override;
-  bool appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) override;
+  bool appendEntry(const gringofts::raft::LogEntry &entry) override;
+  bool appendEntries(const std::vector<gringofts::raft::LogEntry> &entries) override;
 
   /// kinds of get
-  bool getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const override;
+  bool getEntry(uint64_t index, gringofts::raft::LogEntry *entry) const override;
   bool getTerm(uint64_t index, uint64_t *term) const override;
 
   bool getEntries(uint64_t index, uint64_t size,
-                  trinidad::raft::LogEntry *entries) const override { assert(0); /** does not support */ }
+                  gringofts::raft::LogEntry *entries) const override { assert(0); /** does not support */ }
 
   uint64_t getEntries(const uint64_t startIndex,
                       const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                      std::vector<trinidad::raft::LogEntry> *entries) const override;
+                      std::vector<gringofts::raft::LogEntry> *entries) const override;
 
   /// truncate prefix/suffix
   void truncatePrefix(uint64_t firstIndexKept) override;

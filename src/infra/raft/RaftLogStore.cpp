@@ -19,9 +19,9 @@ limitations under the License.
 #include "../es/store/CommandEventEncodeWrapper.h"
 
 namespace {
-using ::trinidad::es::CommandEntry;
-using ::trinidad::es::EventEntry;
-using ::trinidad::es::RaftPayload;
+using ::gringofts::es::CommandEntry;
+using ::gringofts::es::EventEntry;
+using ::gringofts::es::RaftPayload;
 }
 
 namespace gringofts {
@@ -81,7 +81,7 @@ void RaftLogStore::persistAsync(const std::shared_ptr<Command> &command,
                                 const std::vector<std::shared_ptr<Event>> &events,
                                 uint64_t index,
                                 RequestHandle *requestHandle) {
-  trinidad::raft::LogEntry entry;
+  gringofts::raft::LogEntry entry;
 
   entry.mutable_version()->set_secret_key_version(mCrypto->getLatestSecKeyVersion());
   entry.set_term(mLogStoreTerm);

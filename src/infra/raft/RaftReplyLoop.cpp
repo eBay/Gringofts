@@ -167,7 +167,7 @@ bool RaftReplyLoop::waitTillCommittedOrQuit(uint64_t index, uint64_t term) {
       continue;
     }
 
-    trinidad::raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     assert(mRaftImpl->getEntry(index, &entry));
     return entry.term() == term;
   }

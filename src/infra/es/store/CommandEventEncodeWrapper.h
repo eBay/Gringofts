@@ -26,12 +26,12 @@ namespace gringofts {
  */
 class CommandEventEncodeWrapper {
  public:
-  static void encodeCommand(const Command &command, trinidad::es::CommandEntry *commandEntry) {
+  static void encodeCommand(const Command &command, gringofts::es::CommandEntry *commandEntry) {
     command.getMetaData().populateCommandEntry(commandEntry);
     commandEntry->set_entry(command.encodeToString());
   }
 
-  static void encodeEvent(const Event &event, trinidad::es::EventEntry *eventEntry) {
+  static void encodeEvent(const Event &event, gringofts::es::EventEntry *eventEntry) {
     event.getMetaData().populateEventEntry(eventEntry);
     eventEntry->set_entry(event.encodeToString());
   }

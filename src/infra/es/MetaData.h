@@ -24,7 +24,7 @@ namespace gringofts {
 class MetaData {
  public:
   MetaData() = default;
-  explicit MetaData(const trinidad::es::EventEntry &eventEntry) : mId(eventEntry.id()),
+  explicit MetaData(const gringofts::es::EventEntry &eventEntry) : mId(eventEntry.id()),
                                                                   mType(eventEntry.type()),
                                                                   mCreatedTimeInNanos(eventEntry.createdtimeinnanos()),
                                                                   mCreatorId(eventEntry.creatorid()),
@@ -32,7 +32,7 @@ class MetaData {
                                                                   mGroupVersion(eventEntry.groupversion()),
                                                                   mTrackingContext(eventEntry.trackingcontext()) {}
 
-  explicit MetaData(const trinidad::es::CommandEntry &commandEntry) :
+  explicit MetaData(const gringofts::es::CommandEntry &commandEntry) :
       mId(commandEntry.id()),
       mType(commandEntry.type()),
       mCreatedTimeInNanos(

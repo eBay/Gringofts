@@ -311,7 +311,7 @@ void RaftCore::appendEntries() {
     }
 
     /// build AE_req
-    trinidad::raft::AppendEntries::Request request;
+    gringofts::raft::AppendEntries::Request request;
     (*request.mutable_metrics()).set_request_create_time(TimeUtil::currentTimeInNanos());
 
     auto currentTerm = mLog->getCurrentTerm();
@@ -319,7 +319,7 @@ void RaftCore::appendEntries() {
     auto prevLogIndex = peer.mNextIndex - 1;
     auto prevLogTerm = termOfLogEntryAt(prevLogIndex);
 
-    std::vector<trinidad::raft::LogEntry> entries;
+    std::vector<gringofts::raft::LogEntry> entries;
     uint64_t batchSize = 0;
 
     if (!peer.mSuppressBulkData) {
@@ -380,7 +380,7 @@ void RaftCore::requestVote() {
     auto lastLogIndex = mLog->getLastLogIndex();
     auto lastLogTerm = termOfLogEntryAt(lastLogIndex);
 
-    trinidad::raft::RequestVote::Request request;
+    gringofts::raft::RequestVote::Request request;
 
     request.set_term(currentTerm);
     request.set_candidate_id(mSelfInfo.mId);
@@ -402,8 +402,8 @@ void RaftCore::requestVote() {
   }
 }
 
-void RaftCore::handleAppendEntriesRequest(const trinidad::raft::AppendEntries::Request &request,
-                                          trinidad::raft::AppendEntries::Response *response) {
+void RaftCore::handleAppendEntriesRequest(const gringofts::raft::AppendEntries::Request &request,
+                                          gringofts::raft::AppendEntries::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare AE_resp
@@ -452,7 +452,7 @@ void RaftCore::handleAppendEntriesRequest(const trinidad::raft::AppendEntries::R
     return;
   }
 
-  std::vector<trinidad::raft::LogEntry> entries;
+  std::vector<gringofts::raft::LogEntry> entries;
   entries.reserve(request.entries().size());
 
   auto index = request.prev_log_index();
@@ -513,7 +513,7 @@ void RaftCore::handleAppendEntriesRequest(const trinidad::raft::AppendEntries::R
   updateElectionTimePoint();
 }
 
-void RaftCore::handleAppendEntriesResponse(const trinidad::raft::AppendEntries::Response &response) {
+void RaftCore::handleAppendEntriesResponse(const gringofts::raft::AppendEntries::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term()) {
@@ -576,8 +576,8 @@ void RaftCore::handleAppendEntriesResponse(const trinidad::raft::AppendEntries::
   }
 }
 
-void RaftCore::handleRequestVoteRequest(const trinidad::raft::RequestVote::Request &request,
-                                        trinidad::raft::RequestVote::Response *response) {
+void RaftCore::handleRequestVoteRequest(const gringofts::raft::RequestVote::Request &request,
+                                        gringofts::raft::RequestVote::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare RV_resp
@@ -621,7 +621,7 @@ void RaftCore::handleRequestVoteRequest(const trinidad::raft::RequestVote::Reque
   }
 }
 
-void RaftCore::handleRequestVoteResponse(const trinidad::raft::RequestVote::Response &response) {
+void RaftCore::handleRequestVoteResponse(const gringofts::raft::RequestVote::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
 
   if (currentTerm != response.saved_term() || mRaftRole != RaftRole::Candidate) {
@@ -670,7 +670,7 @@ void RaftCore::handleClientRequests(ClientRequests clientRequests) {
   auto currentTerm = mLog->getCurrentTerm();
   auto lastLogIndex = mLog->getLastLogIndex();
 
-  std::vector<trinidad::raft::LogEntry> entries;
+  std::vector<gringofts::raft::LogEntry> entries;
   entries.reserve(clientRequests.size());
 
   for (auto &clientRequest : clientRequests) {
@@ -790,7 +790,7 @@ void RaftCore::becomeLeader() {
   }
 
   /// append noop
-  trinidad::raft::LogEntry entry;
+  gringofts::raft::LogEntry entry;
 
   entry.mutable_version()->set_secret_key_version(mLog->getLatestSecKeyVersion());
   entry.set_term(mLog->getCurrentTerm());
@@ -935,7 +935,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   startLogIndex = std::max(firstLogIndex, startLogIndex);
 
   for (auto i = startLogIndex; i <= lastLogIndex; ++i) {
-    trinidad::raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
     if (!mLog->getEntry(i, &entry)) {
       continue;
     }
@@ -944,7 +944,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   }
 }
 
-void RaftCore::printMetrics(const trinidad::raft::AppendEntries::Metrics &metrics) {
+void RaftCore::printMetrics(const gringofts::raft::AppendEntries::Metrics &metrics) {
   if (metrics.entries_count() == 0) {
     /// avoid printing trace for heartbeat
     return;

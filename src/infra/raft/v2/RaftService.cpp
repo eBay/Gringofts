@@ -129,13 +129,13 @@ void RaftClient::refressChannel() {
                   mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
       auto channel = grpc::CreateCustomChannel(
           newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
-      mStub = trinidad::raft::Raft::NewStub(channel);
+      mStub = gringofts::raft::Raft::NewStub(channel);
       mResolvedPeerAddress = newResolvedAddress;
     }
   }
 }
 
-void RaftClient::requestVote(const trinidad::raft::RequestVote::Request &request) {
+void RaftClient::requestVote(const gringofts::raft::RequestVote::Request &request) {
   auto *call = new RequestVoteClientCall;
 
   call->mPeerId = mPeerId;
@@ -152,7 +152,7 @@ void RaftClient::requestVote(const trinidad::raft::RequestVote::Request &request
                                 reinterpret_cast<void *>(call));
 }
 
-void RaftClient::appendEntries(const trinidad::raft::AppendEntries::Request &request) {
+void RaftClient::appendEntries(const gringofts::raft::AppendEntries::Request &request) {
   auto *call = new AppendEntriesClientCall;
 
   call->mPeerId = mPeerId;

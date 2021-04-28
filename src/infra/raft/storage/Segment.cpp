@@ -191,7 +191,7 @@ void Segment::closeActiveSegment() {
               mDataOffset / 1024.0 / 1024.0, mMetaOffset / 1024.0 / 1024.0);
 }
 
-bool Segment::shouldRoll(const std::vector<trinidad::raft::LogEntry> &entries) const {
+bool Segment::shouldRoll(const std::vector<gringofts::raft::LogEntry> &entries) const {
   assert(mIsActive);
 
   uint64_t metaLen = entries.size() * sizeof(LogMeta);
@@ -219,7 +219,7 @@ bool Segment::shouldRoll(const std::vector<trinidad::raft::LogEntry> &entries) c
   return false;
 }
 
-void Segment::appendEntries(const std::vector<trinidad::raft::LogEntry> &entries) {
+void Segment::appendEntries(const std::vector<gringofts::raft::LogEntry> &entries) {
   assert(mIsActive);
 
   auto beg = TimeUtil::currentTimeInNanos();
@@ -320,7 +320,7 @@ void *Segment::getEntryAddr(uint64_t offset) const {
   return reinterpret_cast<uint8_t *>(mDataMemPtr) + offset;
 }
 
-bool Segment::getEntry(uint64_t index, trinidad::raft::LogEntry *entry) const {
+bool Segment::getEntry(uint64_t index, gringofts::raft::LogEntry *entry) const {
   if (!isWithInBoundary(index)) {
     return false;
   }
@@ -344,7 +344,7 @@ bool Segment::getTerm(uint64_t index, uint64_t *term) const {
   return true;
 }
 
-bool Segment::getEntries(uint64_t index, uint64_t size, trinidad::raft::LogEntry *entries) const {
+bool Segment::getEntries(uint64_t index, uint64_t size, gringofts::raft::LogEntry *entries) const {
   if (!isWithInBoundary(index) || !isWithInBoundary(index + size - 1)) {
     return false;
   }
@@ -374,7 +374,7 @@ bool Segment::getEntries(uint64_t index, uint64_t size, trinidad::raft::LogEntry
 
 uint64_t Segment::getEntries(const uint64_t startIndex,
                              const uint64_t maxLenInBytes, uint64_t maxBatchSize,
-                             std::vector<trinidad::raft::LogEntry> *entries) const {
+                             std::vector<gringofts::raft::LogEntry> *entries) const {
   assert(isWithInBoundary(startIndex));
 
   auto beg = TimeUtil::currentTimeInNanos();
@@ -407,7 +407,7 @@ uint64_t Segment::getEntries(const uint64_t startIndex,
     /// make sure about data safety
     verifyHMAC(meta);
 
-    trinidad::raft::LogEntry entry;
+    gringofts::raft::LogEntry entry;
 
     void *entryAddr = getEntryAddr(meta.offset);
     if (!entry.ParseFromArray(entryAddr, meta.length)) {
