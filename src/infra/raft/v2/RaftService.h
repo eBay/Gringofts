@@ -175,7 +175,8 @@ void CallData<gringofts::raft::RequestVote::Request, gringofts::raft::RequestVot
   }
 }
 
-using AppendEntriesCallData = CallData<gringofts::raft::AppendEntries::Request, gringofts::raft::AppendEntries::Response>;
+using AppendEntriesCallData =
+    CallData<gringofts::raft::AppendEntries::Request, gringofts::raft::AppendEntries::Response>;
 using RequestVoteCallData = CallData<gringofts::raft::RequestVote::Request, gringofts::raft::RequestVote::Response>;
 
 //////////////////////////// RaftServer ////////////////////////////
