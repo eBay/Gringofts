@@ -1,4 +1,4 @@
-// Definition of event records published from PU
+// Definition of event records published from
 // This file will keep the same in both java and c++ projects
 
 syntax = "proto3";

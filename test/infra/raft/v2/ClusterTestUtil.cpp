@@ -16,6 +16,7 @@ limitations under the License.
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
 
+#include "../../../../src/infra/util/ClusterInfo.h"
 #include "../../../../src/infra/util/DNSResolver.h"
 
 namespace gringofts {
@@ -49,10 +50,17 @@ void ClusterTestUtil::killAllServers() {
 
 MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   SPDLOG_INFO("starting server using {}", configPath);
-  std::shared_ptr<RaftCore> raftImpl(new RaftCore(configPath.c_str(), &SyncPointProcessor::getInstance()));
+  INIReader reader(configPath);
+  auto[myClusterId, myNodeId, allClusterInfo] = ClusterInfo::resolveAllClusters(reader, nullptr);
+  auto raftConfigPath = reader.Get("cluster", "raft.config.path", "UNKNOWN");
+  assert(raftConfigPath != "UNKNOWN");
+  std::shared_ptr<RaftCore> raftImpl(new RaftCore(raftConfigPath.c_str(),
+        myNodeId,
+        allClusterInfo[myClusterId],
+        &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
   assert(mRaftInsts.find(member) == mRaftInsts.end());
-  mRaftInstConfigs[member] = configPath;
+  mRaftInstConfigs[member] = raftConfigPath;
   mRaftInsts[member] = raftImpl;
   mRaftInstClients[member] = std::make_unique<RaftClient>(
       member.mAddress,
@@ -76,6 +84,14 @@ void ClusterTestUtil::killServer(const MemberInfo &member) {
 MemberInfo ClusterTestUtil::getMemberInfo(const MemberInfo &member) {
   assert(mRaftInsts.find(member) != mRaftInsts.end());
   return mRaftInsts[member]->mSelfInfo;
+}
+
+std::vector<MemberInfo> ClusterTestUtil::getAllMemberInfo() {
+  std::vector<MemberInfo> allMembers;
+  for (auto &[member, ignore] : mRaftInsts) {
+    allMembers.push_back(member);
+  }
+  return allMembers;
 }
 
 uint64_t ClusterTestUtil::getCommitIndex(const MemberInfo &member) {

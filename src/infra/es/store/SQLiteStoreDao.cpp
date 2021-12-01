@@ -70,7 +70,7 @@ void SQLiteStoreDao::handleResultCode(int rc, std::shared_ptr<Command> command) 
   if (rc != SQLITE_OK && rc != SQLITE_DONE) {
     SPDLOG_WARN("Warning: {} ", sqlite3_errmsg(mDb));
     if (command != nullptr)
-      command->onPersistFailed(sqlite3_errmsg(mDb), std::nullopt);
+      command->onPersistFailed(503, sqlite3_errmsg(mDb), std::nullopt);
     throw std::runtime_error("Error: Failed on save or query, possible reasons: 1. table doesn't exist; "
                              "2. failed on constraint.");
   } else {

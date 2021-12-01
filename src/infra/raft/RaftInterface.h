@@ -56,12 +56,30 @@ struct ClientRequest {
 
 using ClientRequests = std::vector<ClientRequest>;
 
+struct SyncFinishMeta {
+  /// the begin index this cluster to process
+  uint64_t mBeginIndex;
+};
+
+struct SyncRequest {
+  /// <index, term> is filled with <mLogStoreIndex, mLogStoreTerm>
+  /// raft verifies the write to WAL by checking index and term
+  std::vector<raft::LogEntry> mEntries;
+
+  uint64_t mStartIndex;
+  uint64_t mEndIndex;
+
+  /// meta indicate finish sync mode
+  std::optional<SyncFinishMeta> mFinishMeta;
+};
+
 //////////////////////////// Raft Interface ////////////////////////////
 
 enum class RaftRole {
   Leader = 0,
   Follower = 1,
-  Candidate = 2
+  Candidate = 2,
+  Syncer = 3
 };
 
 class RaftInterface {
@@ -79,6 +97,9 @@ class RaftInterface {
   virtual uint64_t getCommitIndex() const = 0;
   virtual uint64_t getCurrentTerm() const = 0;
   virtual uint64_t getFirstLogIndex() const = 0;
+  /// for split, if cluster = 0, it return 0
+  /// otherwise, it return the first index this cluster start process
+  virtual uint64_t getBeginLogIndex() const = 0;
   virtual uint64_t getLastLogIndex() const = 0;
   virtual std::optional<uint64_t> getLeaderHint() const = 0;
   virtual std::vector<MemberInfo> getClusterMembers() const = 0;
@@ -97,6 +118,9 @@ class RaftInterface {
 
   /// used by RaftLogStore to send a batch of client requests
   virtual void enqueueClientRequests(ClientRequests clientRequests) = 0;
+
+  /// using it to sync logs with others
+  virtual void enqueueSyncRequest(SyncRequest syncRequest) {}
 
   /// used by NetAdminServer to do log retention.
   /// truncate log prefix from [firstIndex, lastIndex] to [firstIndexKept, lastIndex]

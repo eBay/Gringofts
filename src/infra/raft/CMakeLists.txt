@@ -32,4 +32,4 @@ target_link_libraries(gringofts_infra_raft gringofts_raft_proto_library)
 
 # Executables
 add_executable(StorageMain StorageMain.cpp)
-target_link_libraries(StorageMain gringofts_infra_raft gringofts_raft_proto_library gringofts_infra_util ${GRINGOFTS_LIBRARIES})
+target_link_libraries(StorageMain gringofts_infra ${GRINGOFTS_LIBRARIES})

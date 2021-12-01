@@ -19,13 +19,14 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
-StreamingService::StreamingService(const INIReader &reader,
-                                   const RaftInterface &raftImpl)
+StreamingService::StreamingService(
+    uint32_t port,
+    const INIReader &reader,
+    const RaftInterface &raftImpl)
     : mRaftImpl(raftImpl),
       mStreamingServiceGetEntriesInvokingNumber(getCounter("streaming_service_get_entries_invoking_number", {})) {
   mMaxConcurrency = reader.GetInteger("streaming", "max.concurrency", 10);
 
-  auto port = reader.GetInteger("streaming", "grpc.port", 5678);
   std::string serverAddress("0.0.0.0:" + std::to_string(port));
 
   /// reuse the same TLS configuration as RaftService.

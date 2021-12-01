@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <spdlog/sinks/stdout_sinks.h>
 
+#include "../util/ClusterInfo.h"
 #include "../util/CryptoUtil.h"
 #include "RaftLogStore.h"
 #include "RaftBuilder.h"
@@ -37,7 +38,7 @@ struct DummyCommand final : gringofts::Command {
 
   void onPersisted(const std::string &message) override {}
 
-  void onPersistFailed(const std::string &errorMessage, std::optional<uint64_t> reserved) override {}
+  void onPersistFailed(uint32_t code, const std::string &errorMessage, std::optional<uint64_t> reserved) override {}
 };
 
 struct DummyEvent final : gringofts::Event {
@@ -60,7 +61,14 @@ int main(int argc, char *argv[]) {
   spdlog::set_pattern("[%D %H:%M:%S.%F] [%s:%# %!] [%l] [thread %t] %v");
 
   /// create raft impl
-  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1], std::nullopt);
+  gringofts::NodeId nodeId = 1;
+  gringofts::ClusterInfo::Node node;
+  node.mNodeId = nodeId;
+  node.mHostName = "0.0.0.0";
+  node.mPortForRaft = 5253;
+  gringofts::ClusterInfo clusterInfo;
+  clusterInfo.addNode(node);
+  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1], nodeId, clusterInfo);
 
   /// create fake CryptoUtil
   auto crypto = std::make_shared<gringofts::CryptoUtil>();

@@ -12,6 +12,11 @@ message VersionInfo {
     uint64 secret_key_version = 1;
 }
 
+message SpecialTag {
+    uint64 identifier = 1;
+    bytes payload = 2;
+}
+
 message LogEntry {
     uint64 term = 1; // term of this entry
     uint64 index = 2; // index of this entry, can be a virtual index, different from physical file index due to log rotation, etc.
@@ -19,6 +24,7 @@ message LogEntry {
     uint64 checksum = 4; // checksum of the payload
     bytes payload = 5; // one payload may contain multiple content, e.g., commands, events
     VersionInfo version = 6;
+    SpecialTag specialTag = 7;
 }
 
 message RequestVote {

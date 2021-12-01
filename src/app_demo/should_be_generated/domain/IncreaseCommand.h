@@ -25,7 +25,7 @@ namespace demo {
 /**
  * This is the command for execution plan.  For now, it support protobuf
  * for journal and account request. But for execution plans which has predicates,
- * the protobuf does not work yet. We will enable it when we work on Legos book.
+ * the protobuf does not work yet.
  */
 class IncreaseCommand : public Command {
  public:
@@ -55,7 +55,7 @@ class IncreaseCommand : public Command {
 
  private:
   void onPersisted(const std::string &message) override;
-  void onPersistFailed(const std::string &errorMessage, std::optional<uint64_t> reserved) override;
+  void onPersistFailed(uint32_t code, const std::string &errorMessage, std::optional<uint64_t> reserved) override;
 
   protos::IncreaseRequest mRequest;
 };

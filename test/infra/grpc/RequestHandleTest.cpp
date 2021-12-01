@@ -24,6 +24,7 @@ namespace gringofts::test {
 class RequestHandleMock : public RequestHandle {
  public:
   MOCK_METHOD0(proceed, void());
+  MOCK_METHOD0(failOver, void());
   MOCK_METHOD3(fillResultAndReply, void(
       uint32_t,
       const std::string&,

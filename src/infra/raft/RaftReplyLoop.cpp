@@ -15,11 +15,23 @@ limitations under the License.
 #include "RaftReplyLoop.h"
 #include "../common_types.h"
 
+#include "../util/MetricReporter.h"
+
 namespace gringofts {
 namespace raft {
 
+RaftReplyLoop::Task::Task() {
+  mTaskCreateTime = gringofts::TimeUtil::currentTimeInNanos();
+}
+
+RaftReplyLoop::Task::~Task() {
+  auto endTime = TimeUtil::currentTimeInNanos();
+  auto latency = (endTime - mTaskCreateTime) / 1000000.0;
+}
+
 RaftReplyLoop::RaftReplyLoop(const std::shared_ptr<RaftInterface> &raftImpl)
-    : mRaftImpl(raftImpl) {
+    : mRaftImpl(raftImpl),
+      mPendingReplyGauge(gringofts::getGauge("pending_reply_queue_size", {})) {
   mPopThread = std::thread(&RaftReplyLoop::popThreadMain, this);
 
   for (uint64_t i = 0; i < mConcurrency; ++i) {
@@ -58,6 +70,7 @@ void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
   /// write lock
   std::unique_lock<std::shared_mutex> lock(mMutex);
   mTaskQueue.push_back(std::move(taskPtr));
+  mPendingReplyQueueSize += 1;
 }
 
 void RaftReplyLoop::popThreadMain() {
@@ -78,8 +91,9 @@ void RaftReplyLoop::popThreadMain() {
       /// write lock
       std::unique_lock<std::shared_mutex> lock(mMutex);
       mTaskQueue.pop_front();
+      mPendingReplyQueueSize -= 1;
     } else {
-      usleep(1000);   /// nothing to do, sleep 1ms
+      usleep(100);   /// nothing to do, sleep 100us
     }
   }
 }
@@ -106,8 +120,9 @@ void RaftReplyLoop::replyThreadMain() {
     if (taskPtr) {
       replyTask(taskPtr.get());
     } else {
-      usleep(1000);   /// nothing to do, sleep 1ms
+      usleep(100);   /// nothing to do, sleep 100us
     }
+    mPendingReplyGauge.set(mPendingReplyQueueSize);
   }
 }
 
@@ -144,7 +159,7 @@ bool RaftReplyLoop::waitTillCommittedOrQuit(uint64_t index, uint64_t term) {
     }
 
     if (mRaftImpl->getCommitIndex() < index) {
-      usleep(1000);   /// sleep 1ms, retry
+      usleep(100);   /// sleep 1ms, retry
       continue;
     }
 

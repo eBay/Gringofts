@@ -15,6 +15,8 @@ limitations under the License.
 #ifndef SRC_APP_UTIL_COMMANDEVENTDECODERIMPL_H_
 #define SRC_APP_UTIL_COMMANDEVENTDECODERIMPL_H_
 
+#include "control/CtrlDecoder.h"
+#include "control/CtrlCommandEvent.h"
 #include "../infra/common_types.h"
 #include "../infra/es/CommandEventDecoder.h"
 
@@ -34,11 +36,17 @@ class CommandEventDecoderImpl : public CommandEventDecoder {
 
   std::unique_ptr<Event> decodeEventFromString(const EventMetaData &metaData,
                                                std::string_view payload) const override {
+    if (ctrl::isCtrlEvent(metaData.getType())) {
+      return ctrl::CtrlDecoderUtil::decodeEvent(metaData, payload);
+    }
     return mEventDecoderImpl.decodeEventFromString(metaData, payload);
   }
 
   std::unique_ptr<Command> decodeCommandFromString(const CommandMetaData &metaData,
                                                    std::string_view payload) const override {
+    if (ctrl::isCtrlCommand(metaData.getType())) {
+      return ctrl::CtrlDecoderUtil::decodeCommand(metaData, payload);
+    }
     return mCommandDecoderImpl.decodeCommandFromString(metaData, payload);
   }
 

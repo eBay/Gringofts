@@ -55,6 +55,18 @@ class MetaData {
     return mCreatedTimeInNanos;
   }
 
+  const TimestampInNanos &getProcessTimeInNanos() const {
+    return mProcessTimeInNanos;
+  }
+
+  const TimestampInNanos &getLeaderReadyTimeInNanos() const {
+    return mLeaderReadyTimeInNanos;
+  }
+
+  const TimestampInNanos &getFinishTimeInNanos() const {
+    return mFinishTimeInNanos;
+  }
+
   const Id &getCreatorId() const {
     return mCreatorId;
   }
@@ -82,6 +94,18 @@ class MetaData {
 
   void setCreatedTimeInNanos(TimestampInNanos createdTimeInNanos) {
     mCreatedTimeInNanos = createdTimeInNanos;
+  }
+
+  void setProcessTimeInNanos(TimestampInNanos processTimeInNanos) {
+    mProcessTimeInNanos = processTimeInNanos;
+  }
+
+  void setLeaderReadyTimeInNanos(TimestampInNanos leaderReadyTimeInNanos) {
+    mLeaderReadyTimeInNanos = leaderReadyTimeInNanos;
+  }
+
+  void setFinishTimeInNanos(TimestampInNanos finishTimeInNanos) {
+    mFinishTimeInNanos = finishTimeInNanos;
   }
 
   void setCreatorId(Id creatorId) {
@@ -119,7 +143,10 @@ class MetaData {
   /**
    * Capture the time in nanos as of the instance has been created
    */
-  TimestampInNanos mCreatedTimeInNanos;
+  TimestampInNanos mCreatedTimeInNanos = 0;
+  TimestampInNanos mProcessTimeInNanos = 0;
+  TimestampInNanos mLeaderReadyTimeInNanos = 0;
+  TimestampInNanos mFinishTimeInNanos = 0;
   /**
    * Identify the creator that generates this instance. It can be interpreted as data source by downstream
    */

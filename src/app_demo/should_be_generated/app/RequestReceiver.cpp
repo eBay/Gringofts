@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <spdlog/spdlog.h>
 
+#include "../../../app_util/AppInfo.h"
 #include "RequestCallData.h"
 
 namespace gringofts {
@@ -26,7 +27,8 @@ RequestReceiver::RequestReceiver(
     const INIReader &reader,
     BlockingQueue<std::shared_ptr<Command>> &commandQueue) :
     mCommandQueue(commandQueue) {
-  mIpPort = reader.Get("receiver", "ip.port", "UNKNOWN");
+  auto node = gringofts::app::AppInfo::getMyNode();
+  mIpPort = node.mHostName + ":" + std::to_string(node.mPortForGateway);
   assert(mIpPort != "UNKNOWN");
 
   mTlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
@@ -85,11 +87,16 @@ void RequestReceiver::handleRpcs(uint64_t i) {
   // The return value of Next should always be checked. This return value
   // tells us whether there is any kind of event or cq_ is shutting down.
   while (mCompletionQueues[i]->Next(&tag, &ok)) {
+    if (mIsShutdown) {
+      SPDLOG_INFO("Server loop quit.");
+      return;
+    }
+
     auto *callData = static_cast<RequestCallData *>(tag);
     if (ok) {
       callData->proceed();
     } else {
-      SPDLOG_WARN("Cannot proceed as callData is no longer valid probably because client has cancelled the request.");
+      callData->failOver();
     }
   }
 }
@@ -103,6 +110,10 @@ void RequestReceiver::shutdown() {
 
     for (uint64_t i = 0; i < kConcurrency; ++i) {
       mCompletionQueues[i]->Shutdown();
+      /// drain completion queue.
+      void *tag;
+      bool ok;
+      while (mCompletionQueues[i]->Next(&tag, &ok)) { ; }
     }
   }
 }

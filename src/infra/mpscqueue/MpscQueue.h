@@ -58,6 +58,13 @@ class MpscQueue {
   virtual uint64_t size() const = 0;
 
   /**
+   * Return the total count of items in both consumer and producer queue.
+   * It might not be correct due to concurrent access
+   * @return the total count of items in both consumer and producer queue
+   */
+  virtual uint64_t estimateTotalSize() const = 0;
+
+  /**
    * Return true, if queue is empty.
    */
   virtual bool empty() const = 0;

@@ -9,7 +9,7 @@ MESSAGE(STATUS "compiler is: " ${CMAKE_CXX_COMPILER_ID})
 if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
     include(cmake/clang-6/CodeCoverage.cmake)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    include(cmake/g++-7/CodeCoverage.cmake)
+    include(cmake/g++-9/CodeCoverage.cmake)
 endif ()
 
 set(CMAKE_C_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage ${CMAKE_C_FLAGS}")
@@ -61,6 +61,8 @@ if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
         set(OPENSSL_ROOT_DIR ${OPENSSL_ROOT_DIR} /usr/local/opt/openssl)
         set(OPENSSL_CRYPTO_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libcrypto.dylib CACHE FILEPATH "" FORCE)
         set(OPENSSL_SSL_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libssl.dylib CACHE FILEPATH "" FORCE)
+
+        find_package(Boost COMPONENTS system filesystem thread iostreams container REQUIRED)
 
         # The detection of cross compilation by -Wpoison-system-directories has false positives on macOS because
         # --sysroot is implicitly added. Turn the warning off.
@@ -204,7 +206,7 @@ include_directories(third_party/inih/cpp)
 set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
 include_directories(third_party/abseil-cpp)
-set(ABSL_LIBS absl::strings absl::base)
+set(ABSL_LIBS absl::strings absl::base absl::str_format)
 
 # prometheus
 add_subdirectory(third_party/prometheus-cpp EXCLUDE_FROM_ALL)

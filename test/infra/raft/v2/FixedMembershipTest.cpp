@@ -37,9 +37,9 @@ class FixedMembershipTest : public RaftMembershipTest {
   const MemberInfo mServer3{3, "0.0.0.0:33333"};
 
   /// fixed_member config
-  const std::string mServer1Config = "../test/infra/raft/cluster_config/fixed_member_raft_node1.ini";
-  const std::string mServer2Config = "../test/infra/raft/cluster_config/fixed_member_raft_node2.ini";
-  const std::string mServer3Config = "../test/infra/raft/cluster_config/fixed_member_raft_node3.ini";
+  const std::string mServer1Config = "../test/infra/raft/cluster_config/mock_app_node1.ini";
+  const std::string mServer2Config = "../test/infra/raft/cluster_config/mock_app_node2.ini";
+  const std::string mServer3Config = "../test/infra/raft/cluster_config/mock_app_node3.ini";
   const std::vector<std::string> mData = {
     "testdata1",
     "testdata2",
@@ -48,6 +48,18 @@ class FixedMembershipTest : public RaftMembershipTest {
     "testdata5",
   };
 };
+
+TEST_F(FixedMembershipTest, ClusterInfoTest) {
+  mClusterUtil.setupAllServers({mServer1Config, mServer2Config, mServer3Config});
+  auto allMembers = mClusterUtil.getAllMemberInfo();
+  ASSERT_EQ(allMembers[0].mId, 1);
+  ASSERT_EQ(allMembers[0].mAddress, "0.0.0.0:11111");
+  ASSERT_EQ(allMembers[1].mId, 2);
+  ASSERT_EQ(allMembers[1].mAddress, "0.0.0.0:22222");
+  ASSERT_EQ(allMembers[2].mId, 3);
+  ASSERT_EQ(allMembers[2].mAddress, "0.0.0.0:33333");
+  mClusterUtil.killAllServers();
+}
 
 TEST_F(FixedMembershipTest, NormalTest) {
   mClusterUtil.enableAllSyncPoints();
@@ -184,7 +196,7 @@ TEST_F(FixedMembershipTest, SecretKeyVersionUpgradeTest) {
     sendReqAndVerifySecKeyVersion({mServer2, mServer3}, expectedVersion);
   }
   /// step3
-  mClusterUtil.setupServer("../test/infra/raft/cluster_config/fixed_member_raft_node1.upgrade_key_version.ini");
+  mClusterUtil.setupServer("../test/infra/raft/cluster_config/mock_app_node1.upgrade_key_version.ini");
   {
     SecKeyVersion expectedVersion = 2;
     sendReqAndVerifySecKeyVersion({mServer1, mServer2, mServer3}, expectedVersion);

@@ -1,59 +1,110 @@
 syntax = "proto3";
 
 package gringofts.app.protos;
+import "route.proto";
 
 // The netAdmin service definition.
 service AppNetAdmin {
-    rpc CreateSnapshot (CreateSnapshot.Request) returns (CreateSnapshot.Response) {}
-    rpc TruncatePrefix (TruncatePrefix.Request) returns (TruncatePrefix.Response) {}
-    rpc Hotfix (Hotfix.Request) returns (Hotfix.Response) {}
+  rpc CreateSnapshot (CreateSnapshot.Request) returns (CreateSnapshot.Response) {}
+  rpc TruncatePrefix (TruncatePrefix.Request) returns (TruncatePrefix.Response) {}
+  rpc Hotfix (Hotfix.Request) returns (Hotfix.Response) {}
+  // for split
+  rpc SyncLog(ScaleControl.SyncRequest) returns (ScaleControl.SyncResponse) {}
+  rpc Query(Query.StateRequest) returns (Query.StateResponse) {}
+  rpc Startup(ScaleControl.StartupRequest) returns (ScaleControl.StartupResponse) {}
 }
 
 message CreateSnapshot {
-    message Request {
+  message Request {
 
-    }
-    enum ResponseType {
-        UNKNOWN = 0;
-        PROCESSING = 1;
-        SUCCESS = 2;
-        FAILED = 3;
-    }
-    message Response {
-        ResponseType type = 1;
-        string message = 2;
-    }
+  }
+  enum ResponseType {
+    UNKNOWN = 0;
+    PROCESSING = 1;
+    SUCCESS = 2;
+    FAILED = 3;
+  }
+  message Response {
+    ResponseType type = 1;
+    string message = 2;
+  }
 }
 
 message TruncatePrefix {
-    message Request {
-        uint64 firstIndexKept = 1;
-    }
-    enum ResponseType {
-        UNKNOWN = 0;
-        PROCESSING = 1;
-        SUCCESS = 2;
-        FAILED = 3;
-    }
-    message Response {
-        ResponseType type = 1;
-        string message = 2;
-    }
+  message Request {
+    uint64 firstIndexKept = 1;
+  }
+  enum ResponseType {
+    UNKNOWN = 0;
+    PROCESSING = 1;
+    SUCCESS = 2;
+    FAILED = 3;
+  }
+  message Response {
+    ResponseType type = 1;
+    string message = 2;
+  }
 }
 
 message Hotfix {
-    message Request {
-        // payload string will be interpreted by actual hotfix handler
-        string payload = 1;
-    }
-    enum ResponseType {
-        UNKNOWN = 0;
-        PROCESSING = 1;
-        SUCCESS = 2;
-        FAILED = 3;
-    }
-    message Response {
-        ResponseType type = 1;
-        string message = 2;
-    }
+  message Request {
+    // payload string will be interpreted by actual hotfix handler
+    string payload = 1;
+  }
+  enum ResponseType {
+    UNKNOWN = 0;
+    PROCESSING = 1;
+    SUCCESS = 2;
+    FAILED = 3;
+  }
+  message Response {
+    ResponseType type = 1;
+    string message = 2;
+  }
+}
+
+message ResponseHeader {
+  uint32 code = 1;      // 200 and 201 for ok, 400 for client error, 102, 301 and 503 for leader not available
+  string message = 2;   // message info returned
+  string reserved = 3;  // leaderHint
+}
+message ScaleControl {
+  message SyncRequest {
+    string  planId = 1;
+    uint64  fromClusterId = 2;  // netAdmin port: 60055
+  }
+  message SyncResponse {
+    ResponseHeader header = 1;
+    uint64    fromClusterId = 2;
+  }
+  message StartupRequest {// run in raft mode
+    string  planId = 1;
+    uint64  tagCommitIndex = 2;
+  }
+  message StartupResponse {
+    ResponseHeader header = 1;
+  }
+}
+
+
+message Query {
+  message StateRequest {// only leader can response
+    uint64 clusterId = 1;
+  }
+  enum Role {
+    UNKNOWN = 0;
+    LEADER = 1;
+    FOLLOWER = 2;
+    CANDIDATE = 3;
+    SYNCER = 4;
+  }
+  message StateResponse {
+    ResponseHeader header = 1;
+    uint64 commitIndex = 2;
+    uint64 lastApplied = 3;
+    uint64 firstIndex = 4;
+    string clusterInfo = 5;
+    SplitState splitState = 6;
+    Role role = 7;
+  }
 }

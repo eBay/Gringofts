@@ -84,6 +84,16 @@ class Util final {
     return h->h_name;
   }
 
+  /// uniform hash algorithm
+  /// http://www.cse.yorku.ca/~oz/hash.html
+  static uint64_t hash(const char *str) {
+    uint64_t hash = 5381;
+    int c;
+    while ((c = *str++))
+      hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+    return hash;
+  }
+
   /// execute a shell cmd and return the result
   /// ATTENTION: should only call this method within unit test.
   ///            call popen() and fork() in production code is dangerous.

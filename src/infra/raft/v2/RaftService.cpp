@@ -14,8 +14,6 @@ limitations under the License.
 
 #include "RaftService.h"
 
-#include "../../monitor/MonitorTypes.h"
-
 namespace gringofts {
 namespace raft {
 namespace v2 {
@@ -24,8 +22,20 @@ namespace v2 {
 
 RaftServer::RaftServer(const std::string &ipPort,
                        std::optional<TlsConf> tlsConfOpt,
-                       EventQueue *aeRvQueue)
-    : mIpPort(ipPort), mTlsConfOpt(std::move(tlsConfOpt)), mAeRvQueue(aeRvQueue) {
+                       EventQueue *aeRvQueue,
+                       std::shared_ptr<DNSResolver> dnsResolver)
+    : mIpPort(ipPort), mTlsConfOpt(std::move(tlsConfOpt)), mAeRvQueue(aeRvQueue), mDNSResolver(dnsResolver) {
+  /// start sever here to avoid close the server
+  /// before the server init
+  grpc::ServerBuilder builder;
+  builder.SetMaxReceiveMessageSize(INT_MAX);
+  builder.AddListeningPort(mIpPort, TlsUtil::buildServerCredentials(mTlsConfOpt));
+  builder.RegisterService(&mService);
+
+  mCompletionQueue = builder.AddCompletionQueue();
+  mServer = builder.BuildAndStart();
+
+  SPDLOG_INFO("RaftServer listening on {}", mIpPort);
   mServerLoop = std::thread(&RaftServer::serverLoopMain, this);
 }
 
@@ -33,6 +43,7 @@ RaftServer::~RaftServer() {
   mRunning = false;
 
   /// attention to the shutdown sequence.
+  SPDLOG_INFO("stop server");
   mServer->Shutdown();
   mCompletionQueue->Shutdown();
 
@@ -49,16 +60,6 @@ RaftServer::~RaftServer() {
 
 void RaftServer::serverLoopMain() {
   pthread_setname_np(pthread_self(), "RaftServer");
-
-  grpc::ServerBuilder builder;
-  builder.SetMaxReceiveMessageSize(INT_MAX);
-  builder.AddListeningPort(mIpPort, TlsUtil::buildServerCredentials(mTlsConfOpt));
-  builder.RegisterService(&mService);
-
-  mCompletionQueue = builder.AddCompletionQueue();
-  mServer = builder.BuildAndStart();
-
-  SPDLOG_INFO("RaftServer listening on {}", mIpPort);
 
   /// Spawn a new CallData instance to serve new clients.
   new RequestVoteCallData(&mService, mCompletionQueue.get(), mAeRvQueue);
@@ -126,11 +127,11 @@ void RaftClient::refressChannel() {
   if (newResolvedAddress != mResolvedPeerAddress) {
     std::unique_lock<std::shared_mutex> lock(mMutex);
     if (newResolvedAddress != mResolvedPeerAddress) {
-      SPDLOG_INFO("refreshing channel, addr {}, new resolved addr {}, old resolved addr ",
-          mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
+      SPDLOG_INFO("refreshing channel, addr {}, new resolved addr {}, old resolved addr {}",
+                  mPeerAddress, newResolvedAddress, mResolvedPeerAddress);
       auto channel = grpc::CreateCustomChannel(
           newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
-      mStub = Raft::NewStub(channel);
+      mStub = raft::Raft::NewStub(channel);
       mResolvedPeerAddress = newResolvedAddress;
     }
   }

@@ -213,6 +213,10 @@ uint64_t ReadonlyRaftCommandEventStore::waitTillLeaderIsReadyOrStepDown(uint64_t
   }
 }
 
+bool ReadonlyRaftCommandEventStore::isLeader() const {
+  return mRaftImpl->getRaftRole() == raft::RaftRole::Leader;
+}
+
 void ReadonlyRaftCommandEventStore::loadEntriesThreadMain() {
   pthread_setname_np(pthread_self(), "CES_Load");
   while (mRunning) {

@@ -27,6 +27,7 @@ limitations under the License.
 #include "../../../infra/es/Command.h"
 #include "../../../infra/es/CommandEventStore.h"
 #include "../../../infra/util/CryptoUtil.h"
+#include "../../../infra/util/PMRContainerFactory.h"
 
 #include "../../AppStateMachine.h"
 #include "../domain/CommandDecoderImpl.h"
@@ -61,6 +62,8 @@ class App final {
 
   void initMonitor(const INIReader &reader);
 
+  void initMemoryPool(const INIReader &reader);
+
   void initCommandEventStore(const INIReader &reader);
 
   void startRequestReceiver();
@@ -77,6 +80,9 @@ class App final {
 
  private:
   DeploymentMode mDeploymentMode = DeploymentMode::Standalone;
+
+  /// the factory to create container from a memory pool
+  std::shared_ptr<gringofts::PMRContainerFactory> mFactory;
 
   BlockingQueue<std::shared_ptr<Command>> mCommandQueue;
   std::unique_ptr<RequestReceiver> mRequestReceiver;

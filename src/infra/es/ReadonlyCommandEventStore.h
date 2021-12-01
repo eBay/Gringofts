@@ -154,6 +154,12 @@ class ReadonlyCommandEventStore {
   virtual uint64_t waitTillLeaderIsReadyOrStepDown(uint64_t expectedTerm) const {
     throw std::runtime_error("Not supported");
   }
+  /*
+   * @return true if currently this node is the leader
+   */
+  virtual bool isLeader() const {
+    throw std::runtime_error("Not supported");
+  }
 
   /**
    * Get the current read offset
@@ -175,6 +181,27 @@ class ReadonlyCommandEventStore {
    * For log retention purpose, entries that already backup can be discarded.
    */
   virtual void truncatePrefix(uint64_t offsetKept) = 0;
+
+  /**
+   * Is syncing log
+   */
+  virtual bool isSyncing() const {
+    return false;
+  }
+
+  /**
+   * the first index we can fetch data
+   */
+  virtual uint64_t firstIndex() const {
+    return 0;
+  }
+
+  /**
+   * The begin index of this cluster
+   */
+  virtual uint64_t beginIndex() const {
+    return 0;
+  }
 };
 
 }  /// namespace gringofts

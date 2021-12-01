@@ -19,53 +19,25 @@ limitations under the License.
 #include <mutex>
 #include <thread>
 
-#include "Monitorable.h"
 #include "santiago/Server.h"
 
 namespace gringofts {
 
+class Monitorable;
+
 class MonitorCenter : public santiago::MetricsCenter {
  public:
-  MonitorCenter() {
-    running = true;
-    mMonitorThread = std::thread(&MonitorCenter::run, this);
-  }
-  virtual ~MonitorCenter() {
-    running = false;
-    if (mMonitorThread.joinable()) {
-      mMonitorThread.join();
-    }
-  }
-  void registry(std::shared_ptr<Monitorable> monitorable) {
-    std::lock_guard<std::mutex> lock_guard(mMutex);
-    mMonitorables.push_back(monitorable);
-  }
-
+  MonitorCenter();
+  virtual ~MonitorCenter();
+  void registry(std::shared_ptr<Monitorable> monitorable);
  private:
-  void run() {
-    while (running) {
-      usleep(1000 * 10);  /// us
-      reportGaugeMetrics();
-    }
-  }
-  void reportGaugeMetrics() {
-    std::lock_guard<std::mutex> lock(mMutex);
-    for (auto monitorable : mMonitorables) {
-      auto &metricTags = monitorable->monitorTags();
-      for (auto &tag : metricTags) {
-        gauge(tag.name, tag.labels).set(monitorable->getValue(tag));
-      }
-    }
-  }
+  void run();
+  void reportGaugeMetrics();
   std::thread mMonitorThread;
   std::vector<std::shared_ptr<Monitorable>> mMonitorables;
   std::mutex mMutex;
   std::atomic_bool running;
 };
-
-inline void enableMonitorable(std::shared_ptr<Monitorable> monitorable) {
-  Singleton<MonitorCenter>::getInstance().registry(monitorable);
-}
 
 }  /// namespace gringofts
 

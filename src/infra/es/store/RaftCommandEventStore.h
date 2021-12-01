@@ -40,6 +40,7 @@ class RaftCommandEventStore final : public CommandEventStore {
                     const std::string &) override;
 
   Transition detectTransition() override;
+  std::optional<uint64_t> getLeaderHint() const override;
 
   uint64_t getCurrentTerm() const override { return mLastCheckedTerm; }
 

@@ -61,10 +61,6 @@ class EventApplyLoopInterface : public Loop,
    */
   virtual void swapStateAndTeardown(StateMachine &target) = 0;  // NOLINT [runtime/references]
 
-  /**
-   * For unit-test only
-   */
-  virtual void replayTillNoEvent() = 0;
   virtual const StateMachine &getStateMachine() const = 0;
 };
 
@@ -116,14 +112,13 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
     mShouldRecover = true;
   }
 
-  /**
-   * For unit-test only
-   */
-  void replayTillNoEvent() override;
-
   const StateMachine &getStateMachine() const override {
-    SPDLOG_WARN("should ONLY see this log in unit test");
+    // SPDLOG_WARN("should ONLY see this log in unit test");
     return *mAppStateMachine;
+  }
+
+  uint64_t lastApplied() const override {
+    return mLastAppliedLogEntryIndex;
   }
 
  protected:
@@ -202,19 +197,6 @@ void EventApplyLoopBase<StateMachineType>::run() {
                   (ts3InNano - ts2InNano) / 1000.0);
     }
   }
-}
-
-template<typename StateMachineType>
-void EventApplyLoopBase<StateMachineType>::replayTillNoEvent() {
-  SPDLOG_WARN("should ONLY see this log in unit test");
-  std::unique_ptr<Event> eventPtr = mReadonlyCommandEventStore->loadNextEvent(*mCommandEventDecoder);
-  while (eventPtr) {
-    SPDLOG_INFO("Got Event, CommandId={}, EventId={}", eventPtr->getCommandId(), eventPtr->getId());
-    std::lock_guard<std::mutex> lock(mLoopMutex);
-    mAppStateMachine->applyEvent(*eventPtr);
-    eventPtr = mReadonlyCommandEventStore->loadNextEvent(*mCommandEventDecoder);
-  }
-  mAppStateMachine->generateMockData();
 }
 
 /**
@@ -342,6 +324,11 @@ class EventApplyLoop<RocksDBBackedStateMachineType, true>
   }
 
   std::pair<bool, std::string> takeSnapshotAndPersist() const override {
+    if (this->mReadonlyCommandEventStore->isLeader()) {
+      /// no snapshot to avoid io contention
+      SPDLOG_INFO("avoid taking snapshot when leader");
+      return std::make_pair(false, "leader no longer takes snapshot");
+    }
     /// create Checkpoint of RocksDB is thread-safe,
     /// we don't need lock mLoopMutex.
     auto checkpointPath = this->mAppStateMachine->createCheckpoint(this->mSnapshotDir);

@@ -16,6 +16,7 @@ limitations under the License.
 
 #include "../../../../src/infra/raft/metrics/RaftMonitorAdaptor.h"
 #include "../../../../src/infra/raft/v2/RaftCore.h"
+#include "../../../../src/infra/util/ClusterInfo.h"
 
 namespace gringofts::test {
 
@@ -23,8 +24,15 @@ class RaftMonitorAdaptorTest : public ::testing::Test {
  protected:
   void SetUp() override {
     Util::executeCmd("mkdir ../test/infra/raft/node_1");
+    gringofts::NodeId nodeId = 1;
+    gringofts::ClusterInfo::Node node;
+    node.mNodeId = nodeId;
+    node.mHostName = "0.0.0.0";
+    node.mPortForRaft = 5253;
+    gringofts::ClusterInfo clusterInfo;
+    clusterInfo.addNode(node);
     mRaftImpl = std::make_shared<raft::v2::RaftCore>("../test/infra/raft/config/raft_1.ini",
-        std::nullopt, std::make_shared<DNSResolver>());
+                                                     nodeId, clusterInfo, std::make_shared<DNSResolver>());
   }
 
   void TearDown() override {

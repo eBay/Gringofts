@@ -33,17 +33,22 @@ if [ -z "$CLANG6" ]; then
 else
   echo "clang 6.0 has been installed, skip"
 fi
-# download and install gcc/g++ 7.4.0
-GCC7=$(g++-7 --version | grep "7.4")
-if [ -z "$GCC7" ]; then
+# download and install gcc/g++
+GCC9=$(g++-9 --version | grep "9")
+if [ -z "$GCC9" ]; then
   apt-get install -y software-properties-common &&
     add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
     apt-get update -y &&
-    apt-get install -y gcc-7 g++-7
-  checkLastSuccess "install g++ 7.4 fails"
+    apt-get install -y gcc-9 g++-9
+  checkLastSuccess "install g++ 9 fails"
 else
-  echo "g++ 7.4 has been installed, skip"
+  echo "g++ 9.3 has been installed, skip"
 fi
+# download prometheus cpp client
+apt-get install -y libcurl4-gnutls-dev &&
+  cd ~/temp && version=v0.4.2 &&
+  git clone -b $version https://github.com/jupp0r/prometheus-cpp.git &&
+  cd prometheus-cpp/ && git submodule init && git submodule update
 # download grpc and related components
 cd ~/temp && version=1.16 && build=1 &&
   git clone https://github.com/grpc/grpc &&
@@ -69,7 +74,7 @@ apt-get install -y libcrypto++-dev &&
   apt-get install -y python-pip &&
   # Must use gcovr 3.2-1 as later version will create *.gcov files under tmp dir and remove them afterwards.
   # The consequence is we cannot upload these gcov files to sonarcube
-  apt-get install -y gcovr=3.2-1
+  apt-get install -y gcovr=3.4-1
 # download and install sqlite3
 apt-get install -y sqlite3 libsqlite3-dev
 # download and install boost

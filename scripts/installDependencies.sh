@@ -23,7 +23,7 @@ fi
 CARES=$(find /usr -name '*c-ares*')
 if [ -z "$CARES" ]; then
   cd ~/temp/grpc/third_party/cares/cares &&
-    CXX=g++-7 CC=gcc-7 cmake -DCMAKE_BUILD_TYPE=Debug &&
+    CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug &&
     make && make install
   checkLastSuccess "install cares fails"
 else
@@ -35,7 +35,7 @@ if [ -z "$PROTOBUF" ]; then
   cd ~/temp/grpc/third_party/protobuf/cmake &&
     mkdir -p build && cd build &&
     # use cmake instead of autogen.sh so that protobuf-config.cmake can be installed
-    CXX=g++-7 CC=gcc-7 cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug .. &&
+    CXX=g++-9 CC=gcc-9 cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug .. &&
     make && make install && make clean && ldconfig
   checkLastSuccess "install protobuf fails"
 else
@@ -50,23 +50,24 @@ if [ -z "$GRPC" ]; then
     sed -i -E "s/(gRPC_CARES_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
     sed -i -E "s/(gRPC_SSL_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
     sed -i -E "s/(gRPC_PROTOBUF_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
-    CXX=g++-7 CC=gcc-7 cmake -DCMAKE_BUILD_TYPE=Debug &&
+    echo "src/core/lib/gpr/log_linux.cc,src/core/lib/gpr/log_posix.cc,src/core/lib/iomgr/ev_epollex_linux.cc" | tr "," "\n" | xargs -L1 sed -i "s/gettid/sys_gettid/" &&
+    CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug &&
     make && make install && make clean && ldconfig
   checkLastSuccess "install grpc fails"
 else
   echo "gRPC v1.16 has been installed, skip"
 fi
-# install rocksdb
-ROCKSDB=$(find /usr -name '*librocksdb*')
-if [ -z "$ROCKSDB" ]; then
-  cd ~/temp/rocksdb &&
-    # enable portable due to https://github.com/benesch/cockroach/commit/0e5614d54aa9a11904f59e6316cfabe47f46ce02
-    export PORTABLE=1 && export FORCE_SSE42=1 &&
-    make static_lib &&
+# install rocksdb	
+ROCKSDB=$(find /usr -name '*librocksdb*')	
+if [ -z "$ROCKSDB" ]; then	
+  cd ~/temp/rocksdb &&	
+    # enable portable due to https://github.com/benesch/cockroach/commit/0e5614d54aa9a11904f59e6316cfabe47f46ce02	
+    export PORTABLE=1 && export FORCE_SSE42=1 && export CXX=g++-9 && export CC=gcc-9 &&	
+    make static_lib &&	
     make install-static
-  checkLastSuccess "install rocksdb fails"
-else
-  echo "RocksDB has been installed, skip"
+  checkLastSuccess "install rocksdb fails"	
+else	
+  echo "RocksDB has been installed, skip"	
 fi
 # give read access to cmake modules
 chmod o+rx -R /usr/local/lib/cmake

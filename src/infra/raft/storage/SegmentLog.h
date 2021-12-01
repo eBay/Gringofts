@@ -108,6 +108,10 @@ class SegmentLog : public Log {
   uint64_t getLastLogIndex() const override { return mLastIndex; }
 
   std::string getName() const override { return "SegmentLog"; }
+  void closeActiveSegment();
+  /// mapping table for closed segments
+  using SegmentPtr = std::shared_ptr<Segment>;
+  using SegmentMap = std::map<uint64_t /**firstIndex*/, SegmentPtr>;
 
  private:
   /**
@@ -140,10 +144,6 @@ class SegmentLog : public Log {
     std::string voteForFilePath;
     std::string firstIndexFilePath;
   };
-
-  /// mapping table for closed segments
-  using SegmentPtr = std::shared_ptr<Segment>;
-  using SegmentMap = std::map<uint64_t /**firstIndex*/, SegmentPtr>;
 
   /// recover closed/active segments
   void listSegments();
