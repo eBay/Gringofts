@@ -24,10 +24,12 @@ set(UNIT_TEST_SRC
         infra/raft/v2/FixedMembershipTest.cpp
         infra/raft/v2/RaftCoreTest.cpp
         infra/util/BigDecimalTest.cpp
+        infra/util/ClusterInfoTest.cpp
         infra/util/CryptoUtilTest.cpp
         infra/util/FileUtilTest.cpp
         infra/util/IdGeneratorTest.cpp
         infra/util/RandomUtilTest.cpp
+        infra/util/SignalTest.cpp
         infra/util/TimeUtilTest.cpp
         infra/util/TlsUtilTest.cpp
         test_util/SyncPointProcessor.cpp

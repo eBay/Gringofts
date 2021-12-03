@@ -14,10 +14,14 @@ limitations under the License.
 
 #include "RaftCore.h"
 
-#include <assert.h>
+#include <absl/strings/str_split.h>
+#include <cassert>
 #include <limits>
+#include <netinet/in.h>
 #include <regex>
 #include <vector>
+
+#include "../RaftSignal.h"
 
 namespace gringofts {
 namespace raft {
@@ -25,8 +29,11 @@ namespace v2 {
 
 RaftCore::RaftCore(
     const char *configPath,
-    std::optional<std::string> clusterConfOpt,
-    std::shared_ptr<DNSResolver> dnsResolver) :
+    const NodeId &myNodeId,
+    const ClusterInfo &clusterInfo,
+    std::shared_ptr<DNSResolver> dnsResolver,
+    RaftRole role) :
+    mRaftRole(role),
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -36,17 +43,32 @@ RaftCore::RaftCore(
   }
 
   initConfigurableVars(iniReader);
-  initClusterConf(iniReader, clusterConfOpt);
+  initClusterConf(clusterInfo, myNodeId);
   initStorage(iniReader);
   initService(iniReader, dnsResolver);
+
+  /// registry signal handler
+  Signal::hub.handle<StopSyncRoleSignal>([this](const Signal &s) {
+    const auto &signal = dynamic_cast<const StopSyncRoleSignal &>(s);
+    SPDLOG_INFO("receive stop sync role signal");
+    enqueueSyncRequest({{}, 0, 0, SyncFinishMeta{signal.getInitIndex()}});
+  });
+  Signal::hub.handle<QuerySignal>([this](const Signal &s) {
+    const auto &querySignal = dynamic_cast<const QuerySignal &>(s);
+    querySignal.passValue(
+        {this->getFirstLogIndex(),
+         this->getLastLogIndex(),
+         this->getCommitIndex(),
+         this->getRaftRole()});
+  });
 }
 
 void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   // @formatter:off
-  mMaxBatchSize       = iniReader.GetInteger("raft.default", "max.batch.size", 0);
-  mMaxLenInBytes      = iniReader.GetInteger("raft.default", "max.len.in.bytes", 0);
-  mMaxDecrStep        = iniReader.GetInteger("raft.default", "max.decr.step", 0);
-  mMaxTailedEntryNum  = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
+  mMaxBatchSize = iniReader.GetInteger("raft.default", "max.batch.size", 0);
+  mMaxLenInBytes = iniReader.GetInteger("raft.default", "max.len.in.bytes", 0);
+  mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
+  mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
   // @formatter:on
 
   assert(mMaxBatchSize != 0
@@ -62,67 +84,22 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum);
 }
 
-void RaftCore::initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt) {
-  if (clusterConfOpt) {
-    assert(*clusterConfOpt != "");
-    /// N.B.: when using external conf, the assumption is two raft instances will never run on the same host,
-    ///       otherwise below logic will break.
-    auto hostname = Util::getHostname();
-
-    SPDLOG_INFO("raft cluster conf passed from external, "
-                "cluster.conf={}, hostname={}", *clusterConfOpt, hostname);
-
-    initClusterConfImpl(*clusterConfOpt, [hostname](uint64_t peerId,
-                                                    const std::string &host,
-                                                    const std::string &port) { return host == hostname; });
-  } else {
-    auto clusterConf = iniReader.Get("raft.default", "cluster.conf", "");
-    auto selfId = iniReader.GetInteger("raft.default", "self.id", 0);
-    assert(!clusterConf.empty() && selfId > 0);
-
-    SPDLOG_INFO("read raft cluster conf from local, "
-                "cluster.conf={}, self.id={}", clusterConf, selfId);
-
-    initClusterConfImpl(clusterConf, [selfId](uint64_t peerId,
-                                              const std::string &host,
-                                              const std::string &port) { return peerId == selfId; });
-  }
-}
-
-/**
- * such as: "1@hostname1:port1,2@hostname2:port2,3@hostname3:port3,..."
- *      or: "1@ip1:port1,2@ip2:port2,3@ip3:port3,..."
- *
- * peerId should monotonically increase from 1 without gap
- */
-void RaftCore::initClusterConfImpl(const std::string &clusterConf,
-                                   IsSelf isSelf) {
-  std::regex regex("([0-9]+)@([^:]+):([0-9]+)");
-  std::smatch match;
-
-  std::vector<std::string> raftCluster = StrUtil::tokenize(clusterConf, ',');
-
-  for (auto expectId = 1; expectId <= raftCluster.size(); ++expectId) {
-    const auto &raftNode = raftCluster[expectId - 1];
-    if (!std::regex_search(raftNode, match, regex)) {
-      throw std::runtime_error("Bad cluster conf " + raftNode);
-    }
-
-    uint64_t peerId = std::stoul(match[1]);
-    assert(peerId == expectId);
-
-    std::string host = match[2];
-    std::string port = match[3];
+void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId) {
+  auto nodes = clusterInfo.getAllNodeInfo();
+  for (auto &[nodeId, node] : nodes) {
+    std::string host = node.mHostName;
+    std::string port = std::to_string(node.mPortForRaft);
     std::string addr = host + ":" + port;
 
-    if (isSelf(peerId, host, port)) {
-      mSelfInfo.mId = peerId;
+    if (selfId == nodeId) {
+      mSelfInfo.mId = selfId;
       mSelfInfo.mAddress = addr;
+      mStreamingPort = node.mPortForStream;
     } else {
       Peer peer;
-      peer.mId = peerId;
+      peer.mId = nodeId;
       peer.mAddress = addr;
-      mPeers[peerId] = peer;
+      mPeers[nodeId] = peer;
     }
   }
 
@@ -159,17 +136,16 @@ void RaftCore::initStorage(const INIReader &iniReader) {
 }
 
 void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver) {
-  auto tlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
-
+  mTlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
   /// init RaftServer
-  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, tlsConfOpt, &mAeRvQueue);
+  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, mTlsConfOpt, &mAeRvQueue, dnsResolver);
 
   /// init RaftClient
-  for (const auto &p : mPeers) {
+  for (auto &p : mPeers) {
     auto &peer = p.second;
     mClients[peer.mId] = std::make_unique<RaftClient>(
         peer.mAddress,
-        tlsConfOpt,
+        mTlsConfOpt,
         dnsResolver,
         peer.mId,
         &mAeRvQueue);
@@ -194,7 +170,7 @@ void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolv
   mRaftLoop = std::thread(&RaftCore::raftLoopMain, this);
 
   /// init StreamingService
-  mStreamingService = std::make_unique<StreamingService>(iniReader, *this);
+  mStreamingService = std::make_unique<StreamingService>(mStreamingPort, iniReader, *this);
 }
 
 RaftCore::~RaftCore() {
@@ -235,17 +211,17 @@ void RaftCore::receiveMessage() {
   }
 
   TEST_POINT_WITH_TWO_ARGS(mTPProcessor,
-      TPRegistry::RaftCore_receiveMessage_interceptIncoming, &mSelfInfo, event.get());
+                           TPRegistry::RaftCore_receiveMessage_interceptIncoming, &mSelfInfo, event.get());
 
   /// AE_req
   if (event->mType == RaftEventBase::Type::AppendEntriesRequest) {
     auto ptr = dynamic_cast<AppendEntriesRequestEvent &>(*event).mPayload;
     (*ptr->mRequest.mutable_metrics()).set_request_event_dequeue_time(TimeUtil::currentTimeInNanos());
 
-    handleAppendEntriesRequest(ptr->mRequest, &ptr->mResponse);
+    auto s = handleAppendEntriesRequest(ptr->mRequest, &ptr->mResponse);
 
     (*ptr->mResponse.mutable_metrics()).set_response_send_time(TimeUtil::currentTimeInNanos());
-    ptr->reply();
+    ptr->reply(std::move(s));
   }
 
   /// AE_resp
@@ -270,8 +246,8 @@ void RaftCore::receiveMessage() {
   /// RV_req
   if (event->mType == RaftEventBase::Type::RequestVoteRequest) {
     auto ptr = dynamic_cast<RequestVoteRequestEvent &>(*event).mPayload;
-    handleRequestVoteRequest(ptr->mRequest, &ptr->mResponse);
-    ptr->reply();
+    auto s = handleRequestVoteRequest(ptr->mRequest, &ptr->mResponse);
+    ptr->reply(std::move(s));
   }
 
   /// RV_resp
@@ -294,6 +270,12 @@ void RaftCore::receiveMessage() {
   if (event->mType == RaftEventBase::Type::ClientRequest) {
     ClientRequests clientRequests = std::move(dynamic_cast<ClientRequestsEvent &>(*event).mPayload);
     handleClientRequests(std::move(clientRequests));
+  }
+
+  /// sync req
+  if (event->mType == RaftEventBase::Type::SyncRequest) {
+    SyncRequest syncRequest = std::move(dynamic_cast<SyncRequestsEvent &>(*event).mPayload);
+    handleSyncRequest(std::move(syncRequest));
   }
 }
 
@@ -401,7 +383,7 @@ void RaftCore::requestVote() {
   }
 }
 
-void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
+grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
                                           AppendEntries::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
@@ -421,11 +403,21 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
   if (request.term() < currentTerm) {
     SPDLOG_INFO("{} reject AE_req from Node {}, remoteTerm {} < currentTerm {}.",
                 selfId(), request.leader_id(), request.term(), currentTerm);
-    return;
+    return grpc::Status::OK;
   }
 
   /// adjust term of AE_resp
   response->set_term(request.term());
+
+  /// sync mode reject AE_req
+  if (mRaftRole == RaftRole::Syncer) {
+    SPDLOG_WARN("I am Sycner, cancel AE request");
+    /// cannot return OK, since leader can differ
+    /// the follower reject and syncer reject,
+    /// so when cluster x(x>0) start, it has a period time as syncer
+    /// it will crash leader if send OK reject.
+    return grpc::Status::CANCELLED;
+  }
 
   if (request.term() > currentTerm
       || (request.term() == currentTerm && mRaftRole == RaftRole::Candidate)) {
@@ -448,7 +440,7 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
   if (!logIsOk) {
     SPDLOG_INFO("{} reject AE_req from Leader {}, log is not OK, <prevLogIndex, prevLogTerm>=<{}, {}>.",
                 selfId(), request.leader_id(), request.prev_log_index(), request.prev_log_term());
-    return;
+    return grpc::Status::OK;
   }
 
   std::vector<LogEntry> entries;
@@ -510,6 +502,7 @@ void RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
   /// reset election timer again to avoid punishing the leader for our own
   /// long disk writes
   updateElectionTimePoint();
+  return grpc::Status::OK;
 }
 
 void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &response) {
@@ -575,7 +568,7 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
   }
 }
 
-void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
+grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
                                         RequestVote::Response *response) {
   auto currentTerm = mLog->getCurrentTerm();
 
@@ -586,10 +579,15 @@ void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
   response->set_id(mSelfInfo.mId);
   response->set_saved_term(request.term());
 
+  if (mRaftRole == RaftRole::Syncer) {
+    SPDLOG_WARN("Syncer mode won't process RV request");
+    return grpc::Status::CANCELLED;
+  }
+
   if (request.term() < currentTerm) {
     SPDLOG_INFO("{} reject RV_req from Node {}, remoteTerm {} < currentTerm {}.",
                 selfId(), request.candidate_id(), request.term(), currentTerm);
-    return;
+    return grpc::Status::OK;
   }
 
   if (request.term() > currentTerm) {
@@ -618,6 +616,7 @@ void RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
     SPDLOG_INFO("{} reject RV_req from Node {}, logIsOk={}, voteFor={}",
                 selfId(), request.candidate_id(), logIsOk, voteFor);
   }
+  return grpc::Status::OK;
 }
 
 void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) {
@@ -689,6 +688,26 @@ void RaftCore::handleClientRequests(ClientRequests clientRequests) {
 
   SPDLOG_INFO("{} on term {} append {} entry", selfId(), currentTerm, entries.size());
   mLog->appendEntries(entries);
+}
+
+void RaftCore::handleSyncRequest(SyncRequest syncRequest) {
+  if (mRaftRole != RaftRole::Syncer) {
+    SPDLOG_WARN("won't process sync request unless it is in Syncer mode");
+    return;
+  }
+  if (syncRequest.mFinishMeta) {
+    SPDLOG_INFO("finish sync, become follower now");
+    mRaftRole = RaftRole::Follower;
+    mBeginIndex = syncRequest.mFinishMeta->mBeginIndex;
+    return;
+  }
+  assert(syncRequest.mStartIndex == mLog->getLastLogIndex() + 1);
+  assert(!syncRequest.mEntries.empty());
+  assert(mLog->appendEntries(syncRequest.mEntries));
+  assert(mLog->getLastLogIndex() == syncRequest.mEndIndex);
+  // set term with last entries term
+  mLog->setCurrentTerm(syncRequest.mEntries.back().term());
+  mCommitIndex = mLog->getLastLogIndex();
 }
 
 void RaftCore::advanceCommitIndex() {
@@ -806,12 +825,13 @@ void RaftCore::becomeLeader() {
 }
 
 void RaftCore::electionTimeout() {
-  if (mRaftRole == RaftRole::Leader) {
+  /// syncer also won't raise a election
+  if (mRaftRole == RaftRole::Leader || mRaftRole == RaftRole::Syncer) {
     return;
   }
 
   TEST_POINT_WITH_TWO_ARGS(mTPProcessor, TPRegistry::RaftCore_electionTimeout_interceptTimeout,
-      &mSelfInfo, &mElectionTimePointInNano);
+                           &mSelfInfo, &mElectionTimePointInNano);
 
   if (mElectionTimePointInNano > TimeUtil::currentTimeInNanos()) {
     return;
@@ -943,7 +963,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   }
 }
 
-void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
+void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
   if (metrics.entries_count() == 0) {
     /// avoid printing trace for heartbeat
     return;
@@ -974,8 +994,12 @@ void RaftCore::printMetrics(const AppendEntries::Metrics &metrics) {
 }
 
 /// for UT
-RaftCore::RaftCore(const char *configPath, TestPointProcessor *processor):
-  RaftCore(configPath, std::nullopt, std::make_shared<DNSResolver>()) {
+RaftCore::RaftCore(
+    const char *configPath,
+    const NodeId &myNodeId,
+    const ClusterInfo &clusterInfo,
+    TestPointProcessor *processor) :
+    RaftCore(configPath, myNodeId, clusterInfo, std::make_shared<DNSResolver>()) {
   mTPProcessor = processor;
 }
 

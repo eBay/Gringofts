@@ -21,8 +21,10 @@ namespace santiago {
 
 class AppInfo : public MetricsCenter {
  public:
-  void setAppInfo(const std::string &name, const std::string &version, const std::string &env) {
-    gauge("app_info", {{"app_name", name}, {"app_version", version}, {"app_env", env}}).set(1);
+  void setAppInfo(const std::string &name, const std::string &version, const std::string &env, int clusterId = 0) {
+    gauge("app_info",
+          {{"app_name", name}, {"app_version", version}, {"app_env", env}, {"cluster", std::to_string(clusterId)}}).set(
+        1);
   }
   ~AppInfo() override = default;
 };

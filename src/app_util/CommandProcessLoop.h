@@ -26,6 +26,8 @@ limitations under the License.
 #include "../infra/es/ReadonlyCommandEventStore.h"
 #include "../infra/es/Recoverable.h"
 #include "../infra/monitor/MonitorTypes.h"
+#include "../infra/util/PMRContainerFactory.h"
+#include "../infra/util/PerfConfig.h"
 
 #include "CommandEventDecoderImpl.h"
 #include "EventApplyLoop.h"
@@ -69,7 +71,8 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
                          CommandQueue &inputCommandQueue,  // NOLINT [runtime/references]
                          std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
                          std::shared_ptr<CommandEventStore> commandEventStore,
-                         const std::string &snapshotDir);
+                         const std::string &snapshotDir,
+                         std::shared_ptr<gringofts::PMRContainerFactory> factory);
 
   ~CommandProcessLoopBase() override = default;
 
@@ -141,7 +144,8 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
     CommandQueue &inputCommandQueue,  // NOLINT [runtime/references]
     std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
     std::shared_ptr<CommandEventStore> commandEventStore,
-    const std::string &snapshotDir)
+    const std::string &snapshotDir,
+    std::shared_ptr<gringofts::PMRContainerFactory> factory)
     : mDeploymentMode(deploymentMode),
       mCommandEventDecoder(decoder),
       mEventApplyLoop(eventApplyLoop),
@@ -163,7 +167,7 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
   assert(mEventApplyLoop);
 
   mCrypto.init(reader);
-  mAppStateMachine = std::make_unique<StateMachineType>();
+  mAppStateMachine = std::make_unique<StateMachineType>(factory);
 }
 
 template<typename StateMachineType>
@@ -173,6 +177,10 @@ void CommandProcessLoopBase<StateMachineType>::runDistributed() {
   while (!mShouldExit) {
     try {
       auto command = mInputCommandQueue.dequeue();
+      consumer_queue_size.set(mInputCommandQueue.estimateTotalSize());
+      auto startTime = TimeUtil::currentTimeInNanos();
+      command->setProcessTimeInNanos(startTime);
+
       Transition transition = mCommandEventStore->detectTransition();
 
       /// monitoring
@@ -188,12 +196,18 @@ void CommandProcessLoopBase<StateMachineType>::runDistributed() {
       if (transition == Transition::LeaderToFollower
           || transition == Transition::OldFollowerToNewFollower
           || transition == Transition::SameFollower) {
-        command->onPersistFailed("Not a leader any longer", std::nullopt);
+        command->onPersistFailed(301, "Not a leader any longer", mCommandEventStore->getLeaderHint());
       }
 
       /// Accept
       if (transition == Transition::SameLeader) {
         processCommand(command);
+      }
+      auto endTime = TimeUtil::currentTimeInNanos();
+      command->setFinishTimeInNanos(endTime);
+      auto latency = (endTime - startTime) / 1000000.0;
+      if (latency > gringofts::PerfConfig::getInstance().getProcessOutlierTime()) {
+        command->reportMetrics();
       }
     } catch (const QueueStoppedException &e) {
       SPDLOG_WARN("input command queue has been closed: {}", e.what());
@@ -213,7 +227,7 @@ void CommandProcessLoopBase<StateMachineType>::onBecomeLeader(std::shared_ptr<Co
   /// Reject if leader step down
   if (ret == 0) {
     SPDLOG_WARN("Leader step down during EventApplyLoop catching up.");
-    command->onPersistFailed("Not a leader any longer", std::nullopt);
+    command->onPersistFailed(301, "Not a leader any longer", mCommandEventStore->getLeaderHint());
     return;
   }
 
@@ -230,6 +244,7 @@ void CommandProcessLoopBase<StateMachineType>::onBecomeLeader(std::shared_ptr<Co
               "Processing new command",
               (ts2InNano - ts1InNano) / 1000000.0,
               (ts3InNano - ts2InNano) / 1000000.0);
+  command->setLeaderReadyTimeInNanos(ts3InNano);
 
   /// Start processing command
   processCommand(command);

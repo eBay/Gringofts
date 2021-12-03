@@ -20,7 +20,7 @@ limitations under the License.
 #include "../../../infra/es/store/ReadonlyRaftCommandEventStore.h"
 #include "../../../infra/es/store/ReadonlySQLiteCommandEventStore.h"
 #include "../../../infra/es/store/SQLiteCommandEventStore.h"
-#include "../../../infra/monitor/MonitorCenter.h"
+#include "../../../infra/monitor/Monitorable.h"
 #include "../../../infra/raft/RaftBuilder.h"
 #include "../../../infra/raft/metrics/RaftMonitorAdaptor.h"
 
@@ -45,6 +45,8 @@ App::App(const char *configPath) : mIsShutdown(false) {
 
   initMonitor(reader);
 
+  initMemoryPool(reader);
+
   initCommandEventStore(reader);
 
   std::string snapshotDir = reader.Get("snapshot", "dir", "UNKNOWN");
@@ -65,7 +67,8 @@ App::App(const char *configPath) : mIsShutdown(false) {
         mCommandQueue,
         std::move(mReadonlyCommandEventStoreForCommandProcessLoop),
         mCommandEventStore,
-        snapshotDir);
+        snapshotDir,
+        mFactory);
   } else {
     SPDLOG_ERROR("App version {} is not supported. Exiting...", appVersion);
     assert(0);
@@ -97,7 +100,7 @@ void App::initDeploymentMode(const INIReader &reader) {
 void App::initMonitor(const INIReader &reader) {
   int monitorPort = reader.GetInteger("monitor", "port", -1);
   assert(monitorPort > 0);
-  auto &server = gringofts::getMonitorServer("0.0.0.0", monitorPort);
+  auto &server = gringofts::Singleton<santiago::Server>::getInstance("0.0.0.0", monitorPort);
 
   auto &appInfo = Singleton<santiago::AppInfo>::getInstance();
   auto appName = "demoApp";
@@ -109,7 +112,7 @@ void App::initMonitor(const INIReader &reader) {
   appInfo.gauge("start_time_guage", {}).set(startTime);
 
   server.Registry(appInfo);
-  server.Registry(Singleton<MonitorCenter>::getInstance());
+  server.Registry(gringofts::Singleton<gringofts::MonitorCenter>::getInstance());
   SPDLOG_INFO("Init monitor with app name : {} , app version : {}, app env : {}, start time : {}",
               appName,
               appVersion,
@@ -117,8 +120,19 @@ void App::initMonitor(const INIReader &reader) {
               startTime);
 }
 
+void App::initMemoryPool(const INIReader &reader) {
+  if (gringofts::PerfConfig::getInstance().getMemoryPoolType() == "monotonic") {
+    mFactory = std::make_shared<gringofts::PMRContainerFactory>("PMRFactory",
+        std::make_unique<gringofts::MonotonicPMRMemoryPool>(
+          "monotonicPool", gringofts::PerfConfig::getInstance().getMaxMemoryPoolSizeInMB()));
+  } else {
+    mFactory = std::make_shared<gringofts::PMRContainerFactory>("PMRFactory",
+        std::make_unique<gringofts::NewDeleteMemoryPool>("newDeletePool"));
+  }
+}
+
 void App::initCommandEventStore(const INIReader &reader) {
-  std::string storeType = reader.Get("store", "persistence.type", "UNKNOWN");
+  std::string storeType = reader.Get("cluster", "persistence.type", "UNKNOWN");
   assert(storeType != "UNKNOWN");
   if (storeType == "default") {
     assert(mDeploymentMode == DeploymentMode::Standalone);
@@ -130,7 +144,7 @@ void App::initCommandEventStore(const INIReader &reader) {
   } else if (storeType == "sqlite") {
     assert(mDeploymentMode == DeploymentMode::Standalone);
 
-    std::string configPath = reader.Get("store", "sqlite.path", "UNKNOWN");
+    std::string configPath = reader.Get("cluster", "sqlite.path", "UNKNOWN");
     assert(configPath != "UNKNOWN");
     auto sqliteDao = std::make_shared<SQLiteStoreDao>(configPath.c_str());
     std::shared_ptr<IdGenerator> commandIdGenerator = std::make_shared<IdGenerator>();
@@ -153,12 +167,14 @@ void App::initCommandEventStore(const INIReader &reader) {
   } else if (storeType == "raft") {
     assert(mDeploymentMode == DeploymentMode::Distributed);
 
-    std::string configPath = reader.Get("store", "raft.config.path", "UNKNOWN");
+    std::string configPath = reader.Get("cluster", "raft.config.path", "UNKNOWN");
     assert(configPath != "UNKNOWN");
 
     std::shared_ptr<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>> commandEventDecoder =
         std::make_shared<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>>();
-    auto raftImpl = raft::buildRaftImpl(configPath.c_str(), std::nullopt);
+    auto myNodeId = gringofts::app::AppInfo::getMyNodeId();
+    auto myClusterInfo = gringofts::app::AppInfo::getMyClusterInfo();
+    auto raftImpl = raft::buildRaftImpl(configPath.c_str(), myNodeId, myClusterInfo);
     auto metricsAdaptor = std::make_shared<RaftMonitorAdaptor>(raftImpl);
     enableMonitorable(metricsAdaptor);
     mCommandEventStore = std::make_shared<RaftCommandEventStore>(raftImpl, mCrypto);

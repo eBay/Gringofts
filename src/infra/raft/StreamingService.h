@@ -28,7 +28,7 @@ namespace raft {
 
 class StreamingService : public Streaming::Service {
  public:
-  StreamingService(const INIReader &, const RaftInterface &raftImpl);
+  StreamingService(uint32_t port, const INIReader &, const RaftInterface &raftImpl);
   ~StreamingService() override;
 
   grpc::Status GetMeta(grpc::ServerContext *context,

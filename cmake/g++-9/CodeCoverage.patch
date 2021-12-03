@@ -1,0 +1,192 @@
+72,75c72,75
+< find_program( GCOV_PATH gcov )
+< find_program( LCOV_PATH  NAMES lcov lcov.bat lcov.exe lcov.perl)
+< find_program( GENHTML_PATH NAMES genhtml genhtml.perl genhtml.bat )
+< find_program( GCOVR_PATH gcovr PATHS ${CMAKE_SOURCE_DIR}/scripts/test)
+---
+> find_program( GCOV_PATH gcov-9 )
+> find_program( LCOV_PATH  NAMES lcov lcov.bat lcov.exe lcov.perl PATHS /usr/local/)
+> find_program( GENHTML_PATH NAMES genhtml genhtml.perl genhtml.bat PATHS /usr/local/)
+> find_program( GCOVR_PATH gcovr PATHS /usr/local/)
+76a77
+> message(${GCOVR_PATH})
+91c92
+<     CACHE INTERNAL "")
+---
+>         CACHE INTERNAL "")
+94,96c95,97
+<     ${COVERAGE_COMPILER_FLAGS}
+<     CACHE STRING "Flags used by the C++ compiler during coverage builds."
+<     FORCE )
+---
+>         ${COVERAGE_COMPILER_FLAGS}
+>         CACHE STRING "Flags used by the C++ compiler during coverage builds."
+>         FORCE )
+98,100c99,101
+<     ${COVERAGE_COMPILER_FLAGS}
+<     CACHE STRING "Flags used by the C compiler during coverage builds."
+<     FORCE )
+---
+>         ${COVERAGE_COMPILER_FLAGS}
+>         CACHE STRING "Flags used by the C compiler during coverage builds."
+>         FORCE )
+102,104c103,105
+<     ""
+<     CACHE STRING "Flags used for linking binaries during coverage builds."
+<     FORCE )
+---
+>         ""
+>         CACHE STRING "Flags used for linking binaries during coverage builds."
+>         FORCE )
+106,108c107,109
+<     ""
+<     CACHE STRING "Flags used by the shared libraries linker during coverage builds."
+<     FORCE )
+---
+>         ""
+>         CACHE STRING "Flags used by the shared libraries linker during coverage builds."
+>         FORCE )
+110,113c111,114
+<     CMAKE_CXX_FLAGS_COVERAGE
+<     CMAKE_C_FLAGS_COVERAGE
+<     CMAKE_EXE_LINKER_FLAGS_COVERAGE
+<     CMAKE_SHARED_LINKER_FLAGS_COVERAGE )
+---
+>         CMAKE_CXX_FLAGS_COVERAGE
+>         CMAKE_C_FLAGS_COVERAGE
+>         CMAKE_EXE_LINKER_FLAGS_COVERAGE
+>         CMAKE_SHARED_LINKER_FLAGS_COVERAGE )
+139c140
+<     set(multiValueArgs EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES LCOV_ARGS GENHTML_ARGS)
+---
+>     set(multiValueArgs EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES)
+153,172c154,173
+<         # Cleanup lcov
+<         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -directory . --zerocounters
+<         # Create baseline to make sure untouched files show up in the report
+<         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -c -i -d . -o ${Coverage_NAME}.base
+< 
+<         # Run tests
+<         COMMAND ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+< 
+<         # Capturing lcov counters and generating report
+<         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} --directory . --capture --output-file ${Coverage_NAME}.info
+<         # add baseline counters
+<         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} -a ${Coverage_NAME}.base -a ${Coverage_NAME}.info --output-file ${Coverage_NAME}.total
+<         COMMAND ${LCOV_PATH} ${Coverage_LCOV_ARGS} --gcov-tool ${GCOV_PATH} --remove ${Coverage_NAME}.total ${COVERAGE_LCOV_EXCLUDES} --output-file ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+<         COMMAND ${GENHTML_PATH} ${Coverage_GENHTML_ARGS} -o ${Coverage_NAME} ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+<         COMMAND ${CMAKE_COMMAND} -E remove ${Coverage_NAME}.base ${Coverage_NAME}.total ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+< 
+<         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+<         DEPENDS ${Coverage_DEPENDENCIES}
+<         COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
+<     )
+---
+>             # Cleanup lcov
+>             COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -directory .. --zerocounters
+>             # Create baseline to make sure untouched files show up in the report
+>             COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -c -i -d .. -o ${Coverage_NAME}.base
+> 
+>             # Run tests
+>             COMMAND ${Coverage_EXECUTABLE}
+> 
+>             # Capturing lcov counters and generating report
+>             COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} --directory .. --capture --output-file ${Coverage_NAME}.info
+>             # add baseline counters
+>             COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} -a ${Coverage_NAME}.base -a ${Coverage_NAME}.info --output-file ${Coverage_NAME}.total
+>             COMMAND ${LCOV_PATH} --rc lcov_branch_coverage=1 --gcov-tool ${GCOV_PATH} --remove ${Coverage_NAME}.total ${COVERAGE_LCOV_EXCLUDES} --output-file ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+>             COMMAND ${GENHTML_PATH} --branch-coverage -o ${Coverage_NAME} ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+>             COMMAND ${CMAKE_COMMAND} -E remove ${Coverage_NAME}.base ${Coverage_NAME}.total ${PROJECT_BINARY_DIR}/${Coverage_NAME}.info.cleaned
+> 
+>             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+>             DEPENDS ${Coverage_DEPENDENCIES}
+>             COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
+>             )
+176,178c177,179
+<         COMMAND ;
+<         COMMENT "Lcov code coverage info report saved in ${Coverage_NAME}.info."
+<     )
+---
+>             COMMAND ;
+>             COMMENT "Lcov code coverage info report saved in ${Coverage_NAME}.info."
+>             )
+182,184c183,185
+<         COMMAND ;
+<         COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+<     )
+---
+>             COMMAND ;
+>             COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+>             )
+221,222c222,223
+<         # Run tests
+<         ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+---
+>             # Run tests
+>             ${Coverage_EXECUTABLE}
+224,226c225,227
+<         # Running gcovr
+<         COMMAND ${GCOVR_PATH} --xml
+<             -r ${PROJECT_SOURCE_DIR} ${GCOVR_EXCLUDES}
+---
+>             # Running gcovr
+>             COMMAND ${GCOVR_PATH} --xml
+>             -k -r ${PROJECT_BINARY_DIR}/../src ${GCOVR_EXCLUDES}
+227a229
+>             --gcov-executable=${GCOV_PATH}
+229,232c231,234
+<         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+<         DEPENDS ${Coverage_DEPENDENCIES}
+<         COMMENT "Running gcovr to produce Cobertura code coverage report."
+<     )
+---
+>             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+>             DEPENDS ${Coverage_DEPENDENCIES}
+>             COMMENT "Running gcovr to produce Cobertura code coverage report."
+>             )
+236,238c238,240
+<         COMMAND ;
+<         COMMENT "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
+<     )
+---
+>             COMMAND ;
+>             COMMENT "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
+>             )
+275,276c277,278
+<         # Run tests
+<         ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+---
+>             # Run tests
+>             ${Coverage_EXECUTABLE}
+278,279c280,281
+<         # Create folder
+<         COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
+---
+>             # Create folder
+>             COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
+281,283c283,285
+<         # Running gcovr
+<         COMMAND ${GCOVR_PATH} --html --html-details
+<             -r ${PROJECT_SOURCE_DIR} ${GCOVR_EXCLUDES}
+---
+>             # Running gcovr
+>             COMMAND ${GCOVR_PATH} --html --html-details
+>             -r ${PROJECT_BINARY_DIR}/../src ${GCOVR_EXCLUDES}
+286,289c288,291
+<         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+<         DEPENDS ${Coverage_DEPENDENCIES}
+<         COMMENT "Running gcovr to produce HTML code coverage report."
+<     )
+---
+>             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+>             DEPENDS ${Coverage_DEPENDENCIES}
+>             COMMENT "Running gcovr to produce HTML code coverage report."
+>             )
+293,295c295,297
+<         COMMAND ;
+<         COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+<     )
+---
+>             COMMAND ;
+>             COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+>             )

@@ -49,4 +49,12 @@ TEST(TimeUtilTest, ElapseTimeInMillisTest) {
   EXPECT_EQ(TimeUtil::elapseTimeInMillis(future, now), 0);
 }
 
+TEST(TimeUtilTest, CurrentUTCTimeTest) {
+  /// init
+  auto currentTime = TimeUtil::currentUTCTime();
+
+  /// assert
+  EXPECT_EQ(currentTime.size(), 24);
+}
+
 }  /// namespace gringofts::test

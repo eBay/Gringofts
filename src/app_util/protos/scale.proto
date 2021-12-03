@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package gringofts.app.protos;
+import "route.proto";
+
+message Scale {
+  message SplitRequest {
+    uint64 epoch = 1;
+    string planId = 2;
+    repeated Impact impacts = 3;
+  }
+  message ResponseHeader {
+    uint32 code = 1;      // 200 and 201 for ok, 400 for client error, 102, 301 and 503 for leader not available
+    string message = 2;   // message info returned
+    string reserved = 3;  // leaderHint
+  }
+
+  message SplitResponse {
+    ResponseHeader header = 1;
+    uint64 tagCommitIndex = 2;
+  }
+
+
+}
+service ScaleService {
+  rpc scale(Scale.SplitRequest) returns (Scale.SplitResponse) {}
+}

@@ -38,13 +38,16 @@ void IncreaseCommand::onPersisted(const std::string &message) {
   callData->fillResultAndReply(200, message, std::nullopt);
 }
 
-void IncreaseCommand::onPersistFailed(const std::string &errorMessage, std::optional<uint64_t> reserved) {
+void IncreaseCommand::onPersistFailed(
+    uint32_t code,
+    const std::string &errorMessage,
+    std::optional<uint64_t> reserved) {
   auto *callData = getRequestHandle();
   if (callData == nullptr) {
     SPDLOG_WARN("This command does not have request attached.");
     return;
   }
-  callData->fillResultAndReply(503, errorMessage, reserved);
+  callData->fillResultAndReply(code, errorMessage, reserved);
 }
 
 }  ///  namespace demo

@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <spdlog/spdlog.h>
 
+#include "../../../../app_util/AppInfo.h"
 #include "../../../../app_util/CommandEventDecoderImpl.h"
 #include "../CommandDecoderImpl.h"
 #include "../EventDecoderImpl.h"
@@ -27,7 +28,7 @@ namespace demo {
 BundleExposePublisher::BundleExposePublisher(const INIReader &reader,
                                              std::unique_ptr<ReadonlyCommandEventStore> commandEventStore) :
     mReadonlyCommandEventStore(std::move(commandEventStore)) {
-  mPort = reader.GetInteger("publisher", "grpc.port", -1);
+  mPort = gringofts::app::AppInfo::fetchPort();
   mMaxConcurrency = reader.GetInteger("publisher", "max.concurrency", -1);
   assert(mPort > 0 && mMaxConcurrency > 0);
 

@@ -117,4 +117,8 @@ Transition RaftCommandEventStore::detectTransition() {
   return transition;
 }
 
+std::optional<uint64_t> RaftCommandEventStore::getLeaderHint() const {
+  return mRaftImpl->getLeaderHint();
+}
+
 }  /// namespace gringofts

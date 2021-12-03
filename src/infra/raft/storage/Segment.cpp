@@ -14,6 +14,7 @@ limitations under the License.
 
 #include "Segment.h"
 
+#include <sys/mman.h>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -130,6 +131,9 @@ void Segment::recoverActiveOrClosedSegment() {
   /// get file size, mmap
   mMetaSizeLimit = FileUtil::getFileSize(mMetaFd);
   mMetaMemPtr = ::mmap(nullptr, mMetaSizeLimit, PROT_WRITE | PROT_READ, MAP_SHARED, mMetaFd, 0);
+  if (mMetaMemPtr == MAP_FAILED) {
+    SPDLOG_ERROR("MMAP ERROR {}", std::strerror(errno));
+  }
   assert(mMetaMemPtr != MAP_FAILED);
 
   /// recover meta file

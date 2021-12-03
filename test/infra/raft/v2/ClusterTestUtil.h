@@ -31,19 +31,20 @@ class SyncRequestHandle : public RequestHandle {
  public:
     SyncRequestHandle(uint32_t targetCnt, std::vector<uint32_t> *errCodes):
       mTargetCnt(targetCnt), mErrCodes(errCodes) {
-        assert(errCodes->size() == targetCnt);
-      }
-    void proceed() override {}
-    void fillResultAndReply(
-        uint32_t code,
-        const std::string &message,
-        std::optional<uint64_t> leaderId) override {
-      assert(mFinishedCnt < mTargetCnt);
-      (*mErrCodes)[mFinishedCnt++] = code;
-    }
-    std::atomic<uint32_t> mFinishedCnt = 0;
-    uint32_t mTargetCnt = 0;
-    std::vector<uint32_t> *mErrCodes;
+    assert(errCodes->size() == targetCnt);
+  }
+  void proceed() override {}
+  void failOver() override {}
+  void fillResultAndReply(
+      uint32_t code,
+      const std::string &message,
+      std::optional<uint64_t> leaderId) override {
+    assert(mFinishedCnt < mTargetCnt);
+    (*mErrCodes)[mFinishedCnt++] = code;
+  }
+  std::atomic<uint32_t> mFinishedCnt = 0;
+  uint32_t mTargetCnt = 0;
+  std::vector<uint32_t> *mErrCodes;
 };
 
 class ClusterTestUtil {
@@ -71,10 +72,11 @@ class ClusterTestUtil {
         const std::vector<std::string> &data,
         uint32_t retryLimit = 1);
 
-    MemberInfo getMemberInfo(const MemberInfo &member);
-    uint64_t getCommitIndex(const MemberInfo &member);
-    uint64_t getLastLogIndex(const MemberInfo &member);
-    bool getDecryptedEntry(const MemberInfo &member, uint64_t index, raft::LogEntry *entry);
+  MemberInfo getMemberInfo(const MemberInfo &member);
+  std::vector<MemberInfo> getAllMemberInfo();
+  uint64_t getCommitIndex(const MemberInfo &member);
+  uint64_t getLastLogIndex(const MemberInfo &member);
+  bool getDecryptedEntry(const MemberInfo &member, uint64_t index, raft::LogEntry *entry);
 
     MemberInfo waitAndGetLeader();
     bool waitLogForAll(uint64_t index);

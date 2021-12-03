@@ -43,6 +43,8 @@ class RequestCallData final : public RequestHandle {
 
   void proceed() override;
 
+  void failOver() override;
+
   void fillResultAndReply(uint32_t code,
                           const std::string &message,
                           std::optional<uint64_t> leaderId) override;

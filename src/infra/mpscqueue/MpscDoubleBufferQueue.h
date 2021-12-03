@@ -48,6 +48,9 @@ class MpscDoubleBufferQueue final : public MpscQueue<T> {
   const T dequeue() override;
 
   uint64_t size() const override { return mConsumerQueue->size(); }
+  uint64_t estimateTotalSize() const override {
+    return mConsumerQueue->size() + mProducerQueue->size();
+  }
   bool empty() const override { return mQueueSize == 0; }
 
   void shutdown() override {

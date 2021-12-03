@@ -64,6 +64,7 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
    * 4) entry at lastIndex is no-op, its logTerm is expectedTerm.
    */
   uint64_t waitTillLeaderIsReadyOrStepDown(uint64_t expectedTerm) const override;
+  bool isLeader() const override;
 
   /// only used by publisher and will be deprecated once pull-mode downstream is enabled
   uint64_t getCurrentOffset() const override { return mAppliedIndex; }
@@ -75,6 +76,27 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
   }
 
   void truncatePrefix(uint64_t offsetKept) override { mRaftImpl->truncatePrefix(offsetKept); }
+
+  /**
+ * Is syncing log
+ */
+  bool isSyncing() const override {
+    return mRaftImpl->getRaftRole() == raft::RaftRole::Syncer;
+  }
+
+  /**
+   * the first index we can fetch data
+   */
+  uint64_t firstIndex() const override {
+    return mRaftImpl->getFirstLogIndex();
+  }
+
+  /**
+   * The begin index of this cluster
+   */
+  uint64_t beginIndex() const override {
+    return mRaftImpl->getBeginLogIndex();
+  }
 
  private:
   /// decrypt entries to bundles

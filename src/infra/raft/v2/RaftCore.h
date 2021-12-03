@@ -23,8 +23,7 @@ limitations under the License.
 
 #include <INIReader.h>
 
-#include "../../monitor/MonitorTypes.h"
-#include "../../util/DNSResolver.h"
+#include "../../util/ClusterInfo.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
@@ -110,7 +109,11 @@ struct Peer {
 
 class RaftCore : public RaftInterface {
  public:
-  RaftCore(const char *configPath, std::optional<std::string> clusterConfOpt, std::shared_ptr<DNSResolver> dnsResolver);
+  RaftCore(const char *configPath,
+      const NodeId &selfId,
+      const ClusterInfo &clusterInfo,
+      std::shared_ptr<DNSResolver> dnsResolver,
+      RaftRole role = RaftRole::Follower);
 
   ~RaftCore() override;
 
@@ -118,6 +121,7 @@ class RaftCore : public RaftInterface {
   uint64_t getCommitIndex() const override { return mCommitIndex; }
   uint64_t getCurrentTerm() const override { return mLog->getCurrentTerm(); }
   uint64_t getFirstLogIndex() const override { return mLog->getFirstLogIndex(); }
+  uint64_t getBeginLogIndex() const override { return mBeginIndex; }
   uint64_t getLastLogIndex() const override { return mLog->getLastLogIndex(); }
 
   std::optional<uint64_t> getLeaderHint() const override {
@@ -132,12 +136,16 @@ class RaftCore : public RaftInterface {
     }
     /// guarantee a unique sort order
     std::sort(cluster.begin(), cluster.end(),
-        [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
+              [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
     return cluster;
   }
 
   bool getEntry(uint64_t index, LogEntry *entry) const override {
-    assert(index <= mCommitIndex);
+    if (mRaftRole != RaftRole::Syncer) {
+      // for syncer mode, all logs actually has been
+      // committed in other cluster
+      assert(index <= mCommitIndex);
+    }
     return mLog->getEntry(index, entry);
   }
 
@@ -157,6 +165,15 @@ class RaftCore : public RaftInterface {
     mClientRequestsQueue.enqueue(std::move(event));
   }
 
+  void enqueueSyncRequest(SyncRequest syncRequest) override {
+    auto event = std::make_shared<SyncRequestsEvent>();
+
+    event->mType = RaftEventBase::Type::SyncRequest;
+    event->mPayload = std::move(syncRequest);
+
+    mClientRequestsQueue.enqueue(std::move(event));
+  }
+
   void truncatePrefix(uint64_t firstIndexKept) override {
     assert(firstIndexKept <= mCommitIndex);
     return mLog->truncatePrefix(firstIndexKept);
@@ -165,15 +182,9 @@ class RaftCore : public RaftInterface {
  private:
   /// init
   void initConfigurableVars(const INIReader &iniReader);
-  void initClusterConf(const INIReader &iniReader, std::optional<std::string> clusterConfOpt);
+  void initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId);
   void initStorage(const INIReader &iniReader);
   void initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver);
-
-  /// given <peerId, host, port>, determine whether it is itself.
-  using IsSelf = std::function<bool(uint64_t peerId,
-                                    const std::string &host, const std::string &port)>;
-
-  void initClusterConfImpl(const std::string &clusterConf, IsSelf isSelf);
 
   /// thread function of mRaftLoop
   void raftLoopMain();
@@ -189,14 +200,14 @@ class RaftCore : public RaftInterface {
   void requestVote();
 
   /// receive AE_req, reply AE_resp
-  void handleAppendEntriesRequest(const AppendEntries::Request &request,
+  grpc::Status handleAppendEntriesRequest(const AppendEntries::Request &request,
                                   AppendEntries::Response *response);
 
   /// receive AE_resp
   void handleAppendEntriesResponse(const AppendEntries::Response &response);
 
   /// receive RV_req, reply RV_resp
-  void handleRequestVoteRequest(const RequestVote::Request &request,
+  grpc::Status handleRequestVoteRequest(const RequestVote::Request &request,
                                 RequestVote::Response *response);
 
   /// receive RV_resp
@@ -204,6 +215,9 @@ class RaftCore : public RaftInterface {
 
   /// receive ClientRequests
   void handleClientRequests(ClientRequests clientRequests);
+
+  /// receive syncRequest
+  void handleSyncRequest(SyncRequest syncRequest);
 
   void advanceCommitIndex();
 
@@ -277,6 +291,11 @@ class RaftCore : public RaftInterface {
   uint64_t mElectionTimePointInNano = 0;
 
   std::atomic<uint64_t> mCommitIndex = 0;
+
+  /// for cluster 0, is 1
+  /// otherwise, this is the first index this cluster start to process
+  uint64_t mBeginIndex = 1;
+
   RaftRole mRaftRole = RaftRole::Follower;
 
   /// entries, currentTerm, voteFor
@@ -300,7 +319,9 @@ class RaftCore : public RaftInterface {
   std::map<uint64_t, std::unique_ptr<RaftClient>> mClients;
 
   /// streaming service
+  uint64_t mStreamingPort;
   std::unique_ptr<StreamingService> mStreamingService;
+  std::optional<TlsConf> mTlsConfOpt;
 
   /**
    * monitor
@@ -312,7 +333,12 @@ class RaftCore : public RaftInterface {
   santiago::MetricsCenter::CounterType mCommitIndexCounter;
 
   /// UT
-  RaftCore(const char *configPath, TestPointProcessor *processor);
+  RaftCore(
+      const char *configPath,
+      const NodeId &myNodeId,
+      const ClusterInfo &clusterInfo,
+      TestPointProcessor *processor);
+
   TestPointProcessor *mTPProcessor = nullptr;
   friend class ClusterTestUtil;
   FRIEND_TEST(RaftCoreTest, BasicTest);

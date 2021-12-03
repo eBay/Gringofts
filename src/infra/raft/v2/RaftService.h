@@ -49,7 +49,8 @@ struct RaftEventBase {
     RequestVoteResponse = 2,
     AppendEntriesRequest = 3,
     AppendEntriesResponse = 4,
-    ClientRequest = 5
+    ClientRequest = 5,
+    SyncRequest = 6
   };
 
   Type mType = Type::Unknown;
@@ -78,9 +79,9 @@ struct CallDataBase {
 
   virtual void proceed() = 0;
   virtual void failOver() = 0;
-  virtual void reply() = 0;
+  virtual void reply(grpc::Status) = 0;
 
-  Raft::AsyncService *mService;
+  raft::Raft::AsyncService *mService;
   grpc::ServerCompletionQueue *mCompletionQueue;
   EventQueue *mAeRvQueue;
 };
@@ -98,9 +99,9 @@ struct CallData : public CallDataBase {
 
   void proceed() override { assert(0); }
 
-  void reply() override {
+  void reply(grpc::Status status = grpc::Status::OK) override {
     mCallStatus = CallStatus::FINISH;
-    mResponder.Finish(mResponse, grpc::Status::OK, this);
+    mResponder.Finish(mResponse, status, this);
   }
 
   void failOver() override {
@@ -184,7 +185,8 @@ class RaftServer {
  public:
   RaftServer(const std::string &ipPort,
              std::optional<TlsConf> tlsConfOpt,
-             EventQueue *aeRvQueue);
+             EventQueue *aeRvQueue,
+             std::shared_ptr<DNSResolver> dnsResolver);
 
   ~RaftServer();
 
@@ -197,6 +199,7 @@ class RaftServer {
   std::unique_ptr<grpc::ServerCompletionQueue> mCompletionQueue;
   Raft::AsyncService mService;
   std::unique_ptr<grpc::Server> mServer;
+  std::shared_ptr<DNSResolver> mDNSResolver;
 
   /// event queue
   EventQueue *mAeRvQueue;
@@ -300,6 +303,7 @@ using RequestVoteRequestEvent = RaftEvent<RequestVoteCallData *>;
 using RequestVoteResponseEvent = RaftEvent<std::unique_ptr<RequestVoteClientCall>>;
 
 using ClientRequestsEvent = RaftEvent<ClientRequests>;
+using SyncRequestsEvent = RaftEvent<SyncRequest>;
 
 }  /// namespace v2
 }  /// namespace raft

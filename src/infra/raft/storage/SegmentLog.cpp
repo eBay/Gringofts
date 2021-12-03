@@ -178,6 +178,10 @@ SegmentLog::SegmentPtr SegmentLog::rollActiveSegment() {
   return mActiveSegment;
 }
 
+void SegmentLog::closeActiveSegment() {
+  mActiveSegment->closeActiveSegment();
+}
+
 SegmentLog::SegmentPtr SegmentLog::getSegment(uint64_t index) const {
   std::lock_guard<std::mutex> lock(mMutex);
 
@@ -315,25 +319,33 @@ void SegmentLog::truncatePrefix(uint64_t firstIndexKept) {
   mFirstIndex = firstIndexKept;
   mFirstIndexGauge.set(mFirstIndex);
 
-  std::lock_guard<std::mutex> lock(mMutex);
+  ///  using a vector to keep all segments that will be deleted
+  ///  time to release file in destructor.
+  ///  when lock release, vector destructs won't lock the cirtical path
+  std::vector<SegmentPtr> erasedSegments;
 
-  /// closed segments
-  for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
-    auto segmentPtr = iter->second;
-    if (segmentPtr->getLastIndex() < firstIndexKept) {
-      iter = mClosedSegments.erase(iter);
-    } else {
-      return;
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    /// closed segments
+    for (auto iter = mClosedSegments.begin(); iter != mClosedSegments.end();) {
+      auto segmentPtr = iter->second;
+      if (segmentPtr->getLastIndex() < firstIndexKept) {
+        erasedSegments.push_back(segmentPtr);
+        iter = mClosedSegments.erase(iter);
+      } else {
+        return;
+      }
     }
-  }
 
-  /// active segment
-  assert(mActiveSegment);
-  if (mActiveSegment->getLastIndex() < firstIndexKept) {
-    /// reset empty Storage
-    mLastIndex = mFirstIndex - 1;
-    mActiveSegment = std::make_shared<Segment>(mLogDir, mLastIndex + 1,
-                                               mSegmentDataSizeLimit, mSegmentMetaSizeLimit, mCrypto);
+    /// active segment
+    assert(mActiveSegment);
+    if (mActiveSegment->getLastIndex() < firstIndexKept) {
+      /// reset empty Storage
+      mLastIndex = mFirstIndex - 1;
+      mActiveSegment = std::make_shared<Segment>(mLogDir, mLastIndex + 1,
+                                                 mSegmentDataSizeLimit, mSegmentMetaSizeLimit, mCrypto);
+    }
   }
 }
 

@@ -29,7 +29,8 @@ namespace raft {
 
 RaftLogStore::RaftLogStore(const std::shared_ptr<RaftInterface> &raftImpl,
                            const std::shared_ptr<CryptoUtil> &crypto)
-    : mRaftImpl(raftImpl), mCrypto(crypto) {
+    : mRaftImpl(raftImpl), mCrypto(crypto),
+      mGaugeRaftBatchSize(gringofts::getGauge("raft_batch_size", {})) {
   mPersistLoop = std::thread(&RaftLogStore::persistLoopMain, this);
 }
 
@@ -86,6 +87,10 @@ void RaftLogStore::persistAsync(const std::shared_ptr<Command> &command,
   entry.set_term(mLogStoreTerm);
   entry.set_index(index);
   entry.set_noop(false);
+  if (command->specialTag()) {
+    entry.mutable_specialtag()->set_identifier(command->getType());
+    entry.mutable_specialtag()->set_payload(command->specialTag().value());
+  }
 
   mPersistQueue.enqueue(PersistEntry{command, events, {entry, requestHandle}});
 }
@@ -135,6 +140,7 @@ void RaftLogStore::maySendBatch() {
     return;
   }
 
+  mGaugeRaftBatchSize.set(mBatch.size());
   SPDLOG_INFO("persistLoop send a batch, batchSize={}, elapseTime={}ms",
               mBatch.size(), elapseInMs);
 

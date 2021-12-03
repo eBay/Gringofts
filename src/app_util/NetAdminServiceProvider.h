@@ -16,6 +16,9 @@ limitations under the License.
 #define SRC_APP_UTIL_NETADMINSERVICEPROVIDER_H_
 
 #include <optional>
+#include <vector>
+#include <string>
+#include "control/CtrlState.h"
 
 namespace gringofts {
 namespace app {
@@ -46,6 +49,17 @@ class NetAdminServiceProvider {
    * It's up to the final handler to interpret the hotfix.
    */
   virtual bool executeHotfix(std::string hotfix) { return true; }
+  /**
+   * index of highest log entry applied to state machine
+   * @return
+   */
+  virtual uint64_t lastApplied() const = 0;
+
+  virtual void queryCtrlState(ctrl::CtrlState *out) {}
+
+  virtual bool syncLog(std::vector<std::string>, std::string) { return false; }
+
+  virtual bool terminateSyncMode(const std::string &, uint64_t, std::string *) { return false; }
 };
 
 }  /// namespace app

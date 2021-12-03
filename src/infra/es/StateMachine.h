@@ -16,7 +16,6 @@ limitations under the License.
 #define SRC_INFRA_ES_STATEMACHINE_H_
 
 #include "CommandDecoder.h"
-#include "Crypto.h"
 #include "Event.h"
 #include "EventDecoder.h"
 

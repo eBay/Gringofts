@@ -78,6 +78,12 @@ void RequestCallData::proceed() {
   }
 }
 
+void RequestCallData::failOver() {
+  SPDLOG_WARN("Cannot proceed as callData is no longer valid probably because client has cancelled the request.");
+  new RequestCallData(mService, mCompletionQueue, mCommandQueue);
+  delete this;
+}
+
 void RequestCallData::fillResultAndReply(uint32_t code,
                                          const std::string &message,
                                          std::optional<uint64_t> leaderId) {

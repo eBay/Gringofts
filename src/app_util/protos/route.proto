@@ -1,0 +1,22 @@
+syntax = "proto3";
+package gringofts.app.protos;
+
+message Route {
+  uint32 type = 1;
+  repeated uint64 groups = 2;
+  uint64 groupTotal = 3;
+}
+
+message Impact {
+  Route route = 1;
+  uint64 clusterId = 2;
+  bool newCluster = 3; // indicate this cluster is new cluster or not
+}
+
+message SplitState {
+  repeated Route routes = 1;
+  uint64 epoch = 2;
+  string planId = 3;
+  uint64 clusterId = 4;
+  uint64 startIndex = 5;
+}

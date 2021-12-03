@@ -28,8 +28,10 @@ namespace raft {
 
 inline std::shared_ptr<RaftInterface> buildRaftImpl(
     const char *configPath,
-    std::optional<std::string> clusterConfOpt,
-    std::shared_ptr<DNSResolver> dnsResolver = nullptr) {
+    const NodeId &nodeId,
+    const ClusterInfo &clusterInfo,
+    std::shared_ptr<DNSResolver> dnsResolver = nullptr,
+    RaftRole role = RaftRole::Follower ) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Failed to load config file {}.", configPath);
@@ -44,7 +46,7 @@ inline std::shared_ptr<RaftInterface> buildRaftImpl(
       /// use default dns resolver
       dnsResolver = std::make_shared<DNSResolver>();
     }
-    return std::make_shared<v2::RaftCore>(configPath, clusterConfOpt, dnsResolver);
+    return std::make_shared<v2::RaftCore>(configPath, nodeId, clusterInfo, dnsResolver, role);
   } else {
     SPDLOG_ERROR("Unknown raft implement version {}.", version);
     exit(1);

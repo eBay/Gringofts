@@ -20,9 +20,7 @@ limitations under the License.
 #include <INIReader.h>
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
-#include <spdlog/spdlog.h>
 
-#include "FileUtil.h"
 
 namespace gringofts {
 
@@ -47,64 +45,13 @@ struct TlsConf {
 class TlsUtil final {
  public:
   /// parse TLS Conf from configure file
-  static std::optional<TlsConf> parseTlsConf(const INIReader &iniReader,
-                                             const std::string &section) {
-    bool enable = iniReader.GetBoolean(section, "enable", false);
-    if (!enable) {
-      return std::nullopt;
-    }
-
-    TlsConf conf;
-
-    std::string keyFile = iniReader.Get(section, "key.file", "");
-    std::string certFile = iniReader.Get(section, "cert.file", "");
-    std::string caFile = iniReader.Get(section, "ca.file", "");
-
-    if (keyFile.empty() || certFile.empty() || caFile.empty()) {
-      throw std::runtime_error("key.file or cert.file or ca.file is not set");
-    }
-
-    conf.key = FileUtil::getFileContent(keyFile);
-    conf.cert = FileUtil::getFileContent(certFile);
-    conf.ca = FileUtil::getFileContent(caFile);
-
-    return conf;
-  }
+  static std::optional<TlsConf> parseTlsConf(const INIReader &iniReader, const std::string &section);
 
   /// Builds Server Credentials.
-  static std::shared_ptr<grpc::ServerCredentials> buildServerCredentials(std::optional<TlsConf> tlsConfOpt) {
-    if (!tlsConfOpt) {
-      /// no TLS Conf, use http
-      SPDLOG_INFO("Server Side TLS disabled.");
-      return grpc::InsecureServerCredentials();
-    }
-
-    const auto &tlsConf = *tlsConfOpt;
-    grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {tlsConf.key, tlsConf.cert};
-
-    grpc::SslServerCredentialsOptions sslOpts;
-    sslOpts.pem_key_cert_pairs.push_back(pkcp);
-
-    SPDLOG_INFO("Server Side TLS enabled.");
-    return grpc::SslServerCredentials(sslOpts);
-  }
+  static std::shared_ptr<grpc::ServerCredentials> buildServerCredentials(std::optional<TlsConf> tlsConfOpt);
 
   /// Build Channel Credentials
-  static std::shared_ptr<grpc::ChannelCredentials> buildChannelCredentials(std::optional<TlsConf> tlsConfOpt) {
-    if (!tlsConfOpt) {
-      /// no TLS Conf, use http
-      SPDLOG_INFO("Client Side TLS disabled.");
-      return grpc::InsecureChannelCredentials();
-    }
-
-    const auto &tlsConf = *tlsConfOpt;
-
-    grpc::SslCredentialsOptions sslOpts;
-    sslOpts.pem_root_certs = tlsConf.ca;
-
-    SPDLOG_INFO("Client Side TLS enabled.");
-    return grpc::SslCredentials(sslOpts);
-  }
+  static std::shared_ptr<grpc::ChannelCredentials> buildChannelCredentials(std::optional<TlsConf> tlsConfOpt);
 };
 
 }  /// namespace gringofts

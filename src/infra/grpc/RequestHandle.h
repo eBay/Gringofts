@@ -44,6 +44,11 @@ class RequestHandle {
   virtual void proceed() = 0;
 
   /**
+ * Method called when ok is false after calling Next against the CompletionQueue
+ */
+  virtual void failOver() = 0;
+
+  /**
    * Async callback
    */
   virtual void fillResultAndReply(uint32_t code,
@@ -63,13 +68,13 @@ class RequestHandle {
     }
 
     if (isTest && !testModeEnabled) {
-      SPDLOG_WARN("Reject test request as this PU only takes real traffic.");
+      SPDLOG_WARN("Reject test request as this it only takes real traffic.");
       fillResultAndReply(503, "Test request sent to non-test PU", std::nullopt);
       return false;
     }
 
     if (!isTest && testModeEnabled) {
-      SPDLOG_WARN("Reject real request as this PU only takes test traffic.");
+      SPDLOG_WARN("Reject real request as this it only takes test traffic.");
       fillResultAndReply(503, "Real request sent to test PU", std::nullopt);
       return false;
     }

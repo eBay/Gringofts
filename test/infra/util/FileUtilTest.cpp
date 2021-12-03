@@ -15,6 +15,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 
 #include "../../../src/infra/util/FileUtil.h"
+#include "../../../src/infra/util/Util.h"
 
 namespace gringofts::test {
 

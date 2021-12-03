@@ -46,6 +46,8 @@ class RaftReplyLoop {
 
  private:
   struct Task {
+    Task();
+    ~Task();
     /// <index, term> of log entry of raft
     uint64_t index = 0;
     uint64_t term  = 0;
@@ -59,6 +61,8 @@ class RaftReplyLoop {
 
     /// 0:initial, 1:doing, 2:done
     std::atomic<uint64_t> flag = 0;
+
+    TimestampInNanos mTaskCreateTime = 0;
   };
 
   using TaskPtr = std::shared_ptr<Task>;
@@ -80,6 +84,7 @@ class RaftReplyLoop {
 
   /// task queue, push_back() and pop_front()
   std::list<TaskPtr> mTaskQueue;
+  std::atomic<uint64_t> mPendingReplyQueueSize = 0;
   mutable std::shared_mutex mMutex;
 
   /**
@@ -88,10 +93,12 @@ class RaftReplyLoop {
   std::atomic<bool> mRunning = true;
 
   /// num of concurrently running reply threads
-  const uint64_t mConcurrency = 5;
+  const uint64_t mConcurrency = 2;
 
   std::thread mPopThread;
   std::vector<std::thread> mReplyThreads;
+
+  santiago::MetricsCenter::GaugeType mPendingReplyGauge;
 };
 
 }  /// namespace raft
