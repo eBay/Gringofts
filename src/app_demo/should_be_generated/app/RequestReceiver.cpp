@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "RequestReceiver.h"
 
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <spdlog/spdlog.h>
 
 #include "../../../app_util/AppInfo.h"
@@ -27,6 +28,7 @@ RequestReceiver::RequestReceiver(
     const INIReader &reader,
     BlockingQueue<std::shared_ptr<Command>> &commandQueue) :
     mCommandQueue(commandQueue) {
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
   auto node = gringofts::app::AppInfo::getMyNode();
   mIpPort = node.mHostName + ":" + std::to_string(node.mPortForGateway);
   assert(mIpPort != "UNKNOWN");

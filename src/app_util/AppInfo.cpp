@@ -28,10 +28,10 @@ void AppInfo::init(const INIReader &reader) {
     return;
   }
 
-//  auto[myClusterId, myNodeId, allClusterInfo] = ClusterInfo::resolveAllClusters(reader);
-//  appInfo.mMyClusterId = myClusterId;
-//  appInfo.mMyNodeId = myNodeId;
-//  appInfo.mAllClusterInfo = allClusterInfo;
+  auto[myClusterId, myNodeId, allClusterInfo] = ClusterInfo::resolveAllClusters(reader, nullptr);
+  appInfo.mMyClusterId = myClusterId;
+  appInfo.mMyNodeId = myNodeId;
+  appInfo.mAllClusterInfo = allClusterInfo;
 
   appInfo.setSubsystemId(reader.GetInteger("app", "subsystem.id", 0));
   appInfo.setGroupId(appInfo.mMyClusterId);
