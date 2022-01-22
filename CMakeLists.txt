@@ -62,8 +62,6 @@ if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
         set(OPENSSL_CRYPTO_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libcrypto.dylib CACHE FILEPATH "" FORCE)
         set(OPENSSL_SSL_LIBRARY ${OPENSSL_ROOT_DIR}/lib/libssl.dylib CACHE FILEPATH "" FORCE)
 
-        find_package(Boost COMPONENTS system filesystem thread iostreams container REQUIRED)
-
         # The detection of cross compilation by -Wpoison-system-directories has false positives on macOS because
         # --sysroot is implicitly added. Turn the warning off.
         add_definitions(-Wno-poison-system-directories)
@@ -215,7 +213,12 @@ include_directories(third_party/prometheus-cpp/pull/include)
 set(MONITOR_LIBS prometheus-cpp::pull prometheus-cpp::core)
 
 # boost
-find_package(Boost COMPONENTS system filesystem thread iostreams REQUIRED)
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "^(Apple)?Clang$")
+    # for mac-os clang don't have memory resource, so we are using boost::container::memoryResource
+    find_package(Boost COMPONENTS system filesystem thread iostreams container REQUIRED)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    find_package(Boost COMPONENTS system filesystem thread iostreams REQUIRED)
+endif ()
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
 # openssl
