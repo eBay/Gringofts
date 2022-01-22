@@ -29,7 +29,7 @@ if [ -z "$PROTOBUF" ]; then
     mkdir -p build && cd build &&
     # use cmake instead of autogen.sh so that protobuf-config.cmake can be installed
     cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug .. &&
-    make && make install && make clean && ldconfig
+    make && make install && make clean
   checkLastSuccess "install protobuf fails"
 else
   echo "protobuf v3.6 has been installed, skip"
