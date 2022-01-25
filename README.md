@@ -104,11 +104,23 @@ This approach requires minimum dependencies on the target OS as all of the depen
    ```bash
    examples/run_demo_backed_by_single_cluster.sh
    ```
-1. Backed by a three-nodes-cluster setup
+   You can use [grpc_cli](https://github.com/grpc/grpc/blob/master/doc/server_reflection_tutorial.md#list-services) to verify:
+   ```bash
+   ./grpc_cli call 0.0.0.0:50055 ringofts.demo.protos.DemoService.Execute "value:1"
+   ```
+   Sample output:
+   ```bash
+   connecting to 0.0.0.0:50055
+   code: 200
+   message: "Success"
+
+   Rpc succeeded with OK status
+   ```
+3. Backed by a three-nodes-cluster setup
    ```bash
    examples/run_demo_backed_by_three_nodes_cluster.sh
    ```
-1. Backed by SQLite3
+4. Backed by SQLite3
    ```bash
    examples/run_demo_backed_by_sqlite.sh
    ```
