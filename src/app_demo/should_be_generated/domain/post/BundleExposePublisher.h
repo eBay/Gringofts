@@ -31,7 +31,7 @@ namespace demo {
  */
 class BundleExposePublisher : public protos::BundleExposeService::Service {
  public:
-  BundleExposePublisher(const INIReader &, std::unique_ptr<ReadonlyCommandEventStore>);
+  BundleExposePublisher(const INIReader &, uint32_t , std::unique_ptr<ReadonlyCommandEventStore>);
   ~BundleExposePublisher() override = default;
 
   grpc::Status FetchBundle(grpc::ServerContext *context,

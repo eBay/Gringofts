@@ -72,7 +72,8 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
                          std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
                          std::shared_ptr<CommandEventStore> commandEventStore,
                          const std::string &snapshotDir,
-                         std::shared_ptr<gringofts::PMRContainerFactory> factory);
+                         std::shared_ptr<gringofts::PMRContainerFactory> factory,
+                         std::shared_ptr<AppInfo> appInfo);
 
   ~CommandProcessLoopBase() override = default;
 
@@ -133,6 +134,9 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   santiago::MetricsCenter::CounterType applied_event_total;
   santiago::MetricsCenter::GaugeType consumer_queue_size;
   santiago::MetricsCenter::GaugeType transition_gauge;
+
+  /// appInfo
+  std::shared_ptr<AppInfo> mAppInfo;
 };
 
 template<typename StateMachineType>
@@ -145,7 +149,8 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
     std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
     std::shared_ptr<CommandEventStore> commandEventStore,
     const std::string &snapshotDir,
-    std::shared_ptr<gringofts::PMRContainerFactory> factory)
+    std::shared_ptr<gringofts::PMRContainerFactory> factory,
+    std::shared_ptr<AppInfo> appInfo)
     : mDeploymentMode(deploymentMode),
       mCommandEventDecoder(decoder),
       mEventApplyLoop(eventApplyLoop),
@@ -163,11 +168,12 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
           {"OldLeaderToNewLeader", std::to_string(static_cast<double>(Transition::OldLeaderToNewLeader))},
           {"SameFollower", std::to_string(static_cast<double>(Transition::SameFollower))},
           {"SameLeader", std::to_string(static_cast<double>(Transition::SameLeader))},
-      })) {
+      })),
+      mAppInfo(appInfo) {
   assert(mEventApplyLoop);
 
   mCrypto.init(reader);
-  mAppStateMachine = std::make_unique<StateMachineType>(factory);
+  mAppStateMachine = std::make_unique<StateMachineType>(factory, appInfo);
 }
 
 template<typename StateMachineType>
@@ -287,7 +293,7 @@ std::optional<Id> CommandProcessLoopBase<StateMachineType>::replayEvents(std::op
 
     for (auto &eventPtr : events) {
       eventCount += 1;
-      mAppStateMachine->applyEvent(*eventPtr);
+      mAppStateMachine->applyEvent(*eventPtr, *mAppInfo);
       applied_event_total.increase();
     }
 

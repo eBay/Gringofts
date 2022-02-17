@@ -26,9 +26,9 @@ namespace gringofts {
 namespace demo {
 
 BundleExposePublisher::BundleExposePublisher(const INIReader &reader,
+                                             uint32_t port,
                                              std::unique_ptr<ReadonlyCommandEventStore> commandEventStore) :
-    mReadonlyCommandEventStore(std::move(commandEventStore)) {
-  mPort = gringofts::app::AppInfo::fetchPort();
+    mReadonlyCommandEventStore(std::move(commandEventStore)), mPort(port) {
   mMaxConcurrency = reader.GetInteger("publisher", "max.concurrency", -1);
   assert(mPort > 0 && mMaxConcurrency > 0);
 

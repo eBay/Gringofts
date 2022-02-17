@@ -79,6 +79,7 @@ class App final {
   void startPostServerLoop();
 
  private:
+  std::shared_ptr<app::AppInfo> mAppInfo;
   DeploymentMode mDeploymentMode = DeploymentMode::Standalone;
 
   /// the factory to create container from a memory pool

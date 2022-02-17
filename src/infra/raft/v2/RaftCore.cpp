@@ -30,7 +30,7 @@ namespace v2 {
 RaftCore::RaftCore(
     const char *configPath,
     const NodeId &myNodeId,
-    const ClusterInfo &clusterInfo,
+    const Cluster &cluster,
     std::shared_ptr<DNSResolver> dnsResolver,
     RaftRole role) :
     mRaftRole(role),
@@ -43,7 +43,7 @@ RaftCore::RaftCore(
   }
 
   initConfigurableVars(iniReader);
-  initClusterConf(clusterInfo, myNodeId);
+  initClusterConf(cluster, myNodeId);
   initStorage(iniReader);
   initService(iniReader, dnsResolver);
 
@@ -84,17 +84,19 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum);
 }
 
-void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId) {
-  auto nodes = clusterInfo.getAllNodeInfo();
+void RaftCore::initClusterConf(const Cluster &cluster, const NodeId &selfId) {
+  const auto &nodes = cluster.getAllNodes();
   for (auto &[nodeId, node] : nodes) {
-    std::string host = node.mHostName;
-    std::string port = std::to_string(node.mPortForRaft);
+    std::string host = node->hostName();
+    auto * raftNode = dynamic_cast<RaftNode *>(node.get());
+    assert(raftNode);
+    std::string port = std::to_string(raftNode->raftPort());
     std::string addr = host + ":" + port;
 
     if (selfId == nodeId) {
       mSelfInfo.mId = selfId;
       mSelfInfo.mAddress = addr;
-      mStreamingPort = node.mPortForStream;
+      mStreamingPort = raftNode->streamPort();
     } else {
       Peer peer;
       peer.mId = nodeId;
@@ -997,9 +999,9 @@ void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
 RaftCore::RaftCore(
     const char *configPath,
     const NodeId &myNodeId,
-    const ClusterInfo &clusterInfo,
+    const Cluster &cluster,
     TestPointProcessor *processor) :
-    RaftCore(configPath, myNodeId, clusterInfo, std::make_shared<DNSResolver>()) {
+    RaftCore(configPath, myNodeId, cluster, std::make_shared<DNSResolver>()) {
   mTPProcessor = processor;
 }
 

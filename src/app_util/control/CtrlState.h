@@ -14,6 +14,7 @@ limitations under the License.
 #ifndef SRC_APP_UTIL_CONTROL_CTRLSTATE_H_
 #define SRC_APP_UTIL_CONTROL_CTRLSTATE_H_
 
+#include "../AppInfo.h"
 #include "../generated/grpc/scale.pb.h"
 #include "../../infra/Decodable.h"
 #include "../../infra/Encodable.h"
@@ -24,7 +25,7 @@ namespace gringofts::app::ctrl {
 using protos::SplitState;
 using RouteProto = protos::Route;
 
-class CtrlState : public Encodable, public Decodable {
+class CtrlState {
  public:
   typedef protos::SplitState SplitState;
   typedef protos::Route RouteProto;
@@ -66,11 +67,11 @@ class CtrlState : public Encodable, public Decodable {
 
   std::string prettyPrint() const;
 
-  std::string encodeToString() const override;
+  std::string encodeToString() const;
 
-  void decodeFromString(std::string_view view) override;
+  void decodeFromString(std::string_view view, const AppInfo & appInfo);
 
-  void recoverForEAL(std::string_view str);
+  void recoverForEAL(std::string_view str, const AppInfo & appInfo);
 
  private:
   RouteMap mRouteMap;

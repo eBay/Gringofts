@@ -17,7 +17,6 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "../AppInfo.h"
-#include "../../infra/util/ClusterInfo.h"
 #include "../../infra/util/Signal.h"
 #include "../../infra/raft/RaftSignal.h"
 
@@ -58,11 +57,11 @@ std::string CtrlState::encodeToString() const {
     return "";
   }
 }
-void CtrlState::decodeFromString(std::string_view view) {
+void CtrlState::decodeFromString(std::string_view view, const AppInfo & appInfo) {
   if (!view.empty()) {
     SplitState decodeState;
     decodeState.ParseFromString(std::string(view));
-    if (decodeState.clusterid() == AppInfo::groupId()) {
+    if (decodeState.clusterid() == appInfo.groupId()) {
       mRouteMap.parseFromProto(decodeState.routes());
       mPlanId = decodeState.planid();
       mClusterId = decodeState.clusterid();
@@ -71,18 +70,18 @@ void CtrlState::decodeFromString(std::string_view view) {
     } else {
       SPDLOG_WARN("Loaded state but for cluster {}, this cluster {} has no state",
                   decodeState.clusterid(),
-                  AppInfo::groupId());
+                  appInfo.groupId());
     }
   }
 }
 
-void CtrlState::recoverForEAL(std::string_view str) {
-  decodeFromString(str);
+void CtrlState::recoverForEAL(std::string_view str, const AppInfo & appInfo) {
+  decodeFromString(str, appInfo);
   SPDLOG_INFO("load ctrl state: {}", prettyPrint());
   // for cluster Id > 0, need to start raft
   // for cluster = 0, direct start raft
   if (hasState() && mClusterId > 0) {
-    auto routeSignal = std::make_shared<gringofts::RouteSignal>(mEpoch, mClusterId);
+    auto routeSignal = std::make_shared<gringofts::app::RouteSignal>(mEpoch, mClusterId);
     // query route info to guarantee it can start raft
     Signal::hub << routeSignal;
     if (routeSignal->getFuture().get()) {

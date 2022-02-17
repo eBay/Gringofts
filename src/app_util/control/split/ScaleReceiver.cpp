@@ -42,11 +42,12 @@ void SplitCallDataHandler::request(ScaleService::AsyncService *service,
 }
 
 std::shared_ptr<SplitCommand> SplitCallDataHandler::buildCommand(const SplitRequest &request,
-                                                                 TimestampInNanos createdTime) {
+                                                                 TimestampInNanos createdTime,
+                                                                 const AppInfo &app) {
   auto command = std::make_shared<SplitCommand>(createdTime, request);
-  command->setCreatorId(app::AppInfo::subsystemId());
-  command->setGroupId(app::AppInfo::groupId());
-  command->setGroupVersion(app::AppInfo::groupVersion());
+  command->setCreatorId(app.subsystemId());
+  command->setGroupId(app.groupId());
+  command->setGroupVersion(app.groupVersion());
   return command;
 }
 }  // namespace gringofts::app::ctrl

@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <string>
 
+#include "../../app_util/AppInfo.h"
 #include "../../infra/es/Event.h"
 #include "../should_be_generated/domain/IncreaseCommand.h"
 
@@ -27,9 +28,12 @@ class AppStateMachine;
 
 class IncreaseHandler {
  public:
+  explicit IncreaseHandler(const app::AppInfo &appInfo) : mAppInfo(appInfo) {}
   ProcessHint process(const AppStateMachine &appStateMachine,
                       const IncreaseCommand &increaseCommand,
                       std::vector<std::shared_ptr<Event>> *);
+ private:
+  const app::AppInfo &mAppInfo;
 };
 
 }  /// namespace demo

@@ -14,6 +14,7 @@ limitations under the License.
 #ifndef SRC_APP_UTIL_APPSTATEMACHINE_H_
 #define SRC_APP_UTIL_APPSTATEMACHINE_H_
 
+#include "AppInfo.h"
 #include "../infra/es/ProcessCommandStateMachine.h"
 #include "control/CtrlState.h"
 #include "control/CtrlCommandEvent.h"
@@ -66,7 +67,7 @@ class AppStateMachine : public gringofts::ProcessCommandStateMachine {
   StateMachine &applyEvent(const Event &event) override {
     if (ctrl::isCtrlEvent(event.getType())) {
       SPDLOG_INFO("ctrl event is applying");
-      dynamic_cast<const ctrl::CtrlEvent &>(event).apply(&mCtrlState);
+      dynamic_cast<const ctrl::CtrlEvent &>(event).apply(&mCtrlState, *mAppInfo);
       setCtrlState(mCtrlState);
       return *this;
     }
@@ -98,6 +99,7 @@ class AppStateMachine : public gringofts::ProcessCommandStateMachine {
 
  protected:
   CtrlState mCtrlState;
+  std::shared_ptr<AppInfo> mAppInfo;
 
  private:
   std::unordered_map<Type, CommandProcessor> mCommandProcessorMap;

@@ -65,15 +65,17 @@ using gringofts::raft::RaftRole;
 class NetAdminServer final : public AppNetAdmin::Service {
  public:
   NetAdminServer(const INIReader &reader,
-                 std::shared_ptr<NetAdminServiceProvider> netAdminProxy, uint64_t port = kDefaultNetAdminPort) :
+                 std::shared_ptr<NetAdminServiceProvider> netAdminProxy, std::shared_ptr<AppInfo> info) :
       mServiceProvider(netAdminProxy),
       mSnapshotTakenCounter(getCounter("snapshot_taken_counter", {})),
       mSnapshotFailedCounter(getCounter("snapshot_failed_counter", {})),
       mPrefixTruncatedCounter(getCounter("prefix_truncated_counter", {})),
       mPrefixTruncateFailedCounter(getCounter("prefix_truncate_failed_counter", {})),
       mHotfixAppliedCounter(getCounter("hotfix_applied_counter", {})),
-      mHotfixFailedCounter(getCounter("hotfix_failed_counter", {})) {
-    mIpPort = absl::StrFormat("0.0.0.0:%d", port);
+      mHotfixFailedCounter(getCounter("hotfix_failed_counter", {})),
+      mAppInfo(info) {
+    assert(mAppInfo);
+    mIpPort = absl::StrFormat("0.0.0.0:%d", mAppInfo->netAdminPort());
     assert(mIpPort != "UNKNOWN");
 
     mTlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
@@ -213,7 +215,7 @@ class NetAdminServer final : public AppNetAdmin::Service {
     reply->set_commitindex(raftState.mCommitIndex);
     reply->set_firstindex(raftState.mFirstIndex);
     reply->set_role(getRole(raftState.mRole));
-    reply->set_clusterinfo(AppInfo::getMyClusterInfo().to_string());
+    reply->set_clusterinfo(mAppInfo->getMyCluster().to_string());
     reply->mutable_header()->set_code(200);
     reply->mutable_header()->set_message("ok");
     // header
@@ -223,7 +225,7 @@ class NetAdminServer final : public AppNetAdmin::Service {
   Status SyncLog(ServerContext *context,
                  const ScaleControl_SyncRequest *request,
                  ScaleControl_SyncResponse *reply) override {
-    auto fromClusterOpt = AppInfo::getClusterInfo(request->fromclusterid());
+    auto fromClusterOpt = mAppInfo->getCluster(request->fromclusterid());
     if (!fromClusterOpt.has_value()) {
       reply->mutable_header()->set_code(400);
       reply->mutable_header()->set_message("no such clusterId");
@@ -240,9 +242,9 @@ class NetAdminServer final : public AppNetAdmin::Service {
     }
 
     std::vector<std::string> targets;
-    for (const auto &nodeKV : fromClusterOpt->getAllNodeInfo()) {
-      auto &node = nodeKV.second;
-      auto targetHost = node.mHostName + ":" + std::to_string(node.mPortForStream);
+    for (const auto &nodeKV : fromClusterOpt->getAllNodes()) {
+      auto *node = dynamic_cast<RaftNode *>(nodeKV.second.get());
+      auto targetHost = node->hostName() + ":" + std::to_string(node->streamPort());
       SPDLOG_INFO("set up sync target {}", targetHost);
       targets.push_back(std::move(targetHost));
     }
@@ -326,6 +328,9 @@ class NetAdminServer final : public AppNetAdmin::Service {
   mutable santiago::MetricsCenter::CounterType mHotfixAppliedCounter;
   mutable santiago::MetricsCenter::CounterType mHotfixFailedCounter;
   /// metrics end
+
+  /// appInfo
+  std::shared_ptr<AppInfo> mAppInfo;
 };
 
 }  /// namespace app

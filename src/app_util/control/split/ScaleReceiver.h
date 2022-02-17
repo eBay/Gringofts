@@ -38,7 +38,7 @@ class SplitCallDataHandler : public CallDataHandler<ScaleService, SplitRequest, 
                ::grpc::ServerCompletionQueue *completionQueue,
                void *tag) override;
 
-  std::shared_ptr<SplitCommand> buildCommand(const SplitRequest &request, TimestampInNanos createdTime) override;
+  std::shared_ptr<SplitCommand> buildCommand(const SplitRequest &, TimestampInNanos, const AppInfo &) override;
 };
 
 typedef RequestCallData<SplitCallDataHandler> SplitCallData;

@@ -17,92 +17,68 @@ limitations under the License.
 
 #include <INIReader.h>
 
-
 #include "../infra/common_types.h"
-#include "../infra/util/ClusterInfo.h"
+#include "../infra/util/Cluster.h"
+#include "../infra/util/Signal.h"
 
 namespace gringofts {
 namespace app {
 
-class AppInfo final {
+struct RouteSignal : public FutureSignal<bool> {
+  RouteSignal(uint64_t epoch, uint64_t clusterId) : mEpoch(epoch), mClusterId(clusterId) {}
+  uint64_t mEpoch;
+  uint64_t mClusterId;
+};
+
+class AppNode : public RaftNode {
+  static constexpr Port kDefaultGatewayPort = 50055;
+  static constexpr Port kDefaultFetchPort = 50056;
+  static constexpr Port kDefaultNetAdminPort = 50065;
+  static constexpr Port kDefaultScalePort = 61203;
+ public:
+  AppNode(NodeId id, const HostName &hostName) : RaftNode(id, hostName) {}
+  AppNode(NodeId id, const HostName &hostName,
+          Port raftPort, Port streamPort,
+          Port gateWayPort, Port dumperPort, Port netAdminPort, Port scalePort)
+      : RaftNode(id, hostName, raftPort, streamPort),
+        mPortForGateway(gateWayPort), mPortForFetch(dumperPort),
+        mPortForNetAdmin(netAdminPort), mPortForScale(scalePort) {
+  }
+  inline Port gateWayPort() const { return mPortForGateway; }
+  inline Port fetchPort() const { return mPortForFetch; }
+  inline Port netAdminPort() const { return mPortForNetAdmin; }
+  inline Port scalePort() const { return mPortForScale; }
+ private:
+  Port mPortForGateway = kDefaultGatewayPort;
+  Port mPortForFetch = kDefaultFetchPort;
+  Port mPortForNetAdmin = kDefaultNetAdminPort;
+  Port mPortForScale = kDefaultScalePort;
+};
+
+class AppInfo : public GroupInfoInterface {
  public:
   ~AppInfo() = default;
 
-  static void reload() {
-    getInstance().initialized = false;
-  }
+  explicit AppInfo(const INIReader &reader);
 
-  static void init(const INIReader &reader);
+  bool parseAllClusters(const INIReader &) override;
 
   /// disallow copy ctor and copy assignment
   AppInfo(const AppInfo &) = delete;
   AppInfo &operator=(const AppInfo &) = delete;
 
-  static Id subsystemId() { return getInstance().mSubsystemId; }
-  static Id groupId() { return getInstance().mMyClusterId; }
-  static uint64_t groupVersion() { return getInstance().mGroupVersion; }
-  static bool stressTestEnabled() { return getInstance().mStressTestEnabled; }
-  static std::string appVersion() { return getInstance().mAppVersion; }
+  inline Id subsystemId() const { return mSubsystemId; }
+  inline Id groupId() const { return mMyClusterId; }
+  inline uint64_t groupVersion() const { return mGroupVersion; }
+  inline std::string appVersion() const { return mAppVersion; }
 
-  static ClusterInfo getMyClusterInfo() {
-    return getInstance().mAllClusterInfo[getInstance().mMyClusterId];
-  }
-
-  static ClusterInfo::Node getMyNode() {
-    assert(getInstance().initialized);
-    return getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
-  }
-
-  static std::optional<ClusterInfo> getClusterInfo(uint64_t clusterId) {
-    if (getInstance().mAllClusterInfo.count(clusterId)) {
-      return getInstance().mAllClusterInfo[clusterId];
-    } else {
-      return std::nullopt;
-    }
-  }
-  static NodeId getMyNodeId() { return getInstance().mMyNodeId; }
-
-  static ClusterId getMyClusterId() { return getInstance().mMyClusterId; }
-
-  static Port netAdminPort() {
-    auto node = getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
-    return node.mPortForNetAdmin;
-  }
-
-  static Port scalePort() {
-    return getMyNode().mPortForScale;
-  }
-
-  static Port gatewayPort() {
-    return getMyNode().mPortForGateway;
-  }
-
-  static Port fetchPort() {
-    return getMyNode().mPortForFetcher;
-  }
+  // port expose
+  inline Port gateWayPort() const { return std::dynamic_pointer_cast<AppNode>(getMyNode())->gateWayPort();}
+  inline Port fetchPort() const { return std::dynamic_pointer_cast<AppNode>(getMyNode())->fetchPort();}
+  inline Port netAdminPort() const { return std::dynamic_pointer_cast<AppNode>(getMyNode())->netAdminPort();}
 
  private:
-  AppInfo() = default;
-
-  static AppInfo &getInstance() {
-    static AppInfo appInfo;
-    return appInfo;
-  }
-
-  inline void setSubsystemId(Id id) {
-    assert(id > 0);
-    mSubsystemId = id;
-  }
-
-  inline void setGroupId(Id id) { mMyClusterId = id; }
-
-  inline void setGroupVersion(uint64_t version) { mGroupVersion = version; }
-
-  inline void enableStressTest(bool enabled) { mStressTestEnabled = enabled; }
-
-  inline void setAppVersion(const std::string &appVersion) { mAppVersion = appVersion; }
-
-  std::atomic<bool> initialized = false;
+  std::unordered_map<ClusterId, Cluster> parseToClusterInfo(const std::string &infoStr) const;
   /**
    * Uniquely identifies the system
    * Each version that is not backward-compatible should have a different id
@@ -120,12 +96,6 @@ class AppInfo final {
    * App version
    */
   std::string mAppVersion = "v2";
-  /**
-   * Cluster Info
-   */
-  std::map<ClusterId, ClusterInfo> mAllClusterInfo;
-  ClusterId mMyClusterId;
-  NodeId mMyNodeId;
 };
 
 }  /// namespace app

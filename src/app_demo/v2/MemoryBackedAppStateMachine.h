@@ -27,7 +27,9 @@ namespace v2 {
 class MemoryBackedAppStateMachine : public v2::AppStateMachine {
  public:
   explicit MemoryBackedAppStateMachine(
-       std::shared_ptr<gringofts::PMRContainerFactory> containerFactory) {}
+      std::shared_ptr<gringofts::PMRContainerFactory> containerFactory, std::shared_ptr<app::AppInfo> appInfo) {
+    mAppInfo = appInfo;
+  }
   /**
    * implement getter() and setter()
    */

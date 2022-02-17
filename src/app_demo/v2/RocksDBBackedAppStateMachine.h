@@ -26,8 +26,11 @@ namespace v2 {
 
 class RocksDBBackedAppStateMachine : public v2::AppStateMachine {
  public:
-  RocksDBBackedAppStateMachine(const std::string &walDir, const std::string &dbDir)
-  { openRocksDB(walDir, dbDir, &mRocksDB); }
+  RocksDBBackedAppStateMachine(const std::string &walDir, const std::string &dbDir,
+                               std::shared_ptr<app::AppInfo> appInfo) {
+    openRocksDB(walDir, dbDir, &mRocksDB);
+    mAppInfo = appInfo;
+  }
 
   ~RocksDBBackedAppStateMachine() override { closeRocksDB(&mRocksDB); }
 
