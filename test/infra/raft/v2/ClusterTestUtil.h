@@ -14,6 +14,7 @@ limitations under the License.
 #ifndef TEST_INFRA_RAFT_V2_CLUSTERTESTUTIL_H_
 #define TEST_INFRA_RAFT_V2_CLUSTERTESTUTIL_H_
 
+#include <functional>
 #include <map>
 
 #include "../../../test_util/SyncPointProcessor.h"
@@ -49,7 +50,8 @@ class SyncRequestHandle : public RequestHandle {
 
 class ClusterTestUtil {
  public:
-    ClusterTestUtil() = default;
+    using ClusterParserType = std::function<std::tuple<NodeId, ClusterInfo>(const INIReader &)>;
+    explicit ClusterTestUtil(ClusterParserType parser = nullptr) :mParser(parser) { }
 
     /// disallow copy ctor and copy assignment
     ClusterTestUtil(const ClusterTestUtil &) = delete;
@@ -104,6 +106,9 @@ class ClusterTestUtil {
     std::map<MemberInfo, std::shared_ptr<RaftCore>> mRaftInsts;
     /// serve as client to send request to raft cluster
     std::map<MemberInfo, std::unique_ptr<RaftClient>> mRaftInstClients;
+
+ private:
+    ClusterParserType mParser;
 };
 
 }  /// namespace v2
