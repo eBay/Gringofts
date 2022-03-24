@@ -51,24 +51,32 @@ void ClusterTestUtil::killAllServers() {
 MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   SPDLOG_INFO("starting server using {}", configPath);
   INIReader reader(configPath);
-  NodeId myNodeId = -1;
-  ClusterInfo myClusterInfo;
+  std::shared_ptr<RaftCore> raftImpl;
+  std::string raftConfigPath;
   if (mParser) {
     auto[nodeId, info] = mParser(reader);
-    myNodeId = nodeId;
-    myClusterInfo = info;
+    /**
+     * for self defined parser function, the config path is the raft config directly
+     */
+    raftConfigPath = configPath;
+    raftImpl = std::shared_ptr<RaftCore>(new RaftCore(raftConfigPath.c_str(),
+                                                      nodeId,
+                                                      info,
+                                                      &SyncPointProcessor::getInstance()));
   } else {
     auto[myClusterId, nodeId, allClusterInfo] =
-        ClusterInfo::resolveAllClusters(reader, nullptr);
-    myNodeId = nodeId;
-    myClusterInfo = allClusterInfo[myClusterId];
+    ClusterInfo::resolveAllClusters(reader, nullptr);
+    /**
+     * in default, the config path is the app-level path,
+     * which included raft config path
+     */
+    raftConfigPath = reader.Get("cluster", "raft.config.path", "UNKNOWN");
+    assert(raftConfigPath != "UNKNOWN");
+    raftImpl = std::shared_ptr<RaftCore>(new RaftCore(raftConfigPath.c_str(),
+                                                      nodeId,
+                                                      allClusterInfo[myClusterId],
+                                                      &SyncPointProcessor::getInstance()));
   }
-  auto raftConfigPath = reader.Get("cluster", "raft.config.path", "UNKNOWN");
-  assert(raftConfigPath != "UNKNOWN");
-  std::shared_ptr<RaftCore> raftImpl(new RaftCore(raftConfigPath.c_str(),
-        myNodeId,
-        myClusterInfo,
-        &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
   assert(mRaftInsts.find(member) == mRaftInsts.end());
   mRaftInstConfigs[member] = raftConfigPath;
@@ -232,7 +240,7 @@ bool ClusterTestUtil::waitLogForServer(const MemberInfo &member, uint64_t index)
       return true;
     }
     SPDLOG_INFO("waiting for index {} of server {} to be appended, remaining retry: {}",
-        index, member.toString(), retry);
+                index, member.toString(), retry);
     sleep(1);
   }
   return false;
@@ -265,7 +273,7 @@ bool ClusterTestUtil::waitLogCommitForServer(const MemberInfo &member, uint64_t 
       return true;
     }
     SPDLOG_INFO("waiting for index {} of server {} to be committed, remaining retry: {}",
-        index, member.toString(), retry);
+                index, member.toString(), retry);
     sleep(1);
   }
   return false;
