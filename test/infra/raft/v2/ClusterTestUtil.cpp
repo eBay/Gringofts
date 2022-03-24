@@ -51,12 +51,23 @@ void ClusterTestUtil::killAllServers() {
 MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   SPDLOG_INFO("starting server using {}", configPath);
   INIReader reader(configPath);
-  auto[myClusterId, myNodeId, allClusterInfo] = ClusterInfo::resolveAllClusters(reader, nullptr);
+  NodeId myNodeId = -1;
+  ClusterInfo myClusterInfo;
+  if (mParser) {
+    auto[nodeId, info] = mParser(reader);
+    myNodeId = nodeId;
+    myClusterInfo = info;
+  } else {
+    auto[myClusterId, nodeId, allClusterInfo] =
+        ClusterInfo::resolveAllClusters(reader, nullptr);
+    myNodeId = nodeId;
+    myClusterInfo = allClusterInfo[myClusterId];
+  }
   auto raftConfigPath = reader.Get("cluster", "raft.config.path", "UNKNOWN");
   assert(raftConfigPath != "UNKNOWN");
   std::shared_ptr<RaftCore> raftImpl(new RaftCore(raftConfigPath.c_str(),
         myNodeId,
-        allClusterInfo[myClusterId],
+        myClusterInfo,
         &SyncPointProcessor::getInstance()));
   const auto &member = raftImpl->mSelfInfo;
   assert(mRaftInsts.find(member) == mRaftInsts.end());
