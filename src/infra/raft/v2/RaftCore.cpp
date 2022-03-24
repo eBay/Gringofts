@@ -35,7 +35,8 @@ RaftCore::RaftCore(
     RaftRole role) :
     mRaftRole(role),
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
-    mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
+    mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})),
+    mMajorityIndexGauge(gringofts::getGauge("majority_index", {{"status", "majority"}})) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Can't load configure file {}, exit", configPath);
@@ -723,12 +724,21 @@ void RaftCore::advanceCommitIndex() {
   for (auto &p : mPeers) {
     auto &peer = p.second;
     indices.push_back(peer.mMatchIndex);
+    /// followers match index & lag
+    gringofts::getGauge("match_index", {{"address", peer.mAddress}})
+        .set(peer.mMatchIndex);
   }
+  gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
+      .set(mCommitIndex);
 
   std::sort(indices.begin(), indices.end(),
             [](uint64_t x, uint64_t y) { return x > y; });
 
   auto majorityIndex = indices[indices.size() >> 1];
+  mMajorityIndex = majorityIndex;
+
+  /// update current leader majority index
+  mMajorityIndexGauge.set(majorityIndex);
 
   /// commitIndex monotonically increase
   if (mCommitIndex >= majorityIndex) {
@@ -929,9 +939,34 @@ void RaftCore::stepDown(uint64_t newTerm) {
 
     /// notify monitor
     mLeadershipGauge.set(0);
+    mMajorityIndexGauge.set(0);
+
+    for (auto &p : mPeers) {
+      auto &peer = p.second;
+      /// followers match index & lag
+      gringofts::getGauge("match_index", {{"address", peer.mAddress}})
+          .set(0);
+    }
+    gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
+        .set(0);
+
     /// resume election timer
     updateElectionTimePoint();
   }
+}
+
+void RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffsets) const {
+  for (auto &p : mPeers) {
+    auto &peer = p.second;
+    struct MemberOffsetInfo peerOffset;
+    peerOffset.mId = peer.mId;
+    peerOffset.mAddress = peer.mAddress;
+    peerOffset.mOffset = peer.mMatchIndex;
+    peerOffset.mIsLeader = false;
+    mMemberOffsets->push_back(peerOffset);
+  }
+  /// put leader offset info at the back
+  mMemberOffsets->push_back({mSelfInfo.mId, mSelfInfo.mAddress, mMajorityIndex, true});
 }
 
 void RaftCore::printStatus(const std::string &reason) const {

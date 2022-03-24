@@ -37,6 +37,7 @@ class RaftInterfaceMock : public RaftInterface {
   MOCK_CONST_METHOD0(getBeginLogIndex, uint64_t());
   MOCK_CONST_METHOD0(getLeaderHint, std::optional<uint64_t>());
   MOCK_CONST_METHOD0(getClusterMembers, std::vector<raft::MemberInfo>());
+  MOCK_CONST_METHOD2(getInSyncFollowers, void(const int64_t &, std::vector<raft::MemberOffsetInfo> *));
   // @formatter:off
   MOCK_CONST_METHOD2(getEntry, bool(uint64_t, raft::LogEntry*));
   MOCK_CONST_METHOD3(getEntries, uint64_t(uint64_t, uint64_t, std::vector<raft::LogEntry>*));

@@ -43,6 +43,18 @@ struct MemberInfo {
   }
 };
 
+struct MemberOffsetInfo {
+  uint64_t mId = kBadID;
+  /// host:port
+  std::string mAddress;
+  uint64_t mOffset;
+  bool mIsLeader;
+
+  std::string toString() const {
+    return std::to_string(mId) + "@" + mAddress;
+  }
+};
+
 //////////////////////////// Client Request ////////////////////////////
 
 struct ClientRequest {
@@ -103,6 +115,7 @@ class RaftInterface {
   virtual uint64_t getLastLogIndex() const = 0;
   virtual std::optional<uint64_t> getLeaderHint() const = 0;
   virtual std::vector<MemberInfo> getClusterMembers() const = 0;
+  virtual void getMemberOffsets(std::vector<MemberOffsetInfo> *) const = 0;
 
   /// used by StateMachine to read committed entry at index
   /// return true if succeed, return false if the entry is truncated.
