@@ -35,8 +35,7 @@ RaftCore::RaftCore(
     RaftRole role) :
     mRaftRole(role),
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
-    mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})),
-    mMajorityIndexGauge(gringofts::getGauge("majority_index", {{"status", "majority"}})) {
+    mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Can't load configure file {}, exit", configPath);
@@ -735,10 +734,6 @@ void RaftCore::advanceCommitIndex() {
             [](uint64_t x, uint64_t y) { return x > y; });
 
   auto majorityIndex = indices[indices.size() >> 1];
-  mMajorityIndex = majorityIndex;
-
-  /// update current leader majority index
-  mMajorityIndexGauge.set(majorityIndex);
 
   /// commitIndex monotonically increase
   if (mCommitIndex >= majorityIndex) {
@@ -939,7 +934,6 @@ void RaftCore::stepDown(uint64_t newTerm) {
 
     /// notify monitor
     mLeadershipGauge.set(0);
-    mMajorityIndexGauge.set(0);
 
     for (auto &p : mPeers) {
       auto &peer = p.second;
@@ -955,18 +949,12 @@ void RaftCore::stepDown(uint64_t newTerm) {
   }
 }
 
-void RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffsets) const {
+uint64_t RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffsets) const {
   for (auto &p : mPeers) {
     auto &peer = p.second;
-    struct MemberOffsetInfo peerOffset;
-    peerOffset.mId = peer.mId;
-    peerOffset.mAddress = peer.mAddress;
-    peerOffset.mOffset = peer.mMatchIndex;
-    peerOffset.mIsLeader = false;
-    mMemberOffsets->push_back(peerOffset);
+    mMemberOffsets->emplace_back(peer.mId, peer.mAddress, peer.mMatchIndex);
   }
-  /// put leader offset info at the back
-  mMemberOffsets->push_back({mSelfInfo.mId, mSelfInfo.mAddress, mMajorityIndex, true});
+  return mCommitIndex;
 }
 
 void RaftCore::printStatus(const std::string &reason) const {
