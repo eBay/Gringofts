@@ -179,6 +179,9 @@ class RaftCore : public RaftInterface {
     return mLog->truncatePrefix(firstIndexKept);
   }
 
+  /// return leader commit index
+  uint64_t getMemberOffsets(std::vector<MemberOffsetInfo> *) const override;
+
  private:
   /// init
   void initConfigurableVars(const INIReader &iniReader);

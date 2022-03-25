@@ -723,7 +723,12 @@ void RaftCore::advanceCommitIndex() {
   for (auto &p : mPeers) {
     auto &peer = p.second;
     indices.push_back(peer.mMatchIndex);
+    /// followers match index & lag
+    gringofts::getGauge("match_index", {{"address", peer.mAddress}})
+        .set(peer.mMatchIndex);
   }
+  gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
+      .set(mCommitIndex);
 
   std::sort(indices.begin(), indices.end(),
             [](uint64_t x, uint64_t y) { return x > y; });
@@ -929,9 +934,27 @@ void RaftCore::stepDown(uint64_t newTerm) {
 
     /// notify monitor
     mLeadershipGauge.set(0);
+
+    for (auto &p : mPeers) {
+      auto &peer = p.second;
+      /// followers match index & lag
+      gringofts::getGauge("match_index", {{"address", peer.mAddress}})
+          .set(0);
+    }
+    gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
+        .set(0);
+
     /// resume election timer
     updateElectionTimePoint();
   }
+}
+
+uint64_t RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffsets) const {
+  for (auto &p : mPeers) {
+    auto &peer = p.second;
+    mMemberOffsets->emplace_back(peer.mId, peer.mAddress, peer.mMatchIndex);
+  }
+  return mCommitIndex;
 }
 
 void RaftCore::printStatus(const std::string &reason) const {
