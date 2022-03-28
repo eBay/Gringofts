@@ -35,9 +35,9 @@ ProcessHint IncreaseHandler::process(const AppStateMachine &appStateMachine,
   events->push_back(std::make_shared<ProcessedEvent>(TimeUtil::currentTimeInNanos(), increaseCommand.getRequest()));
 
   for (auto &eventPtr : *events) {
-    eventPtr->setCreatorId(app::AppInfo::subsystemId());
-    eventPtr->setGroupId(app::AppInfo::groupId());
-    eventPtr->setGroupVersion(app::AppInfo::groupVersion());
+    eventPtr->setCreatorId(mAppInfo.subsystemId());
+    eventPtr->setGroupId(mAppInfo.groupId());
+    eventPtr->setGroupVersion(mAppInfo.groupVersion());
   }
 
   return ProcessHint{200, "Success"};

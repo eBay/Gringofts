@@ -43,14 +43,16 @@ class RequestReceiver final : public Service {
 
   explicit RequestReceiver(const INIReader &reader,
                            uint32_t port,
+                           const AppInfo &app,
                            BlockingQueue<std::shared_ptr<Command>> &commandQueue)  // NOLINT(runtime/references)
-      : RequestReceiver(reader, port, commandQueue, nullptr) {}
+      : RequestReceiver(reader, port, app, commandQueue, nullptr) {}
 
   explicit RequestReceiver(const INIReader &reader,
                            uint32_t port,
+                           const AppInfo &app,
                            BlockingQueue<std::shared_ptr<Command>> &commandQueue,  // NOLINT(runtime/references)
                            std::unique_ptr<BlackList_t> blackList)
-      : mCommandQueue(commandQueue), mBackList(std::move(blackList)) {
+      : mApp(app), mCommandQueue(commandQueue), mBackList(std::move(blackList)) {
     mIpPort = "0.0.0.0:" + std::to_string(port);
     assert(mIpPort != "UNKNOWN");
     mTlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
@@ -82,7 +84,7 @@ class RequestReceiver final : public Service {
     // Spawn a new CallData instance to serve new clients.
     for (uint64_t i = 0; i < PreSpawn; ++i) {
       for (uint64_t j = 0; j < Concurrency; ++j) {
-        new CallData(&mService, mCompletionQueues[j].get(), mCommandQueue, mBackList.get());
+        new CallData(&mService, mCompletionQueues[j].get(), mCommandQueue, mBackList.get(), mApp);
       }
     }
   }
@@ -140,6 +142,7 @@ class RequestReceiver final : public Service {
     }
   }
 
+  const AppInfo &mApp;
   std::string mIpPort;
   std::optional<TlsConf> mTlsConfOpt;
   BlockingQueue<std::shared_ptr<Command>> &mCommandQueue;

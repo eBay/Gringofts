@@ -36,7 +36,7 @@ App::App(const char *configPath) : mIsShutdown(false) {
     throw std::runtime_error("Cannot load config file");
   }
 
-  app::AppInfo::init(reader);
+  mAppInfo = std::make_shared<app::AppInfo>(reader);
 
   mCrypto = std::make_shared<gringofts::CryptoUtil>();
   mCrypto->init(reader);
@@ -54,11 +54,11 @@ App::App(const char *configPath) : mIsShutdown(false) {
 
   auto commandEventDecoder = std::make_shared<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>>();
 
-  const auto &appVersion = app::AppInfo::appVersion();
+  const auto &appVersion = mAppInfo->appVersion();
   if (appVersion == "v2") {
     mEventApplyLoop =
         std::make_shared<app::EventApplyLoop<v2::RocksDBBackedAppStateMachine>>(
-            reader, commandEventDecoder, std::move(mReadonlyCommandEventStoreForEventApplyLoop), snapshotDir);
+            reader, commandEventDecoder, std::move(mReadonlyCommandEventStoreForEventApplyLoop), snapshotDir, mAppInfo);
     mCommandProcessLoop = std::make_unique<CommandProcessLoop<v2::MemoryBackedAppStateMachine>>(
         reader,
         commandEventDecoder,
@@ -68,15 +68,17 @@ App::App(const char *configPath) : mIsShutdown(false) {
         std::move(mReadonlyCommandEventStoreForCommandProcessLoop),
         mCommandEventStore,
         snapshotDir,
-        mFactory);
+        mFactory,
+        mAppInfo);
   } else {
     SPDLOG_ERROR("App version {} is not supported. Exiting...", appVersion);
     assert(0);
   }
 
-  mRequestReceiver = ::std::make_unique<RequestReceiver>(reader, mCommandQueue);
-  mNetAdminServer = ::std::make_unique<app::NetAdminServer>(reader, mEventApplyLoop);
-  mPostServer = std::make_unique<BundleExposePublisher>(reader, std::move(mReadonlyCommandEventStoreForPostServer));
+  mRequestReceiver = ::std::make_unique<RequestReceiver>(reader, mAppInfo->gateWayPort(), *mAppInfo, mCommandQueue);
+  mNetAdminServer = ::std::make_unique<app::NetAdminServer>(reader, mEventApplyLoop, mAppInfo);
+  mPostServer = std::make_unique<BundleExposePublisher>(reader, mAppInfo->fetchPort(),
+                                                        std::move(mReadonlyCommandEventStoreForPostServer));
 }
 
 App::~App() {
@@ -123,11 +125,14 @@ void App::initMonitor(const INIReader &reader) {
 void App::initMemoryPool(const INIReader &reader) {
   if (gringofts::PerfConfig::getInstance().getMemoryPoolType() == "monotonic") {
     mFactory = std::make_shared<gringofts::PMRContainerFactory>("PMRFactory",
-        std::make_unique<gringofts::MonotonicPMRMemoryPool>(
-          "monotonicPool", gringofts::PerfConfig::getInstance().getMaxMemoryPoolSizeInMB()));
+                                                                std::make_unique<gringofts::MonotonicPMRMemoryPool>(
+                                                                    "monotonicPool",
+                                                                    gringofts::PerfConfig::getInstance()
+                                                                    .getMaxMemoryPoolSizeInMB()));
   } else {
     mFactory = std::make_shared<gringofts::PMRContainerFactory>("PMRFactory",
-        std::make_unique<gringofts::NewDeleteMemoryPool>("newDeletePool"));
+                                                                std::make_unique<gringofts::NewDeleteMemoryPool>(
+                                                                    "newDeletePool"));
   }
 }
 
@@ -172,9 +177,9 @@ void App::initCommandEventStore(const INIReader &reader) {
 
     std::shared_ptr<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>> commandEventDecoder =
         std::make_shared<app::CommandEventDecoderImpl<EventDecoderImpl, CommandDecoderImpl>>();
-    auto myNodeId = gringofts::app::AppInfo::getMyNodeId();
-    auto myClusterInfo = gringofts::app::AppInfo::getMyClusterInfo();
-    auto raftImpl = raft::buildRaftImpl(configPath.c_str(), myNodeId, myClusterInfo);
+    auto myNodeId = mAppInfo->getMyNodeId();
+    auto myCluster = mAppInfo->getMyCluster();
+    auto raftImpl = raft::buildRaftImpl(configPath.c_str(), myNodeId, myCluster);
     auto metricsAdaptor = std::make_shared<RaftMonitorAdaptor>(raftImpl);
     enableMonitorable(metricsAdaptor);
     mCommandEventStore = std::make_shared<RaftCommandEventStore>(raftImpl, mCrypto);
@@ -193,10 +198,7 @@ void App::initCommandEventStore(const INIReader &reader) {
 }
 
 void App::startRequestReceiver() {
-  mServerThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "ReqReceiver");
-    mRequestReceiver->run();
-  });
+  mRequestReceiver->start();
 }
 
 void App::startNetAdminServer() {
@@ -275,7 +277,7 @@ void App::shutdown() {
 
     // shutdown all threads
     mCommandQueue.shutdown();
-    mRequestReceiver->shutdown();
+    mRequestReceiver->stop();
     mNetAdminServer->shutdown();
     mCommandProcessLoop->shutdown();
     mEventApplyLoop->shutdown();

@@ -40,7 +40,7 @@ class SplitEvent : public CtrlEvent {
 
   void decodeFromString(std::string_view payload) override { mRequest.ParseFromString(std::string(payload)); }
 
-  void apply(CtrlState *state) const override;
+  void apply(CtrlState *state, const AppInfo &) const override;
 
  private:
   Request mRequest;

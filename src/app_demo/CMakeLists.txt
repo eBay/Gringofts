@@ -19,10 +19,9 @@ ADD_PROTO_SET(demo_proto_library "${proto_file_list}" ${proto_generated_dir})
 ## src list
 # app_demo
 set(APP_DEMO_AUTOGEN
+        AppStateMachine.cpp
         should_be_generated/app/App.cpp
-        should_be_generated/app/RequestCallData.cpp
         should_be_generated/app/RequestReceiver.cpp
-        should_be_generated/domain/AppStateMachine_internal.cpp
         should_be_generated/domain/CommandDecoderImpl.cpp
         should_be_generated/domain/EventDecoderImpl.cpp
         should_be_generated/domain/IncreaseCommand.cpp
@@ -55,7 +54,12 @@ target_link_libraries(app_demo demo_proto_library)
 # executables
 add_executable(DemoApp
         should_be_generated/app/Main.cpp)
-target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    #for macos
+    target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl -lgrpc++_reflection)
+elseif()
+    target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed)
+endif()
 
 #################################################################################################
 #

@@ -17,12 +17,12 @@ limitations under the License.
 
 namespace gringofts::app::ctrl::split {
 
-void SplitEvent::apply(CtrlState *state) const {
+void SplitEvent::apply(CtrlState *state, const AppInfo &appInfo) const {
   SPDLOG_INFO("before apply split event state is \n {}", state->prettyPrint());
   bool impacted = false;
   state->clearRoutes();
   for (auto &impact : mRequest.impacts()) {
-    if (impact.clusterid() == AppInfo::groupId()) {
+    if (impact.clusterid() == appInfo.groupId()) {
       state->applyRoute(impact.route());
       state->setClusterId(impact.clusterid());
       if (impact.newcluster()) {

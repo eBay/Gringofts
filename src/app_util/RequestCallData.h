@@ -52,7 +52,7 @@ class CallDataHandler {
                        void *tag) = 0;
 
   virtual std::shared_ptr<Command_t> buildCommand(
-      const REQ &request, TimestampInNanos createdTime) = 0;
+      const REQ &request, TimestampInNanos createdTime, const AppInfo &app) = 0;
 };
 
 template<typename Handler>
@@ -68,9 +68,10 @@ class RequestCallData final : public RequestHandle {
   RequestCallData(AsyncService *service,
                   ::grpc::ServerCompletionQueue *cq,
                   BlockingQueue<std::shared_ptr<Command>> &commandQueue,  // NOLINT(runtime/references)
-                  const BlackList<Request> *blackList)
+                  const BlackList<Request> *blackList,
+                  const AppInfo &appInfo)
       : mService(service), mCompletionQueue(cq), mStatus(CREATE),
-        mCommandQueue(commandQueue), mResponder(&mContext), mBlackList(blackList) {
+        mCommandQueue(commandQueue), mResponder(&mContext), mBlackList(blackList), mApp(appInfo) {
     // Invoke the serving logic right away.
     proceed();
   }
@@ -92,7 +93,7 @@ class RequestCallData final : public RequestHandle {
       // Spawn a new CallData instance to serve new clients while we process
       // the one for this CallData. The instance will deallocate itself as
       // part of its FINISH state.
-      new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList);
+      new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList, mApp);
       // check black list
       if (mBlackList != nullptr && mBlackList->inBlackList(mRequest)) {
         fillResultAndReply(201, "Duplicated request", std::nullopt);
@@ -100,7 +101,7 @@ class RequestCallData final : public RequestHandle {
       }
       // build command
       mCommandCreateTime = TimeUtil::currentTimeInNanos();
-      mCommand = mHandler.buildCommand(mRequest, mCommandCreateTime);
+      mCommand = mHandler.buildCommand(mRequest, mCommandCreateTime, mApp);
       mCommand->setRequestHandle(this);
       const std::string verifyResult = mCommand->verifyCommand();
       if (verifyResult != Command::kVerifiedSuccess) {
@@ -135,7 +136,7 @@ class RequestCallData final : public RequestHandle {
 
   void failOver() override {
     SPDLOG_WARN("Cannot proceed as callData is no longer valid probably because client has cancelled the request.");
-    new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList);
+    new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList, mApp);
     delete this;
   }
 
@@ -169,6 +170,8 @@ class RequestCallData final : public RequestHandle {
   const BlackList<Request> *mBlackList;
   // handler implementation
   Handler mHandler;
+  // app info
+  const AppInfo &mApp;
 };
 
 }  // namespace gringofts::app

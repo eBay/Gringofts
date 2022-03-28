@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <INIReader.h>
 
+#include "AppInfo.h"
 #include "../infra/es/Loop.h"
 #include "../infra/es/ReadonlyCommandEventStore.h"
 #include "../infra/es/StateMachine.h"
@@ -77,11 +78,13 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
   EventApplyLoopBase(const INIReader &reader,
                      const std::shared_ptr<CommandEventDecoder> &decoder,
                      std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
-                     const std::string &snapshotDir)
+                     const std::string &snapshotDir,
+                     std::shared_ptr<AppInfo> appInfo)
       : mReadonlyCommandEventStore(std::move(readonlyCommandEventStore)),
         mCommandEventDecoder(decoder),
         mSnapshotDir(snapshotDir),
-        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})) { mCrypto.init(reader); }
+        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})),
+        mAppInfo(appInfo) { mCrypto.init(reader); }
 
   ~EventApplyLoopBase() override = default;
 
@@ -150,6 +153,9 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
 
   /// metrics
   santiago::MetricsCenter::GaugeType mLastAppliedIndexGauge;
+
+  /// appInfo
+  std::shared_ptr<AppInfo> mAppInfo;
 };
 
 /**
@@ -228,11 +234,13 @@ class EventApplyLoop<MemoryBackedStateMachineType, false>
   EventApplyLoop(const INIReader &reader,
                  const std::shared_ptr<CommandEventDecoder> &decoder,
                  std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
-                 const std::string &snapshotDir)
+                 const std::string &snapshotDir,
+                 std::shared_ptr<AppInfo> appInfo)
          : EventApplyLoopBase<MemoryBackedStateMachineType>(reader,
                                                             decoder,
                                                             std::move(readonlyCommandEventStore),
-                                                            snapshotDir) {
+                                                            snapshotDir,
+                                                            appInfo) {
     initStateMachine(reader);
     /// recover state
     recoverSelf();
@@ -313,11 +321,13 @@ class EventApplyLoop<RocksDBBackedStateMachineType, true>
   EventApplyLoop(const INIReader &reader,
                  const std::shared_ptr<CommandEventDecoder> &decoder,
                  std::unique_ptr<ReadonlyCommandEventStore> readonlyCommandEventStore,
-                 const std::string &snapshotDir)
+                 const std::string &snapshotDir,
+                 std::shared_ptr<AppInfo> appInfo)
           : EventApplyLoopBase<RocksDBBackedStateMachineType>(reader,
                                                               decoder,
                                                               std::move(readonlyCommandEventStore),
-                                                              snapshotDir) {
+                                                              snapshotDir,
+                                                              appInfo) {
     initStateMachine(reader);
     /// recover state
     recoverSelf();
@@ -346,7 +356,7 @@ class EventApplyLoop<RocksDBBackedStateMachineType, true>
     std::string dbDir  = iniReader.Get("rocksdb", "db.dir", "");
     assert(!walDir.empty() && !dbDir.empty());
 
-    this->mAppStateMachine = std::make_unique<RocksDBBackedStateMachineType>(walDir, dbDir);
+    this->mAppStateMachine = std::make_unique<RocksDBBackedStateMachineType>(walDir, dbDir, this->mAppInfo);
   }
 
   void recoverSelf() override {
