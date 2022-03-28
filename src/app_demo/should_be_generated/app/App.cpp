@@ -74,7 +74,7 @@ App::App(const char *configPath) : mIsShutdown(false) {
     assert(0);
   }
 
-  mRequestReceiver = ::std::make_unique<RequestReceiver>(reader, mCommandQueue);
+  mRequestReceiver = ::std::make_unique<RequestReceiver>(reader, app::AppInfo::gatewayPort(), mCommandQueue);
   mNetAdminServer = ::std::make_unique<app::NetAdminServer>(reader, mEventApplyLoop);
   mPostServer = std::make_unique<BundleExposePublisher>(reader, std::move(mReadonlyCommandEventStoreForPostServer));
 }
@@ -127,7 +127,8 @@ void App::initMemoryPool(const INIReader &reader) {
           "monotonicPool", gringofts::PerfConfig::getInstance().getMaxMemoryPoolSizeInMB()));
   } else {
     mFactory = std::make_shared<gringofts::PMRContainerFactory>("PMRFactory",
-        std::make_unique<gringofts::NewDeleteMemoryPool>("newDeletePool"));
+                                                                std::make_unique<gringofts::NewDeleteMemoryPool>(
+                                                                    "newDeletePool"));
   }
 }
 
@@ -193,10 +194,7 @@ void App::initCommandEventStore(const INIReader &reader) {
 }
 
 void App::startRequestReceiver() {
-  mServerThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "ReqReceiver");
-    mRequestReceiver->run();
-  });
+  mRequestReceiver->start();
 }
 
 void App::startNetAdminServer() {
@@ -275,7 +273,7 @@ void App::shutdown() {
 
     // shutdown all threads
     mCommandQueue.shutdown();
-    mRequestReceiver->shutdown();
+    mRequestReceiver->stop();
     mNetAdminServer->shutdown();
     mCommandProcessLoop->shutdown();
     mEventApplyLoop->shutdown();

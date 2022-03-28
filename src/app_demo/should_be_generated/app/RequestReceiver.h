@@ -1,4 +1,3 @@
-// THIS FILE IS AUTO-GENERATED, PLEASE DO NOT EDIT!!!
 /************************************************************************
 Copyright 2019-2020 eBay Inc.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,60 +11,48 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 **************************************************************************/
-
 #ifndef SRC_APP_DEMO_SHOULD_BE_GENERATED_APP_REQUESTRECEIVER_H_
 #define SRC_APP_DEMO_SHOULD_BE_GENERATED_APP_REQUESTRECEIVER_H_
 
 #include <INIReader.h>
 #include <grpcpp/grpcpp.h>
 
+#include  "../../../app_util/AppInfo.h"
+#include  "../../../app_util/RequestCallData.h"
+#include  "../../../app_util/RequestReceiver.h"
 #include "../../../infra/es/Command.h"
 #include "../../../infra/util/TlsUtil.h"
 #include "../../generated/grpc/demo.grpc.pb.h"
 #include "../domain/common_types.h"
+#include "../domain/IncreaseCommand.h"
 
-using ::grpc::ServerCompletionQueue;
+namespace gringofts::demo {
+using protos::IncreaseRequest;
+using protos::IncreaseResponse;
+using protos::DemoService;
 
-namespace gringofts {
-namespace demo {
-
-class RequestReceiver final {
+class CallDataHandler : public app::CallDataHandler<DemoService,
+                                                    IncreaseRequest,
+                                                    IncreaseResponse,
+                                                    IncreaseCommand> {
  public:
-  explicit RequestReceiver(const INIReader &,
-                           BlockingQueue<std::shared_ptr<Command>> &);
-  ~RequestReceiver() = default;
+  grpc::Status buildResponse(const IncreaseCommand &command, uint32_t code,
+                             const std::string &message,
+                             std::optional<uint64_t> leaderId,
+                             IncreaseResponse *response) override;
 
-  // disallow copy ctor and copy assignment
-  RequestReceiver(const RequestReceiver &) = delete;
-  RequestReceiver &operator=(const RequestReceiver &) = delete;
+  void request(DemoService::AsyncService *service,
+               ::grpc::ServerContext *context,
+               IncreaseRequest *request,
+               ::grpc::ServerAsyncResponseWriter<IncreaseResponse> *responser,
+               ::grpc::ServerCompletionQueue *completionQueue,
+               void *tag) override;
 
-  // disallow move ctor and move assignment
-  RequestReceiver(RequestReceiver &&) = delete;
-  RequestReceiver &operator=(RequestReceiver &&) = delete;
-
-  void run();
-
-  void shutdown();
-
- private:
-  const uint64_t kConcurrency = 8;
-
-  void handleRpcs(uint64_t i);
-
-  BlockingQueue<std::shared_ptr<Command>> &mCommandQueue;
-
-  protos::DemoService::AsyncService mService;
-  std::unique_ptr<Server> mServer;
-  std::atomic<bool> mIsShutdown = false;
-
-  std::vector<std::unique_ptr<ServerCompletionQueue>> mCompletionQueues;
-  std::vector<std::thread> mRcvThreads;
-
-  std::string mIpPort;
-  std::optional<TlsConf> mTlsConfOpt;
+  std::shared_ptr<IncreaseCommand> buildCommand(const IncreaseRequest &, TimestampInNanos) override;
 };
 
-}  /// namespace demo
-}  /// namespace gringofts
+typedef app::RequestCallData<CallDataHandler> CallData;
+typedef app::RequestReceiver<CallData> RequestReceiver;
 
+}  // namespace gringofts::demo
 #endif  // SRC_APP_DEMO_SHOULD_BE_GENERATED_APP_REQUESTRECEIVER_H_

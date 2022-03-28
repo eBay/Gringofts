@@ -14,7 +14,6 @@ limitations under the License.
 
 #include "IncreaseCommand.h"
 
-#include "../app/RequestCallData.h"
 #include "common_types.h"
 
 namespace gringofts {
