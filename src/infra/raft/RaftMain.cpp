@@ -17,7 +17,7 @@ limitations under the License.
 
 #include <spdlog/sinks/stdout_sinks.h>
 
-#include "../util/ClusterInfo.h"
+#include "../util/Cluster.h"
 #include "../util/CryptoUtil.h"
 #include "RaftLogStore.h"
 #include "RaftBuilder.h"
@@ -62,13 +62,10 @@ int main(int argc, char *argv[]) {
 
   /// create raft impl
   gringofts::NodeId nodeId = 1;
-  gringofts::ClusterInfo::Node node;
-  node.mNodeId = nodeId;
-  node.mHostName = "0.0.0.0";
-  node.mPortForRaft = 5253;
-  gringofts::ClusterInfo clusterInfo;
-  clusterInfo.addNode(node);
-  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1], nodeId, clusterInfo);
+  auto node = std::make_shared<gringofts::RaftNode>(nodeId, "0,0,0,0");
+  gringofts::Cluster cluster;
+  cluster.addNode(node);
+  auto raftImpl = gringofts::raft::buildRaftImpl(argv[1], nodeId, cluster);
 
   /// create fake CryptoUtil
   auto crypto = std::make_shared<gringofts::CryptoUtil>();

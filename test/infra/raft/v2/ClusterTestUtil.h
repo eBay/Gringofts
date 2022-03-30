@@ -30,7 +30,7 @@ namespace v2 {
 /// this handler will wait until the callback(fillResultAndReply) is invoked
 class SyncRequestHandle : public RequestHandle {
  public:
-    SyncRequestHandle(uint32_t targetCnt, std::vector<uint32_t> *errCodes):
+  SyncRequestHandle(uint32_t targetCnt, std::vector<uint32_t> *errCodes) :
       mTargetCnt(targetCnt), mErrCodes(errCodes) {
     assert(errCodes->size() == targetCnt);
   }
@@ -50,29 +50,29 @@ class SyncRequestHandle : public RequestHandle {
 
 class ClusterTestUtil {
  public:
-    using ClusterParserType = std::function<std::tuple<NodeId, ClusterInfo>(const INIReader &)>;
-    explicit ClusterTestUtil(ClusterParserType parser = nullptr) :mParser(parser) { }
+  explicit ClusterTestUtil(std::unique_ptr<ClusterParser> parser = nullptr)
+      : mParser(std::move(parser)) {}
 
-    /// disallow copy ctor and copy assignment
-    ClusterTestUtil(const ClusterTestUtil &) = delete;
-    ClusterTestUtil &operator=(const ClusterTestUtil &) = delete;
+  /// disallow copy ctor and copy assignment
+  ClusterTestUtil(const ClusterTestUtil &) = delete;
+  ClusterTestUtil &operator=(const ClusterTestUtil &) = delete;
 
-    /// disallow move ctor and move assignment
-    ClusterTestUtil(ClusterTestUtil &&) = delete;
-    ClusterTestUtil &operator=(ClusterTestUtil &&) = delete;
+  /// disallow move ctor and move assignment
+  ClusterTestUtil(ClusterTestUtil &&) = delete;
+  ClusterTestUtil &operator=(ClusterTestUtil &&) = delete;
 
-    void setupAllServers(const std::vector<std::string> &configPaths);
-    void setupAllServers(const std::vector<std::string> &configPaths, const std::vector<SyncPoint> &points);
-    void killAllServers();
-    MemberInfo setupServer(const std::string &configPath);
-    void killServer(const MemberInfo &member);
+  void setupAllServers(const std::vector<std::string> &configPaths);
+  void setupAllServers(const std::vector<std::string> &configPaths, const std::vector<SyncPoint> &points);
+  void killAllServers();
+  MemberInfo setupServer(const std::string &configPath);
+  void killServer(const MemberInfo &member);
 
-    /// send request in sync
-    int sendClientRequest(
-        std::vector<uint32_t> *errCodes,
-        std::vector<uint64_t> *entryIndexes,
-        const std::vector<std::string> &data,
-        uint32_t retryLimit = 1);
+  /// send request in sync
+  int sendClientRequest(
+      std::vector<uint32_t> *errCodes,
+      std::vector<uint64_t> *entryIndexes,
+      const std::vector<std::string> &data,
+      uint32_t retryLimit = 1);
 
   MemberInfo getMemberInfo(const MemberInfo &member);
   std::vector<MemberInfo> getAllMemberInfo();
@@ -80,35 +80,35 @@ class ClusterTestUtil {
   uint64_t getLastLogIndex(const MemberInfo &member);
   bool getDecryptedEntry(const MemberInfo &member, uint64_t index, raft::LogEntry *entry);
 
-    MemberInfo waitAndGetLeader();
-    bool waitLogForAll(uint64_t index);
-    bool waitLogForServer(const MemberInfo &member, uint64_t index);
-    bool waitLogCommitForAll(uint64_t index);
-    bool waitLogCommitForServer(const MemberInfo &member, uint64_t index);
-    uint64_t countCommittedNodes(uint64_t index);
+  MemberInfo waitAndGetLeader();
+  bool waitLogForAll(uint64_t index);
+  bool waitLogForServer(const MemberInfo &member, uint64_t index);
+  bool waitLogCommitForAll(uint64_t index);
+  bool waitLogCommitForServer(const MemberInfo &member, uint64_t index);
+  uint64_t countCommittedNodes(uint64_t index);
 
-    /// for sync point
-    void enableAllSyncPoints() {
-      SyncPointProcessor::getInstance().enableProcessing();
-    }
-    void disableAllSyncPoints() {
-      SyncPointProcessor::getInstance().disableProcessing();
-    }
-    void resetSyncPoints(const std::vector<SyncPoint> &points) {
-      SyncPointProcessor::getInstance().reset(points);
-    }
+  /// for sync point
+  void enableAllSyncPoints() {
+    SyncPointProcessor::getInstance().enableProcessing();
+  }
+  void disableAllSyncPoints() {
+    SyncPointProcessor::getInstance().disableProcessing();
+  }
+  void resetSyncPoints(const std::vector<SyncPoint> &points) {
+    SyncPointProcessor::getInstance().reset(points);
+  }
 
  protected:
-    /// event queue should be destroyed after RaftClient
-    EventQueue mAeRvQueue;
+  /// event queue should be destroyed after RaftClient
+  EventQueue mAeRvQueue;
 
-    std::map<MemberInfo, std::string> mRaftInstConfigs;
-    std::map<MemberInfo, std::shared_ptr<RaftCore>> mRaftInsts;
-    /// serve as client to send request to raft cluster
-    std::map<MemberInfo, std::unique_ptr<RaftClient>> mRaftInstClients;
+  std::map<MemberInfo, std::string> mRaftInstConfigs;
+  std::map<MemberInfo, std::shared_ptr<RaftCore>> mRaftInsts;
+  /// serve as client to send request to raft cluster
+  std::map<MemberInfo, std::unique_ptr<RaftClient>> mRaftInstClients;
 
  private:
-    ClusterParserType mParser;
+  std::unique_ptr<ClusterParser> mParser;
 };
 
 }  /// namespace v2

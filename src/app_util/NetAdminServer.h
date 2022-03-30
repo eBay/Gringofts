@@ -65,7 +65,7 @@ using gringofts::raft::RaftRole;
 class NetAdminServer final : public AppNetAdmin::Service {
  public:
   NetAdminServer(const INIReader &reader,
-                 std::shared_ptr<NetAdminServiceProvider> netAdminProxy, uint64_t port = kDefaultNetAdminPort) :
+                 std::shared_ptr<NetAdminServiceProvider> netAdminProxy, uint64_t port = AppInfo::netAdminPort()) :
       mServiceProvider(netAdminProxy),
       mSnapshotTakenCounter(getCounter("snapshot_taken_counter", {})),
       mSnapshotFailedCounter(getCounter("snapshot_failed_counter", {})),
@@ -240,9 +240,9 @@ class NetAdminServer final : public AppNetAdmin::Service {
     }
 
     std::vector<std::string> targets;
-    for (const auto &nodeKV : fromClusterOpt->getAllNodeInfo()) {
-      auto &node = nodeKV.second;
-      auto targetHost = node.mHostName + ":" + std::to_string(node.mPortForStream);
+    for (const auto &nodeKV : fromClusterOpt->getAllNodes()) {
+      auto node = std::dynamic_pointer_cast<AppNode>(nodeKV.second);
+      auto targetHost = node->hostName() + ":" + std::to_string(node->streamPort());
       SPDLOG_INFO("set up sync target {}", targetHost);
       targets.push_back(std::move(targetHost));
     }

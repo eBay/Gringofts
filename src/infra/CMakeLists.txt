@@ -33,7 +33,7 @@ set(GRINGOFTS_MONITOR_SRC
 
 set(GRINGOFTS_UTIL_SRC
         util/BigDecimal.cpp
-        util/ClusterInfo.cpp
+        util/Cluster.cpp
         util/CryptoUtil.cpp
         util/FileUtil.cpp
         util/TrackingMemoryResource.cpp

@@ -158,11 +158,8 @@ class RaftCommandEventStoreTest : public ::testing::Test {
     mCrypto = std::make_shared<CryptoUtil>();
     mCrypto->init(reader);
     gringofts::NodeId nodeId = 1;
-    gringofts::ClusterInfo::Node node;
-    node.mNodeId = nodeId;
-    node.mHostName = "0.0.0.0";
-    node.mPortForRaft = 5253;
-    gringofts::ClusterInfo clusterInfo;
+    auto node = std::make_shared<RaftNode>(nodeId, "0.0.0.0", 5253, 5678);
+    gringofts::Cluster clusterInfo;
     clusterInfo.addNode(node);
     mRaftImpl = raft::buildRaftImpl("../test/infra/es/store/config/raft.ini", nodeId, clusterInfo);
     mCommandEventStore = std::make_unique<RaftCommandEventStore>(mRaftImpl, mCrypto);

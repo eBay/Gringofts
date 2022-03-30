@@ -24,15 +24,9 @@ class RaftCoreTest : public ::testing::Test {
   void SetUp() override {
     Util::executeCmd("mkdir ../test/infra/raft/node_1");
     gringofts::NodeId nodeId = 1;
-    gringofts::ClusterInfo::Node node1;
-    node1.mNodeId = nodeId;
-    node1.mHostName = "0.0.0.0";
-    node1.mPortForRaft = 5253;
-    gringofts::ClusterInfo::Node node2;
-    node2.mNodeId = 2;
-    node2.mHostName = "0.0.0.0";
-    node2.mPortForRaft = 5254;
-    gringofts::ClusterInfo clusterInfo;
+    auto node1 = std::make_shared<gringofts::RaftNode>(nodeId, "0.0.0.0", 5253, 5678);
+    auto node2 = std::make_shared<gringofts::RaftNode>(2, "0.0.0.0", 5254, 5679);
+    gringofts::Cluster clusterInfo;
     clusterInfo.addNode(node1);
     clusterInfo.addNode(node2);
     mRaftImpl = std::make_shared<RaftCore>("../test/infra/raft/config/raft_1.ini",
