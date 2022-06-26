@@ -55,7 +55,12 @@ target_link_libraries(app_demo demo_proto_library)
 # executables
 add_executable(DemoApp
         should_be_generated/app/Main.cpp)
-target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    #for macos
+    target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl -lgrpc++_reflection)
+else()
+    target_link_libraries(DemoApp app_demo gringofts_app_util gringofts_infra -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed)
+endif()
 
 #################################################################################################
 #
