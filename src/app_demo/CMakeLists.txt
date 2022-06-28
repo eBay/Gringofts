@@ -19,10 +19,9 @@ ADD_PROTO_SET(demo_proto_library "${proto_file_list}" ${proto_generated_dir})
 ## src list
 # app_demo
 set(APP_DEMO_AUTOGEN
+        AppStateMachine.cpp
         should_be_generated/app/App.cpp
-        should_be_generated/app/RequestCallData.cpp
         should_be_generated/app/RequestReceiver.cpp
-        should_be_generated/domain/AppStateMachine_internal.cpp
         should_be_generated/domain/CommandDecoderImpl.cpp
         should_be_generated/domain/EventDecoderImpl.cpp
         should_be_generated/domain/IncreaseCommand.cpp

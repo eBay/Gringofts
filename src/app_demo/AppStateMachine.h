@@ -17,15 +17,20 @@ limitations under the License.
 
 #include "execution/IncreaseApplier.h"
 #include "execution/IncreaseHandler.h"
-#include "should_be_generated/domain/AppStateMachine_internal.h"
 #include "should_be_generated/domain/IncreaseCommand.h"
 #include "should_be_generated/domain/ProcessedEvent.h"
+#include "../app_util/AppStateMachine.h"
 
 namespace gringofts {
 namespace demo {
 
-class AppStateMachine : public demo::AppStateMachine_internal {
+class AppStateMachine : public gringofts::app::AppStateMachine {
  public:
+  AppStateMachine();
+  ~AppStateMachine() override = default;
+
+  ProcessHint processCommandAndApply(const Command &command, std::vector<std::shared_ptr<Event>> *events) override;
+
   /**
    * define getter() and setter()
    */
@@ -41,12 +46,12 @@ class AppStateMachine : public demo::AppStateMachine_internal {
    * getter() and setter() to manipulate state.
    */
   ProcessHint process(const IncreaseCommand &command,
-                      std::vector<std::shared_ptr<Event>> *events) const override {
+                      std::vector<std::shared_ptr<Event>> *events) const {
     IncreaseHandler handler;
     return handler.process(*this, command, events);
   }
 
-  StateMachine &apply(const ProcessedEvent &event) override {
+  StateMachine &apply(const ProcessedEvent &event) {
     IncreaseApplier applier;
     applier.apply(event, this);
     return *this;

@@ -21,7 +21,6 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "../../../app_util/AppInfo.h"
-#include "../../../app_util/CommandEventDecoderImpl.h"
 #include "../../../app_util/EventApplyLoop.h"
 #include "../../../app_util/NetAdminServer.h"
 #include "../../../infra/es/Command.h"
