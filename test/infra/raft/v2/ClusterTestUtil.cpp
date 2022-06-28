@@ -16,7 +16,7 @@ limitations under the License.
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
 
-#include "../../../../src/infra/util/ClusterInfo.h"
+#include "../../../../src/app_util/AppInfo.h"
 #include "../../../../src/infra/util/DNSResolver.h"
 
 namespace gringofts {
@@ -54,18 +54,19 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   std::shared_ptr<RaftCore> raftImpl;
   std::string raftConfigPath;
   if (mParser) {
-    auto[nodeId, info] = mParser(reader);
+    auto[nodeId, clusterId, allClusters] = mParser->parse(reader);
     /**
      * for self defined parser function, the config path is the raft config directly
      */
     raftConfigPath = configPath;
     raftImpl = std::shared_ptr<RaftCore>(new RaftCore(raftConfigPath.c_str(),
                                                       nodeId,
-                                                      info,
+                                                      allClusters[clusterId],
                                                       &SyncPointProcessor::getInstance()));
   } else {
-    auto[myClusterId, nodeId, allClusterInfo] =
-    ClusterInfo::resolveAllClusters(reader, nullptr);
+    // using app cluster parser
+    auto parser = std::make_unique<app::AppClusterParser>();
+    auto[myClusterId, nodeId, allClusterInfo] = parser->parse(reader);
     /**
      * in default, the config path is the app-level path,
      * which included raft config path

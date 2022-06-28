@@ -17,12 +17,58 @@ limitations under the License.
 
 #include <INIReader.h>
 
-
 #include "../infra/common_types.h"
-#include "../infra/util/ClusterInfo.h"
+#include "../infra/util/Cluster.h"
+#include "../infra/util/Signal.h"
+#include "../infra/util/KVClient.h"
 
 namespace gringofts {
 namespace app {
+
+struct RouteSignal : public FutureSignal<bool> {
+  RouteSignal(uint64_t epoch, uint64_t clusterId) : mEpoch(epoch), mClusterId(clusterId) {}
+  uint64_t mEpoch;
+  uint64_t mClusterId;
+};
+
+class AppNode : public RaftNode {
+  static constexpr Port kDefaultGatewayPort = 50055;
+  static constexpr Port kDefaultFetchPort = 50056;
+  static constexpr Port kDefaultNetAdminPort = 50065;
+  static constexpr Port kDefaultScalePort = 61203;
+ public:
+  AppNode(NodeId id, const HostName &hostName) : RaftNode(id, hostName) {}
+  AppNode(NodeId id, const HostName &hostName,
+          Port raftPort, Port streamPort,
+          Port gateWayPort, Port dumperPort, Port netAdminPort, Port scalePort)
+      : RaftNode(id, hostName, raftPort, streamPort),
+        mPortForGateway(gateWayPort), mPortForFetch(dumperPort),
+        mPortForNetAdmin(netAdminPort), mPortForScale(scalePort) {
+  }
+  inline Port gateWayPort() const { return mPortForGateway; }
+  inline Port fetchPort() const { return mPortForFetch; }
+  inline Port netAdminPort() const { return mPortForNetAdmin; }
+  inline Port scalePort() const { return mPortForScale; }
+ private:
+  Port mPortForGateway = kDefaultGatewayPort;
+  Port mPortForFetch = kDefaultFetchPort;
+  Port mPortForNetAdmin = kDefaultNetAdminPort;
+  Port mPortForScale = kDefaultScalePort;
+};
+
+class AppClusterParser : public ClusterParser {
+ public:
+  AppClusterParser() : mKvFactory(nullptr) {}
+  explicit AppClusterParser(std::unique_ptr<kv::ClientFactory> factory) : mKvFactory(std::move(factory)) {}
+  std::tuple<NodeId, ClusterId, ClusterMap> parse(const INIReader &) override;
+
+  static bool checkHasRoute(const std::string &routeStr, uint64_t clusterId, uint64_t epoch);
+
+ private:
+  std::unordered_map<ClusterId, Cluster> parseToClusterInfo(const std::string &infoStr) const;
+
+  std::unique_ptr<kv::ClientFactory> mKvFactory;
+};
 
 class AppInfo final {
  public:
@@ -32,7 +78,8 @@ class AppInfo final {
     getInstance().initialized = false;
   }
 
-  static void init(const INIReader &reader);
+  static void init(const INIReader &reader,
+                   std::unique_ptr<ClusterParser> parser = std::make_unique<AppClusterParser>());
 
   /// disallow copy ctor and copy assignment
   AppInfo(const AppInfo &) = delete;
@@ -44,16 +91,16 @@ class AppInfo final {
   static bool stressTestEnabled() { return getInstance().mStressTestEnabled; }
   static std::string appVersion() { return getInstance().mAppVersion; }
 
-  static ClusterInfo getMyClusterInfo() {
+  static Cluster getMyClusterInfo() {
     return getInstance().mAllClusterInfo[getInstance().mMyClusterId];
   }
 
-  static ClusterInfo::Node getMyNode() {
+  static std::shared_ptr<AppNode> getMyNode() {
     assert(getInstance().initialized);
-    return getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
+    return std::dynamic_pointer_cast<AppNode>(getMyClusterInfo().getAllNodes()[getMyNodeId()]);
   }
 
-  static std::optional<ClusterInfo> getClusterInfo(uint64_t clusterId) {
+  static std::optional<Cluster> getClusterInfo(uint64_t clusterId) {
     if (getInstance().mAllClusterInfo.count(clusterId)) {
       return getInstance().mAllClusterInfo[clusterId];
     } else {
@@ -65,20 +112,19 @@ class AppInfo final {
   static ClusterId getMyClusterId() { return getInstance().mMyClusterId; }
 
   static Port netAdminPort() {
-    auto node = getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
-    return node.mPortForNetAdmin;
+    return getMyNode()->netAdminPort();
   }
 
   static Port scalePort() {
-    return getMyNode().mPortForScale;
+    return getMyNode()->scalePort();
   }
 
   static Port gatewayPort() {
-    return getMyNode().mPortForGateway;
+    return getMyNode()->gateWayPort();
   }
 
   static Port fetchPort() {
-    return getMyNode().mPortForFetcher;
+    return getMyNode()->fetchPort();
   }
 
  private:
@@ -123,7 +169,7 @@ class AppInfo final {
   /**
    * Cluster Info
    */
-  std::map<ClusterId, ClusterInfo> mAllClusterInfo;
+  std::unordered_map<ClusterId, Cluster> mAllClusterInfo;
   ClusterId mMyClusterId;
   NodeId mMyNodeId;
 };

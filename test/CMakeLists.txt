@@ -50,7 +50,7 @@ add_executable(gringofts_TestRunner
         ${UNIT_TEST_SRC}
         ../third_party/gtest/googlemock/src/gmock-all.cc
         ../third_party/gtest/googletest/src/gtest-all.cc)
-target_link_libraries(gringofts_TestRunner gringofts_infra ${GRINGOFTS_LIBRARIES})
+target_link_libraries(gringofts_TestRunner gringofts_app_util gringofts_infra ${GRINGOFTS_LIBRARIES})
 
 # add coverage target here otherwise the app source code will not be covered
 set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '/usr/local/include/*' '*/BullseyeCoverage-8.16.4/include/*' 'gtest/*' 'test/*' 'build/*' '*/*Test*'

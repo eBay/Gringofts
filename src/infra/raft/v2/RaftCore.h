@@ -23,7 +23,7 @@ limitations under the License.
 
 #include <INIReader.h>
 
-#include "../../util/ClusterInfo.h"
+#include "../../util/Cluster.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
@@ -111,7 +111,7 @@ class RaftCore : public RaftInterface {
  public:
   RaftCore(const char *configPath,
       const NodeId &selfId,
-      const ClusterInfo &clusterInfo,
+      const Cluster &cluster,
       std::shared_ptr<DNSResolver> dnsResolver,
       RaftRole role = RaftRole::Follower);
 
@@ -185,7 +185,7 @@ class RaftCore : public RaftInterface {
  private:
   /// init
   void initConfigurableVars(const INIReader &iniReader);
-  void initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId);
+  void initClusterConf(const Cluster &cluster, const NodeId &selfId);
   void initStorage(const INIReader &iniReader);
   void initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver);
 
@@ -339,7 +339,7 @@ class RaftCore : public RaftInterface {
   RaftCore(
       const char *configPath,
       const NodeId &myNodeId,
-      const ClusterInfo &clusterInfo,
+      const Cluster &cluster,
       TestPointProcessor *processor);
 
   TestPointProcessor *mTPProcessor = nullptr;
