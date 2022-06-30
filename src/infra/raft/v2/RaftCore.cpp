@@ -93,7 +93,7 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
 
     if (selfId == nodeId) {
       mSelfInfo.mId = selfId;
-      mSelfInfo.mAddress = addr;
+      mSelfInfo.mAddress = "0.0.0.0:" + port;
       mStreamingPort = node.mPortForStream;
     } else {
       Peer peer;
