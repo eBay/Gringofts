@@ -289,6 +289,8 @@ class RaftCore : public RaftInterface {
 
   MemberInfo mSelfInfo;
 
+  std::string mAddressForRaftSvc;
+
   std::atomic<uint64_t> mLeaderId = kBadID;
   /// if now > election time point, incr current term, convert to candidate
   uint64_t mElectionTimePointInNano = 0;

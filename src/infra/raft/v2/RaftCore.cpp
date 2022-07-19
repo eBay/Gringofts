@@ -93,7 +93,8 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
 
     if (selfId == nodeId) {
       mSelfInfo.mId = selfId;
-      mSelfInfo.mAddress = "0.0.0.0:" + port;
+      mSelfInfo.mAddress = addr;
+      mAddressForRaftSvc = "0.0.0.0:" + port;
       mStreamingPort = node.mPortForStream;
     } else {
       Peer peer;
@@ -138,7 +139,7 @@ void RaftCore::initStorage(const INIReader &iniReader) {
 void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver) {
   mTlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
   /// init RaftServer
-  mServer = std::make_unique<RaftServer>(mSelfInfo.mAddress, mTlsConfOpt, &mAeRvQueue, dnsResolver);
+  mServer = std::make_unique<RaftServer>(mAddressForRaftSvc, mTlsConfOpt, &mAeRvQueue, dnsResolver);
 
   /// init RaftClient
   for (auto &p : mPeers) {
