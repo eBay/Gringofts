@@ -123,6 +123,7 @@ RaftClient::~RaftClient() {
 void RaftClient::refressChannel() {
   grpc::ChannelArguments chArgs;
   chArgs.SetMaxReceiveMessageSize(INT_MAX);
+  chArgs.SetInt("grpc.testing.fixed_reconnect_backoff_ms", 100);
   auto newResolvedAddress = mDNSResolver->resolve(mPeerAddress);
   if (newResolvedAddress != mResolvedPeerAddress) {
     std::unique_lock<std::shared_mutex> lock(mMutex);
