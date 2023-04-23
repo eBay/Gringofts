@@ -94,7 +94,8 @@ enum class RaftRole {
   Leader = 0,
   Follower = 1,
   Candidate = 2,
-  Syncer = 3
+  Syncer = 3,
+  Learner = 4
 };
 
 class RaftInterface {

@@ -24,7 +24,8 @@ RaftMonitorAdaptor::RaftMonitorAdaptor(const std::shared_ptr<RaftInterface> &ser
                      },
                      {{"leader", std::to_string(static_cast<int>(RaftRole::Leader))},
                       {"candidate", std::to_string(static_cast<int>(RaftRole::Candidate))},
-                      {"follower", std::to_string(static_cast<int>(RaftRole::Follower))}});
+                      {"follower", std::to_string(static_cast<int>(RaftRole::Follower))},
+                      {"learner", std::to_string(static_cast<int>(RaftRole::Learner))}});
   mTags.push_back(std::move(role_tag));
 
   // term

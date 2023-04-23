@@ -256,10 +256,14 @@ class RaftCore : public RaftInterface {
   }
 
   std::string selfId() const {
-    return (mRaftRole == RaftRole::Leader ? "Leader "
-                                          : mRaftRole == RaftRole::Candidate ? "Candidate "
-                                                                             : "Follower ") +
-                                                                             std::to_string(mSelfInfo.mId);
+    switch (mRaftRole) {
+      case RaftRole::Leader: return "Leader " + std::to_string(mSelfInfo.mId);
+      case RaftRole::Follower: return "Follower " + std::to_string(mSelfInfo.mId);
+      case RaftRole::Candidate: return "Candidate " + std::to_string(mSelfInfo.mId);
+      case RaftRole::Syncer: return "Syncer " + std::to_string(mSelfInfo.mId);
+      case RaftRole::Learner: return "Learner " + std::to_string(mSelfInfo.mId);
+      default: return "";
+    }
   }
 
   /// for some reason, print status.
@@ -286,6 +290,8 @@ class RaftCore : public RaftInterface {
   static constexpr uint64_t kBadID = 0;
 
   std::map<uint64_t, Peer> mPeers;
+
+  std::set<uint64_t> mLearners;
 
   MemberInfo mSelfInfo;
 
