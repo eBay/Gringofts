@@ -42,6 +42,14 @@ RaftCore::RaftCore(
     throw std::runtime_error("Can't load config file");
   }
 
+  std::string learnersStr = iniReader.Get("raft.default", "learners.ids", "");
+  if (!learnersStr.empty()) {
+    std::vector<std::string> learners = absl::StrSplit(learnersStr, ",");
+    for (auto learner : learners) {
+      mLearners.insert(std::stoi(learner));
+    }
+  }
+
   initConfigurableVars(iniReader);
   initClusterConf(clusterInfo, myNodeId);
   initStorage(iniReader);
@@ -104,9 +112,14 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
     }
   }
 
+  // note that, config a syncer to a learner is invalid
+  if (mRaftRole != RaftRole::Syncer &&
+      mLearners.find(mSelfInfo.mId) != mLearners.end()) {
+    mRaftRole = RaftRole::Learner;
+  }
   assert(mSelfInfo.mId != kBadID);
-  SPDLOG_INFO("cluster.size={}, self.id={}, self.address={}",
-              mPeers.size() + 1, mSelfInfo.mId, mSelfInfo.mAddress);
+  SPDLOG_INFO("cluster.size={}, self.id={}, self.address={}, learner.size={}, myrole={}",
+              mPeers.size() + 1, mSelfInfo.mId, mSelfInfo.mAddress, mLearners.size(), this->selfId());
 }
 
 void RaftCore::initStorage(const INIReader &iniReader) {
@@ -352,6 +365,10 @@ void RaftCore::requestVote() {
   for (auto &p : mPeers) {
     auto &peer = p.second;
 
+    if (mLearners.find(peer.mId) != mLearners.end()) {
+      continue;
+    }
+
     if (peer.mRequestVoteDone
         || peer.mNextRequestTimeInNano > TimeUtil::currentTimeInNanos()) {
       continue;
@@ -386,8 +403,12 @@ void RaftCore::requestVote() {
 
 grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
                                           AppendEntries::Response *response) {
-  auto currentTerm = mLog->getCurrentTerm();
+  if (mLearners.find(request.leader_id()) != mLearners.end()) {
+    SPDLOG_WARN("Receive AE request from a Learner in my perception, ignored");
+    return grpc::Status::CANCELLED;
+  }
 
+  auto currentTerm = mLog->getCurrentTerm();
   /// prepare AE_resp
   (*response->mutable_metrics()) = request.metrics();
   (*response->mutable_metrics()).set_follower_id(mSelfInfo.mId);
@@ -580,8 +601,13 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
   response->set_id(mSelfInfo.mId);
   response->set_saved_term(request.term());
 
-  if (mRaftRole == RaftRole::Syncer) {
-    SPDLOG_WARN("Syncer mode won't process RV request");
+  if (mRaftRole == RaftRole::Syncer || mRaftRole == RaftRole::Learner) {
+    SPDLOG_WARN("Syncer or Learner mode won't process RV request");
+    return grpc::Status::CANCELLED;
+  }
+
+  if (mLearners.find(request.candidate_id()) != mLearners.end()) {
+    SPDLOG_WARN("Receive RV request from a Learner in my perception, ignored");
     return grpc::Status::CANCELLED;
   }
 
@@ -723,6 +749,9 @@ void RaftCore::advanceCommitIndex() {
 
   for (auto &p : mPeers) {
     auto &peer = p.second;
+    if (mLearners.find(peer.mId) != mLearners.end()) {
+      continue;
+    }
     indices.push_back(peer.mMatchIndex);
     /// followers match index & lag
     gringofts::getGauge("match_index", {{"address", peer.mAddress}})
@@ -786,12 +815,15 @@ void RaftCore::becomeLeader() {
 
   for (const auto &p : mPeers) {
     auto &peer = p.second;
+    if (mLearners.find(peer.mId) != mLearners.end()) {
+      continue;
+    }
     if (peer.mHaveVote) {
       ++voteNum;
     }
   }
 
-  auto quorumNum = getMajorityNumber(mPeers.size() + 1);
+  auto quorumNum = getMajorityNumber(mPeers.size() + 1 - mLearners.size());
   if (voteNum < quorumNum) {
     return;
   }
@@ -832,7 +864,8 @@ void RaftCore::becomeLeader() {
 
 void RaftCore::electionTimeout() {
   /// syncer also won't raise a election
-  if (mRaftRole == RaftRole::Leader || mRaftRole == RaftRole::Syncer) {
+  if (mRaftRole == RaftRole::Leader || mRaftRole == RaftRole::Syncer
+      || mRaftRole == RaftRole::Learner) {
     return;
   }
 
@@ -881,6 +914,9 @@ void RaftCore::leadershipTimeout() {
 
   for (const auto &p : mPeers) {
     auto &peer = p.second;
+    if (mLearners.find(peer.mId) != mLearners.end()) {
+      continue;
+    }
     timePoints.push_back(peer.mLastResponseTimeInNano);
   }
 
@@ -909,7 +945,7 @@ void RaftCore::stepDown(uint64_t newTerm) {
 
   /// Attention, must change role before update term.
   auto prevRole = mRaftRole;
-  mRaftRole = RaftRole::Follower;
+  if (mRaftRole != RaftRole::Learner) mRaftRole = RaftRole::Follower;
 
   if (currentTerm < newTerm) {
     mLog->setCurrentTerm(newTerm);
