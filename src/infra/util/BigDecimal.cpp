@@ -32,6 +32,8 @@ BigDecimal::BigDecimal(uint64_t number) : mValue(number) {}
 
 BigDecimal::BigDecimal(boost::multiprecision::cpp_dec_float_100 number) : mValue(std::move(number)) {}
 
+BigDecimal::BigDecimal(const BigDecimal& number): mValue(number.getValue()) {}
+
 std::string BigDecimal::toString() const {
   std::stringstream stream;
   stream << std::fixed << std::setprecision(2) << mValue;

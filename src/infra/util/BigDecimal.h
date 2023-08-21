@@ -24,6 +24,7 @@ class BigDecimal {
   explicit BigDecimal(const std::string &number);
   explicit BigDecimal(uint64_t number);
   explicit BigDecimal(boost::multiprecision::cpp_dec_float_100 number);
+  explicit BigDecimal(const BigDecimal& number);
 
   std::string toString() const;
 
