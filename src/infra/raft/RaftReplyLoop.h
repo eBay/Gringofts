@@ -42,6 +42,7 @@ class RaftReplyLoop {
   /// send a task to reply loop
   void pushTask(uint64_t index, uint64_t term,
                 RequestHandle *handle,
+                const std::vector<std::shared_ptr<Event>> &events,
                 uint64_t code, const std::string &message);
 
  private:
@@ -54,6 +55,8 @@ class RaftReplyLoop {
 
     /// handle to reply
     RequestHandle *handle = nullptr;
+    /// events
+    std::vector<std::shared_ptr<Event>> events;
 
     /// code and msg to reply if <index, term> is committed
     uint64_t code = 200;

@@ -39,7 +39,7 @@ void RaftCommandEventStore::persistAsync(const std::shared_ptr<Command> &command
   /// command with no events should skip persist.
   if (events.empty()) {
     mRaftReplyLoop->pushTask(commandId, mLastCheckedTerm,
-                             command->getRequestHandle(), code, message);
+                             command->getRequestHandle(), events, code, message);
     return;
   }
 
@@ -51,7 +51,7 @@ void RaftCommandEventStore::persistAsync(const std::shared_ptr<Command> &command
   }
 
   mRaftReplyLoop->pushTask(commandId, mLastCheckedTerm,
-                           command->getRequestHandle(), code, message);
+                           command->getRequestHandle(), events, code, message);
 
   /// TODO: remove client reply code in raft v1 and v2
   mRaftLogStore->persistAsync(command, events, commandId, nullptr);

@@ -18,6 +18,7 @@ namespace gringofts::app::ctrl {
 using ResponseHeader = protos::Scale::ResponseHeader;
 
 grpc::Status SplitCallDataHandler::buildResponse(const SplitCommand &command,
+                                                 const std::vector<std::shared_ptr<Event>> &events,
                                                  uint32_t code,
                                                  const std::string &message,
                                                  std::optional<uint64_t> leaderId,

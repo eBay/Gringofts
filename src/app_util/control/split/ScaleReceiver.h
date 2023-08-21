@@ -26,7 +26,9 @@ using split::SplitCommand;
 
 class SplitCallDataHandler : public CallDataHandler<ScaleService, SplitRequest, SplitResponse, SplitCommand> {
  public:
-  grpc::Status buildResponse(const SplitCommand &command, uint32_t code,
+  grpc::Status buildResponse(const SplitCommand &command,
+                             const std::vector<std::shared_ptr<Event>> &events,
+                             uint32_t code,
                              const std::string &message,
                              std::optional<uint64_t> leaderId,
                              SplitResponse *response) override;

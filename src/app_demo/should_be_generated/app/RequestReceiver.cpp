@@ -16,7 +16,9 @@ limitations under the License.
 
 namespace gringofts::demo {
 
-grpc::Status CallDataHandler::buildResponse(const IncreaseCommand &command, uint32_t code,
+grpc::Status CallDataHandler::buildResponse(const IncreaseCommand &command,
+                                            const std::vector<std::shared_ptr<Event>> &events,
+                                            uint32_t code,
                                             const std::string &message,
                                             std::optional<uint64_t> leaderId,
                                             IncreaseResponse *response) {

@@ -39,6 +39,7 @@ class CallDataHandler {
   typedef RES Response;
   typedef CMD Command_t;
   virtual grpc::Status buildResponse(const CMD &command,
+                                     const std::vector<std::shared_ptr<Event>> &events,
                                      uint32_t code,
                                      const std::string &message,
                                      std::optional<uint64_t> leaderId,
@@ -128,7 +129,15 @@ class RequestCallData final : public RequestHandle {
                           const std::string &message,
                           std::optional<uint64_t> leaderId) override {
     // build response
-    auto s = mHandler.buildResponse(*mCommand, code, message, leaderId, &mResponse);
+    fillResultAndReply({}, code, message, leaderId);
+  }
+
+  void fillResultAndReply(const std::vector<std::shared_ptr<Event>> &events,
+                          uint32_t code,
+                          const std::string &message,
+                          std::optional<uint64_t> leaderId) override {
+    // build response with events
+    auto s = mHandler.buildResponse(*mCommand, events, code, message, leaderId, &mResponse);
     mStatus = FINISH;
     mResponder.Finish(mResponse, s, this);
   }
