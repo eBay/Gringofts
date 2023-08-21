@@ -62,6 +62,10 @@ class EventApplyLoopInterface : public Loop,
   virtual void swapStateAndTeardown(StateMachine &target) = 0;  // NOLINT [runtime/references]
 
   virtual const StateMachine &getStateMachine() const = 0;
+
+  virtual bool isLeader() const = 0;
+
+  virtual bool isReady() const = 0;
 };
 
 /**
@@ -127,6 +131,14 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
 
   uint64_t lastAppliedLogCreateTime() const override {
     return mLastAppliedLogCreateTimeinNanos;
+  }
+
+  bool isReady() const override {
+    if (isLeader()) {
+      std::lock_guard<std::mutex> lock(mLoopMutex);
+      return !mShouldRecover && !mShouldExit;
+    }
+    return false;
   }
 
  protected:
