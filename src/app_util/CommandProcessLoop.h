@@ -50,6 +50,8 @@ class CommandProcessLoopInterface : public Loop, public Recoverable {
   // @formatter:off
   virtual void processCommand(std::shared_ptr<Command> command) = 0;
   // @formatter:on
+
+  virtual const StateMachine &getStateMachine() const = 0;
 };
 
 /**
@@ -84,6 +86,11 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   void runDistributed() override;
 
   void shutdown() override { mShouldExit = true; }
+
+  const StateMachine &getStateMachine() const override {
+    // SPDLOG_WARN("should ONLY see this log in unit test");
+    return *mAppStateMachine;
+  }
 
  protected:
   /// distributed mode
