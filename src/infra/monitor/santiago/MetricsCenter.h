@@ -34,20 +34,25 @@ class MetricsCenter {
   typedef Counter<PrometheusCounter> CounterType;
   typedef Gauge<PrometheusGauge> GaugeType;
   typedef Summary<PrometheusSummary> SummaryType;
+  typedef Histogram<PrometheusHistogram> HistogramType;
   typedef PrometheusMetricsFactory<CounterType> CounterFactory;
   typedef PrometheusMetricsFactory<GaugeType> GaugeFactory;
   typedef PrometheusMetricsFactory<SummaryType> SummaryFactory;
+  typedef PrometheusMetricsFactory<HistogramType> HistogramFactory;
   MetricsCenter();
   virtual ~MetricsCenter() = default;
   CounterType counter(const std::string &name, const LabelType &label, const std::string &help = "");
   GaugeType gauge(const std::string &name, const LabelType &label, const std::string &help = "");
   SummaryType summary(const std::string &name, const LabelType &label, const std::string &help = "");
+  HistogramType histogram(const std::string &name, const LabelType &label,
+      const prometheus::Histogram::BucketBoundaries &bucketBoundaries, const std::string &help = "");
   std::shared_ptr<prometheus::Registry> getRegistryPtr() { return mRegistryPtr; }
  private:
   std::shared_ptr<prometheus::Registry> mRegistryPtr;
   std::shared_ptr<CounterFactory> mCouterFactory;
   std::shared_ptr<GaugeFactory> mGaugeFactory;
   std::shared_ptr<SummaryFactory> mSummaryFactory;
+  std::shared_ptr<HistogramFactory> mHistogramFactory;
 };
 
 }  /// namespace santiago

@@ -21,6 +21,7 @@ limitations under the License.
 #include "prometheus/gauge.h"
 #include "prometheus/registry.h"
 #include "prometheus/summary.h"
+#include "prometheus/histogram.h"
 
 #include "../Metrics.h"
 
@@ -63,6 +64,19 @@ class PrometheusSummary {
   void observe(double);
  private:
   InnerType &mSummary;
+};
+
+
+class PrometheusHistogram {
+ public:
+  typedef prometheus::Histogram InnerType;
+  typedef prometheus::detail::Builder<prometheus::Histogram> InnerBuilder;
+  explicit PrometheusHistogram(InnerType &);
+  PrometheusHistogram(const PrometheusHistogram &) = default;
+  PrometheusHistogram(PrometheusHistogram &&) = default;
+  void observe(double);
+ private:
+  InnerType &mHistogram;
 };
 
 template<class T>
