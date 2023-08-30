@@ -215,7 +215,7 @@ include_directories(third_party/inih/cpp)
 set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
 include_directories(third_party/abseil-cpp)
-set(ABSL_LIBS absl::strings absl::base absl::str_format)
+set(ABSL_LIBS absl::strings absl::base absl::str_format absl::time)
 
 # prometheus
 add_subdirectory(third_party/prometheus-cpp EXCLUDE_FROM_ALL)
