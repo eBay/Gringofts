@@ -47,6 +47,7 @@ class MetricsCenter {
   HistogramType histogram(const std::string &name, const LabelType &label,
       const prometheus::Histogram::BucketBoundaries &bucketBoundaries, const std::string &help = "");
   std::shared_ptr<prometheus::Registry> getRegistryPtr() { return mRegistryPtr; }
+
  private:
   std::shared_ptr<prometheus::Registry> mRegistryPtr;
   std::shared_ptr<CounterFactory> mCouterFactory;
