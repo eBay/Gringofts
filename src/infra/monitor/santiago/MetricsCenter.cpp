@@ -26,7 +26,8 @@ MetricsCenter::MetricsCenter()
     : mRegistryPtr(std::make_shared<prometheus::Registry>()),
       mCouterFactory(std::make_shared<CounterFactory>(*mRegistryPtr)),
       mGaugeFactory(std::make_shared<GaugeFactory>(*mRegistryPtr)),
-      mSummaryFactory(std::make_shared<SummaryFactory>(*mRegistryPtr)) {
+      mSummaryFactory(std::make_shared<SummaryFactory>(*mRegistryPtr)),
+      mHistogramFactory(std::make_shared<HistogramFactory>(*mRegistryPtr)) {
 }
 
 MetricsCenter::CounterType MetricsCenter::counter(const std::string &name,
@@ -45,6 +46,13 @@ MetricsCenter::SummaryType MetricsCenter::summary(const std::string &name,
                                                   const santiago::MetricsCenter::LabelType &label,
                                                   const std::string &help) {
   return mSummaryFactory->get(name, label, help, SummaryQuantiles);
+}
+
+MetricsCenter::HistogramType MetricsCenter::histogram(const std::string &name,
+                                                  const santiago::MetricsCenter::LabelType &label,
+                                                  const prometheus::Histogram::BucketBoundaries &bucketBoundaries,
+                                                  const std::string &help) {
+  return mHistogramFactory->get(name, label, help, bucketBoundaries);
 }
 
 }  /// namespace santiago

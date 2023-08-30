@@ -49,4 +49,9 @@ void Summary<PrometheusSummary>::observe(double val) {
   mImplPtr->observe(val);
 }
 
+template <>
+void Histogram<PrometheusHistogram>::observe(double val) {
+  mImplPtr->observe(val);
+}
+
 }  /// namespace santiago

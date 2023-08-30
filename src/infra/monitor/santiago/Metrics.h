@@ -63,6 +63,19 @@ class Summary {
   std::shared_ptr<ImplType> mImplPtr;
 };
 
+template<class Impl>
+class Histogram {
+ public:
+  typedef Impl ImplType;
+  template<class ... ArgT>
+  explicit Histogram(ArgT &&...args):
+      mImplPtr(std::make_shared<ImplType>(std::forward<ArgT>(args)...)) {}
+  Histogram(const Histogram &_c) : mImplPtr(_c.mImplPtr) {}
+  void observe(double);
+ private:
+  std::shared_ptr<ImplType> mImplPtr;
+};
+
 }  /// namespace santiago
 
 #endif  // SRC_INFRA_MONITOR_SANTIAGO_METRICS_H_

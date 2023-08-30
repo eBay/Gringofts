@@ -50,4 +50,11 @@ void PrometheusSummary::observe(double val) {
   mSummary.Observe(val);
 }
 
+PrometheusHistogram::PrometheusHistogram(prometheus::Histogram &prometheusHistogram) :
+    mHistogram(prometheusHistogram) {}
+
+void PrometheusHistogram::observe(double val) {
+  mHistogram.Observe(val);
+}
+
 }  /// namespace santiago
