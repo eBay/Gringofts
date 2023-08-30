@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <chrono>
 #include <stdint.h>
+#include <assert.h>
 
 namespace gringofts {
 
