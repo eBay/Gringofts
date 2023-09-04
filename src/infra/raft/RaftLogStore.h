@@ -86,7 +86,8 @@ class RaftLogStore {
   /// configurable vars
   const uint64_t kMaxDelayInMs = 20;
   const uint64_t kMaxBatchSize = 100;
-  const uint64_t kMaxPayLoadSizeInBytes = 5000000;   /// less then 5M
+  /// should no more than max ae size max.len.in.bytes
+  const uint64_t kMaxPayLoadSizeInBytes = 5000000;
 
   mutable santiago::MetricsCenter::GaugeType mGaugeRaftBatchSize;
 };
