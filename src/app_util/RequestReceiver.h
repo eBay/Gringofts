@@ -65,6 +65,7 @@ class RequestReceiver final : public Service {
     std::string server_address(mIpPort);
 
     ::grpc::ServerBuilder builder;
+    builder.SetMaxReceiveMessageSize(4 << 20);
     // Listen on the given address without any authentication mechanism.
     builder.AddListeningPort(server_address,
                              TlsUtil::buildServerCredentials(mTlsConfOpt));

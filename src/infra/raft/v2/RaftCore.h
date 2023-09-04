@@ -277,7 +277,7 @@ class RaftCore : public RaftInterface {
    */
   /// for getEntries()
   uint64_t mMaxBatchSize = 2000;
-  uint64_t mMaxLenInBytes = 4000000;
+  uint64_t mMaxLenInBytes = 5000000;
   /// for handleAppendEntriesResponse()
   uint64_t mMaxDecrStep = 2000;
   /// for printStatus()
