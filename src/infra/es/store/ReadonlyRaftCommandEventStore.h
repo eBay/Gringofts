@@ -52,7 +52,8 @@ class ReadonlyRaftCommandEventStore final : public ReadonlyCommandEventStore {
                                  const EventDecoder &,
                                  Id,
                                  uint64_t,
-                                 CommandEventsList *) override;
+                                 CommandEventsList *,
+                                 uint64_t *pCommitIndex = nullptr) override;
 
   /**
    * wait until leader is ready for expected term or step down.

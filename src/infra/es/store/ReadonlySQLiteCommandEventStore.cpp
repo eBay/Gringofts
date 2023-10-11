@@ -83,7 +83,8 @@ ReadonlySQLiteCommandEventStore::loadNextCommandEvents(const CommandDecoder &com
 uint64_t
 ReadonlySQLiteCommandEventStore::loadCommandEventsList(const gringofts::CommandDecoder &,
                                                        const gringofts::EventDecoder &,
-                                                       Id, uint64_t, CommandEventsList *) {
+                                                       Id, uint64_t, CommandEventsList *,
+                                                       uint64_t *pCommitIndex) {
   throw std::runtime_error("SQLite does not support loadCommandEventsList()");
 }
 

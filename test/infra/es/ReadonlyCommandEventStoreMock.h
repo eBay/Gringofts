@@ -40,12 +40,13 @@ class ReadonlyCommandEventStoreMock : public ReadonlyCommandEventStore {
       const CommandDecoder &commandDecoder,
       const EventDecoder &eventDecoder));
 
-  MOCK_METHOD5(loadCommandEventsList, uint64_t(
+  MOCK_METHOD6(loadCommandEventsList, uint64_t(
       const CommandDecoder &commandDecoder,
       const EventDecoder &eventDecoder,
       Id commandId,
       uint64_t size,
-      CommandEventsList * bundles));
+      CommandEventsList * bundles,
+      uint64_t * pCommitIndex));
 
   MOCK_CONST_METHOD0(getCurrentOffset, uint64_t());
 

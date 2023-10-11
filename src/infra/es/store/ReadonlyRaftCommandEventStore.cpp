@@ -138,8 +138,12 @@ ReadonlyRaftCommandEventStore::loadCommandEventsList(const CommandDecoder &,
                                                      const EventDecoder &,
                                                      Id commandId,
                                                      uint64_t size,
-                                                     CommandEventsList *bundles) {
+                                                     CommandEventsList *bundles,
+                                                     uint64_t *pCommitIndex) {
   auto commitIndex = mRaftImpl->getCommitIndex();
+  if (pCommitIndex != nullptr) {
+    *pCommitIndex = commitIndex;
+  }
 
   if (commandId <= 0 || commandId > commitIndex) {
     return 0;
