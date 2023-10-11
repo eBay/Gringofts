@@ -42,7 +42,8 @@ class ReadonlySQLiteCommandEventStore : public ReadonlyCommandEventStore {
                                  const EventDecoder &,
                                  Id,
                                  uint64_t,
-                                 CommandEventsList *) override;
+                                 CommandEventsList *,
+                                 uint64_t *pCommitIndex = nullptr) override;
 
   uint64_t getCurrentOffset() const override {
     return mCurrentLoadedCommandOffset;

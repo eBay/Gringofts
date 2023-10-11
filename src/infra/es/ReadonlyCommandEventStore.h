@@ -140,7 +140,8 @@ class ReadonlyCommandEventStore {
                                          const EventDecoder &eventDecoder,
                                          Id commandId,
                                          uint64_t size,
-                                         CommandEventsList *bundles) = 0;
+                                         CommandEventsList *bundles,
+                                         uint64_t *pCommitIndex = nullptr) = 0;
 
   /**
    * wait till leader is ready for expected term or step down,

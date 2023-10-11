@@ -45,7 +45,8 @@ class ReadonlyDefaultCommandEventStore : public ReadonlyCommandEventStore {
                                  const EventDecoder &,
                                  Id,
                                  uint64_t,
-                                 CommandEventsList *) override {
+                                 CommandEventsList *,
+                                 uint64_t *pCommitIndex) override {
     SPDLOG_WARN("dummy method, always return empty. Please use other store.");
     return 0;
   }
