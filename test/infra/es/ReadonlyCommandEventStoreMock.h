@@ -46,7 +46,7 @@ class ReadonlyCommandEventStoreMock : public ReadonlyCommandEventStore {
       Id commandId,
       uint64_t size,
       CommandEventsList * bundles,
-      uint64_t * pCommitIndex = nullptr));
+      uint64_t * pCommitIndex));
 
   MOCK_CONST_METHOD0(getCurrentOffset, uint64_t());
 
