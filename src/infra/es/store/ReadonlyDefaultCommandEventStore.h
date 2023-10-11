@@ -46,7 +46,7 @@ class ReadonlyDefaultCommandEventStore : public ReadonlyCommandEventStore {
                                  Id,
                                  uint64_t,
                                  CommandEventsList *,
-                                 uint64_t *pCommitIndex) override {
+                                 uint64_t *pCommitIndex = nullptr) override {
     SPDLOG_WARN("dummy method, always return empty. Please use other store.");
     return 0;
   }
