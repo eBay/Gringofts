@@ -174,7 +174,7 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
 
   mCrypto.init(reader);
   mAppStateMachine = std::make_unique<StateMachineType>(factory);
-  mEventApplyLoop->initState(*mAppStateMachine);
+  mEventApplyLoop->initState(mAppStateMachine.get());
 }
 
 template<typename StateMachineType>

@@ -63,7 +63,7 @@ class EventApplyLoopInterface : public Loop,
 
   virtual const StateMachine &getStateMachine() const = 0;
 
-  virtual void initState(StateMachine &target) = 0;
+  virtual void initState(StateMachine *target) = 0;
 
   virtual void clearState() = 0;
 
@@ -120,9 +120,9 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
     mShouldRecover = true;
   }
 
-  void initState(StateMachine &target) override {
+  void initState(StateMachine *target) override {
     std::lock_guard<std::mutex> lock(mLoopMutex);
-    target.initState(mAppStateMachine.get());
+    target->initState(mAppStateMachine.get());
   }
 
   void clearState() override {
