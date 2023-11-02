@@ -84,6 +84,16 @@ class StateMachine {
   virtual void swapState(StateMachine *other) = 0;
 
   /**
+   * Init state of other state machine.
+   */
+  virtual void initState(StateMachine *other)  { /* do nothing by default */ }
+
+  /**
+   * Reset state of other state machine.
+   */
+  virtual void resetState()  { /* do nothing by default */ }
+
+  /**
    * Clear state of state machine.
    */
   virtual void clearState() = 0;
