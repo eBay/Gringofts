@@ -51,7 +51,7 @@ class CommandProcessLoopInterface : public Loop, public Recoverable {
   virtual void processCommand(std::shared_ptr<Command> command) = 0;
   // @formatter:on
 
-  virtual const StateMachine &getStateMachine() const = 0;
+  virtual void resetState() = 0;
 };
 
 /**
@@ -87,11 +87,6 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
 
   void shutdown() override { mShouldExit = true; }
 
-  const StateMachine &getStateMachine() const override {
-    // SPDLOG_WARN("should ONLY see this log in unit test");
-    return *mAppStateMachine;
-  }
-
  protected:
   /// distributed mode
   void onBecomeLeader(std::shared_ptr<Command> command);
@@ -104,6 +99,10 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   uint64_t waitTillLeaderIsReady() const {
     uint64_t currentTerm = mCommandEventStore->getCurrentTerm();
     return mEventApplyLoop->waitTillLeaderIsReadyOrStepDown(currentTerm);
+  }
+
+  void resetState() override {
+    mEventApplyLoop->swapStateAndTeardown(*mAppStateMachine);
   }
 
   /**
@@ -175,6 +174,7 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
 
   mCrypto.init(reader);
   mAppStateMachine = std::make_unique<StateMachineType>(factory);
+  mEventApplyLoop->initState(*mAppStateMachine);
 }
 
 template<typename StateMachineType>
