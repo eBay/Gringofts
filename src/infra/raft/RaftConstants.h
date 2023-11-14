@@ -22,7 +22,7 @@ namespace raft {
 
 struct RaftConstants {
   /// The minimum/maximum timeout follower will wait before starting a new election
-  static constexpr uint64_t kMinElectionTimeoutInMillis = 250;
+  static constexpr uint64_t kMinElectionTimeoutInMillis = 200;
   static constexpr uint64_t kMaxElectionTimeoutInMillis = kMinElectionTimeoutInMillis * 2;
 
   /// heart beat interval that leader will wait before sending a heartbeat to follower
