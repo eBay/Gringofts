@@ -28,7 +28,7 @@ struct RaftConstants {
   /// heart beat interval that leader will wait before sending a heartbeat to follower
   static const uint64_t kHeartBeatIntervalInMillis = 10;
 
-  struct AppendEntries { static constexpr uint64_t kRpcTimeoutInMillis = 100; };
+  struct AppendEntries { static constexpr uint64_t kRpcTimeoutInMillis = 200; };
   struct RequestVote   { static constexpr uint64_t kRpcTimeoutInMillis = 100; };
 };
 
