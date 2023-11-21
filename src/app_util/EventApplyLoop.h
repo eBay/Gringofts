@@ -153,7 +153,8 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
 
   std::unique_ptr<StateMachineType> mAppStateMachine;
   uint64_t mLastAppliedLogEntryIndex = 0;
-
+  uint64_t mLastAppliedTimeInNanos = 0;
+  static constexpr uint64_t kSaveMilestoneTimeoutInNano = (uint64_t)100 * 1000 * 1000;  /// 100ms
   /// metrics
   santiago::MetricsCenter::GaugeType mLastAppliedIndexGauge;
 };
@@ -171,6 +172,11 @@ void EventApplyLoopBase<StateMachineType>::run() {
     }
 
     uint64_t ts1InNano = TimeUtil::currentTimeInNanos();
+    if (ts1InNano - mLastAppliedTimeInNanos > kSaveMilestoneTimeoutInNano) {
+      mAppStateMachine->commit(mLastAppliedLogEntryIndex);
+      mLastAppliedTimeInNanos = ts1InNano;
+    }
+
     auto commandEventsOpt = mReadonlyCommandEventStore->loadNextCommandEvents(*mCommandEventDecoder,
                                                                               *mCommandEventDecoder);
     if (!commandEventsOpt) {
@@ -191,6 +197,7 @@ void EventApplyLoopBase<StateMachineType>::run() {
 
     mLastAppliedLogEntryIndex = commandId;
     mLastAppliedIndexGauge.set(mLastAppliedLogEntryIndex);
+    mLastAppliedTimeInNanos = ts3InNano;
 
     /// TODO: remove below if-block once log cutoff is supported
     if (commandId % 10 == 0) {
