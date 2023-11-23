@@ -273,6 +273,23 @@ class NetAdminServer final : public AppNetAdmin::Service {
   }
 
   /**
+   * get last applied log create time.
+   */
+  Status GetAppliedCreatedTime(ServerContext *context,
+                        const GetAppliedCreatedTime_Request *request,
+                        GetAppliedCreatedTime_Response *reply) override {
+    if (mServiceProvider->lastAppliedLogCreateTime() == 0) {
+      reply->mutable_status()->set_code(404);
+      reply->mutable_status()->set_message("no log applied");
+      return Status::OK;
+    }
+    reply->mutable_created_time_info()->set_isleader(mServiceProvider->isLeader());
+    reply->mutable_created_time_info()->set_created_time_in_nanos(mServiceProvider->lastAppliedLogCreateTime());
+    reply->mutable_status()->set_code(200);
+    return Status::OK;
+  }
+
+  /**
    * The main function of the dedicated thread
    */
   void run() {
