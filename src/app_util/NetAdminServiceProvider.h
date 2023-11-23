@@ -55,6 +55,8 @@ class NetAdminServiceProvider {
    */
   virtual uint64_t lastApplied() const = 0;
 
+  virtual uint64_t lastAppliedLogCreateTime() const = 0;
+
   virtual void queryCtrlState(ctrl::CtrlState *out) {}
 
   virtual bool syncLog(std::vector<std::string>, std::string) { return false; }

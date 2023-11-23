@@ -127,6 +127,10 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
     return mReadonlyCommandEventStore->isLeader();
   }
 
+  uint64_t lastAppliedLogCreateTime const override {
+    return mLastAppliedLogCreateTimeinNanos;
+  }
+
  protected:
   /**
    * recover StateMachine
@@ -157,6 +161,9 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
   static constexpr uint64_t kSaveMilestoneTimeoutInNano = (uint64_t)100 * 1000 * 1000;  /// 100ms
   /// metrics
   santiago::MetricsCenter::GaugeType mLastAppliedIndexGauge;
+
+  // the command crate time in last applied raft log, for in-sync replica verification
+  uint64_t mLastAppliedLogCreateTimeinNanos = 0;
 };
 
 /**
@@ -198,6 +205,8 @@ void EventApplyLoopBase<StateMachineType>::run() {
     mLastAppliedLogEntryIndex = commandId;
     mLastAppliedIndexGauge.set(mLastAppliedLogEntryIndex);
     mLastAppliedTimeInNanos = ts3InNano;
+
+    mLastAppliedLogCreateTimeinNanos = commandEventsOpt.value().first->getCreatedTimeInNanos();
 
     /// TODO: remove below if-block once log cutoff is supported
     if (commandId % 10 == 0) {
