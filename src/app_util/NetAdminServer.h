@@ -58,6 +58,9 @@ using gringofts::app::protos::ScaleControl_StartupResponse;
 using gringofts::app::protos::TruncatePrefix_Request;
 using gringofts::app::protos::TruncatePrefix_Response;
 using gringofts::app::protos::TruncatePrefix_ResponseType;
+using gringofts::app::protos::GetAppliedCreatedTime;
+using gringofts::app::protos::GetAppliedCreatedTime_Request;
+using gringofts::app::protos::GetAppliedCreatedTime_Response;
 using gringofts::raft::RaftRole;
 /**
  * A server class which exposes some management functionalities to external clients, e.g., pubuddy.
@@ -269,6 +272,23 @@ class NetAdminServer final : public AppNetAdmin::Service {
       reply->mutable_header()->set_code(400);
       reply->mutable_header()->set_message(errMsg);
     }
+    return Status::OK;
+  }
+
+  /**
+   * get last applied log create time.
+   */
+  Status GetAppliedCreatedTime(ServerContext *context,
+                        const GetAppliedCreatedTime_Request *request,
+                        GetAppliedCreatedTime_Response *reply) override {
+    if (mServiceProvider->lastAppliedLogCreateTime() == 0) {
+      reply->mutable_status()->set_code(404);
+      reply->mutable_status()->set_error_message("no log applied");
+      return Status::OK;
+    }
+    reply->mutable_created_time_info()->set_isleader(mServiceProvider->isLeader());
+    reply->mutable_created_time_info()->set_created_time_in_nanos(mServiceProvider->lastAppliedLogCreateTime());
+    reply->mutable_status()->set_code(200);
     return Status::OK;
   }
 
