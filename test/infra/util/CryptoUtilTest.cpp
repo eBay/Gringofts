@@ -26,12 +26,10 @@ class CryptoUtilTest : public ::testing::Test {
 };
 
 TEST_F(CryptoUtilTest, EncryptAndDecrypt) {
-  /// A 256 bit key
-  std::string key = "01234567890123456789012345678901";
-
   /// init CryptoUtil
   CryptoUtil cryptoTool;
-  cryptoTool.init(defaultVersion, key);
+  const auto &reader = INIReader("../test/infra/util/config/aes2.ini");
+  cryptoTool.init(reader);
 
   /// Message to be encrypted
   std::string oldMessage = "The quick brown fox jumps over the lazy dog";
@@ -48,17 +46,6 @@ TEST_F(CryptoUtilTest, EncryptAndDecrypt) {
   EXPECT_EQ(newMessage, oldMessage);
 }
 
-TEST_F(CryptoUtilTest, DISABLED_ExitScenariosTest) {
-  /// init
-  const auto &reader = INIReader("../test/infra/util/config/aes.ini");
-  CryptoUtil cryptoTool;
-  cryptoTool.init(reader);
-
-  /// assert
-  EXPECT_EXIT(cryptoTool.init(defaultVersion, "01234567890123456789012345678901"), ::testing::ExitedWithCode(1), "");
-  EXPECT_EXIT(cryptoTool.init(reader), ::testing::ExitedWithCode(1), "");
-}
-
 TEST_F(CryptoUtilTest, HMAC) {
   /**
    * `echo -n "The quick brown fox jumps over the lazy dog" | openssl dgst -sha256 -mac hmac -macopt key:01234567890123456789012345678901`
@@ -70,7 +57,8 @@ TEST_F(CryptoUtilTest, HMAC) {
 
   /// init
   CryptoUtil crypto;
-  crypto.init(defaultVersion, key);
+  const auto &reader = INIReader("../test/infra/util/config/aes2.ini");
+  crypto.init(reader);
 
   auto digest1 = crypto.hmac(message, crypto.getLatestSecKeyVersion());
   auto digest2 = crypto.hmac(reinterpret_cast<const unsigned char *>(message.c_str()),
@@ -88,12 +76,12 @@ TEST_F(CryptoUtilTest, EncryptDecryptWithMultiVersion) {
   CryptoUtil cryptoTool;
   cryptoTool.init(reader);
 
-  auto versions = cryptoTool.getDescendingVersions();
-  EXPECT_EQ(versions.size(), 3);
+  auto latestVersion = cryptoTool.getLatestSecKeyVersion();
+  EXPECT_EQ(latestVersion, 3);
 
   /// test all versions
-  for (auto v : versions) {
-    for (auto anotherV : versions) {
+  for (auto v = SecretKey::kOldestSecKeyVersion; v != latestVersion; ++v) {
+    for (auto anotherV = SecretKey::kOldestSecKeyVersion; anotherV != latestVersion; ++anotherV) {
       if (anotherV == v) {
         continue;
       }

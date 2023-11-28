@@ -32,7 +32,8 @@ RaftCore::RaftCore(
     const NodeId &myNodeId,
     const ClusterInfo &clusterInfo,
     std::shared_ptr<DNSResolver> dnsResolver,
-    RaftRole role) :
+    RaftRole role,
+    std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory) :
     mRaftRole(role),
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
@@ -52,7 +53,7 @@ RaftCore::RaftCore(
 
   initConfigurableVars(iniReader);
   initClusterConf(clusterInfo, myNodeId);
-  initStorage(iniReader);
+  initStorage(iniReader, secretKeyFactory);
   initService(iniReader, dnsResolver);
 
   /// registry signal handler
@@ -122,7 +123,7 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
               mPeers.size() + 1, mSelfInfo.mId, mSelfInfo.mAddress, mLearners.size(), this->selfId());
 }
 
-void RaftCore::initStorage(const INIReader &iniReader) {
+void RaftCore::initStorage(const INIReader &iniReader, std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory) {
   auto storageType = iniReader.Get("raft.storage", "storage.type", "");
 
   if (storageType != "file") {
@@ -144,7 +145,7 @@ void RaftCore::initStorage(const INIReader &iniReader) {
 
   /// enable HMAC if needed
   auto crypto = std::make_shared<gringofts::CryptoUtil>();
-  crypto->init(iniReader);
+  crypto->init(iniReader, *secretKeyFactory);
 
   mLog = std::make_unique<storage::SegmentLog>(storageDir, crypto, dataSizeLimit, metaSizeLimit);
 }

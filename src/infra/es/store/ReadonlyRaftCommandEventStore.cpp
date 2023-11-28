@@ -274,10 +274,7 @@ void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<raft::LogEntry> *
     if (mCrypto->isEnabled()) {
       if (entry.version().secret_key_version() == SecretKey::kInvalidSecKeyVersion) {
         /// for compatibility: if no version field, use oldest version
-        const auto &allVersions = mCrypto->getDescendingVersions();
-        assert(!allVersions.empty());
-        auto oldestVersion = allVersions.back();
-        assert(mCrypto->decrypt(entry.mutable_payload(), oldestVersion) == 0);
+        assert(mCrypto->decrypt(entry.mutable_payload(), SecretKey::kOldestSecKeyVersion) == 0);
       } else {
         assert(mCrypto->decrypt(entry.mutable_payload(), entry.version().secret_key_version()) == 0);
       }

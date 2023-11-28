@@ -70,7 +70,8 @@ class Segment final {
         mIsActive(true),
         mFirstIndex(firstIndex),
         mLastIndex(firstIndex - 1),
-        mCrypto(crypto) {
+        mCrypto(crypto),
+        mRecentUsedSecKeyVersion(mCrypto->getLatestSecKeyVersion()) {
           createActiveSegment();
         }
 
@@ -82,7 +83,8 @@ class Segment final {
         mIsActive(true),
         mFirstIndex(firstIndex),
         mLastIndex(firstIndex - 1),
-        mCrypto(crypto) {
+        mCrypto(crypto),
+        mRecentUsedSecKeyVersion(mCrypto->getLatestSecKeyVersion()) {
           /** lazy recover */
         }
 
@@ -94,7 +96,8 @@ class Segment final {
         mIsActive(false),
         mFirstIndex(firstIndex),
         mLastIndex(lastIndex),
-        mCrypto(crypto) {
+        mCrypto(crypto),
+        mRecentUsedSecKeyVersion(mCrypto->getLatestSecKeyVersion()) {
           /** lazy recover */
         }
 
@@ -188,9 +191,8 @@ class Segment final {
 
   /// crypto for HMAC
   std::shared_ptr<CryptoUtil> mCrypto;
-  /// record the recently used key version for quick decryption, inited as 0 so that it points to the latest version
-  /// i.e., descendingSecKeyVersions[mRecentUsedSecKeyIndex]
-  mutable std::atomic<uint64_t> mRecentUsedSecKeyIndex = 0;
+  /// record the recently used key version for quick decryption, inited as the latest version
+  mutable std::atomic<uint64_t> mRecentUsedSecKeyVersion;
 };
 
 }  /// namespace storage

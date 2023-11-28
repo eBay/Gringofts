@@ -20,6 +20,7 @@ limitations under the License.
 #include <INIReader.h>
 
 #include "../util/DNSResolver.h"
+#include "../util/SecretKeyFactory.h"
 #include "RaftInterface.h"
 #include "v2/RaftCore.h"
 
@@ -31,7 +32,8 @@ inline std::shared_ptr<RaftInterface> buildRaftImpl(
     const NodeId &nodeId,
     const ClusterInfo &clusterInfo,
     std::shared_ptr<DNSResolver> dnsResolver = nullptr,
-    RaftRole role = RaftRole::Follower ) {
+    RaftRole role = RaftRole::Follower,
+    std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory = std::make_shared<SecretKeyFactoryDefault>()) {
   INIReader iniReader(configPath);
   if (iniReader.ParseError() < 0) {
     SPDLOG_ERROR("Failed to load config file {}.", configPath);
@@ -46,7 +48,7 @@ inline std::shared_ptr<RaftInterface> buildRaftImpl(
       /// use default dns resolver
       dnsResolver = std::make_shared<DNSResolver>();
     }
-    return std::make_shared<v2::RaftCore>(configPath, nodeId, clusterInfo, dnsResolver, role);
+    return std::make_shared<v2::RaftCore>(configPath, nodeId, clusterInfo, dnsResolver, role, secretKeyFactory);
   } else {
     SPDLOG_ERROR("Unknown raft implement version {}.", version);
     exit(1);
