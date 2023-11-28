@@ -26,6 +26,7 @@ limitations under the License.
 #include "../../util/ClusterInfo.h"
 #include "../../util/RandomUtil.h"
 #include "../../util/TestPointProcessor.h"
+#include "../../util/SecretKeyFactory.h"
 #include "../../util/TimeUtil.h"
 #include "../../util/Util.h"
 #include "../generated/raft.pb.h"
@@ -113,7 +114,8 @@ class RaftCore : public RaftInterface {
       const NodeId &selfId,
       const ClusterInfo &clusterInfo,
       std::shared_ptr<DNSResolver> dnsResolver,
-      RaftRole role = RaftRole::Follower);
+      RaftRole role = RaftRole::Follower,
+      std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory = std::make_shared<SecretKeyFactoryDefault>());
 
   ~RaftCore() override;
 
@@ -186,7 +188,7 @@ class RaftCore : public RaftInterface {
   /// init
   void initConfigurableVars(const INIReader &iniReader);
   void initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId);
-  void initStorage(const INIReader &iniReader);
+  void initStorage(const INIReader &iniReader, std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory);
   void initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver);
 
   /// thread function of mRaftLoop

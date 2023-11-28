@@ -14,16 +14,21 @@ limitations under the License.
 
 #include "CryptoUtil.h"
 
-#include <google/protobuf/text_format.h>
 #include <vector>
+#include <openssl/conf.h>
+#include <openssl/err.h>
+#include <openssl/hmac.h>
 
 #include "FileUtil.h"
 #include "TimeUtil.h"
-#include "../es/store/generated/store.pb.h"
 
 namespace gringofts {
 
 void CryptoUtil::init(const INIReader &reader) {
+  init(reader, SecretKeyFactoryDefault());
+}
+
+void CryptoUtil::init(const INIReader &reader, const SecretKeyFactoryInterface &secretFactory) {
   if (mEnabled) {
     SPDLOG_ERROR("Set AES key twice.");
     exit(1);
@@ -31,6 +36,10 @@ void CryptoUtil::init(const INIReader &reader) {
 
   bool enableCrypt = reader.GetBoolean("aes", "enable", true);
   std::string keyFileName = reader.Get("aes", "filename", "");
+  // This code snippet is to be compatible with the old config file.
+  // Actually, CryptoUtil shouldn't be awareness of the existence of microvault.
+  // TODO(jingyichen): remove this code snippet after all the config files are updated.
+  std::string keyPathOnMicrovault = reader.Get("aes", "microvault.key_path", "");
 
   // Three cases and actions:
   // 1. Both 'enable' and 'filename' are not set:
@@ -39,80 +48,29 @@ void CryptoUtil::init(const INIReader &reader) {
   //     If 'enable' is true and filename is legal, encrypt.
   // 3. Set 'filename' and ignore 'enable':
   //     Encrypt.
-  if (!enableCrypt || keyFileName.empty()) {
+  if (!enableCrypt || (keyFileName.empty() && keyPathOnMicrovault.empty())) {
+    mEnabled = false;
     SPDLOG_WARN("Raft log is plain.");
     return;
   }
 
-  std::string content = FileUtil::getFileContent(keyFileName);
-  gringofts::es::EncryptSecKeySet keySet;
-  assert(google::protobuf::TextFormat::ParseFromString(content, &keySet));
-  mAllKeys.clear();
-  mDescendingSecKeyVersions.clear();
-  for (auto keyAndVersion : keySet.keys()) {
-    auto version = keyAndVersion.version();
-    assert(version > SecretKey::kInvalidSecKeyVersion);
-    mAllKeys[version].mVersion = version;
-    decodeBase64Key(keyAndVersion.key(), mAllKeys[version].mKey, SecretKey::kKeyLen);
-    if (version > mLatestVersion) {
-      mLatestVersion = version;
-    }
-    mDescendingSecKeyVersions.push_back(version);
-  }
-  sort(mDescendingSecKeyVersions.rbegin(), mDescendingSecKeyVersions.rend());
-  assert(mLatestVersion > 0);
-  assert(!mAllKeys.empty());
-  assert(!mDescendingSecKeyVersions.empty());
-  mLatestVersionGauge.set(mLatestVersion);
+  mSecKeys = secretFactory.create(reader);
 
   mEnabled = true;
   SPDLOG_INFO("Raft log and snapshot will be encrypted.");
-}
-
-void CryptoUtil::init(SecKeyVersion version, const std::string &key) {
-  if (mEnabled) {
-    SPDLOG_ERROR("Set AES key twice.");
-    exit(1);
-  }
-  if (key.size() != SecretKey::kKeyLen || version <= SecretKey::kInvalidSecKeyVersion) {
-    SPDLOG_ERROR("invalid key size or version, expect {}, got {}", SecretKey::kKeyLen, key.size());
-    exit(1);
-  }
-
-  mAllKeys.clear();
-  mDescendingSecKeyVersions.clear();
-  mAllKeys[version].mVersion = version;
-  memcpy(mAllKeys[version].mKey, key.c_str(), SecretKey::kKeyLen);
-  mLatestVersion = version;
-  mDescendingSecKeyVersions.push_back(version);
-  assert(mLatestVersion > 0);
-  assert(mAllKeys.size() == 1);
-  assert(mDescendingSecKeyVersions.size() == 1);
-  mLatestVersionGauge.set(mLatestVersion);
-
-  mEnabled = true;
-  SPDLOG_INFO("Raft log and snapshot will be encrypted.");
-}
-
-void CryptoUtil::assertValidVersion(SecKeyVersion version) const {
-  if (mAllKeys.find(version) == mAllKeys.end()) {
-    SPDLOG_ERROR("invalid key version: {}", version);
-    exit(1);
-  }
 }
 
 int CryptoUtil::encrypt(std::string *payload, SecKeyVersion version) const {
   if (!mEnabled) {
     return 0;
   }
-  assertValidVersion(version);
 
   std::vector<unsigned char> buffer;
   buffer.resize(payload->size() + AES_BLOCK_SIZE);
 
   auto cipherLen = 0;
   auto res = encrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
-      payload->size(), mAllKeys.at(version).mKey, mIV, &buffer[0], &cipherLen);
+      payload->size(), mSecKeys->getKeyByVersion(version), mIV, &buffer[0], &cipherLen);
   if (res == 0) {
     payload->assign(reinterpret_cast<const char *>(&buffer[0]),
         cipherLen);
@@ -124,14 +82,13 @@ int CryptoUtil::decrypt(std::string *payload, SecKeyVersion version) const {
   if (!mEnabled) {
     return 0;
   }
-  assertValidVersion(version);
 
   std::vector<unsigned char> buffer;
   buffer.resize(payload->size());
 
   auto plainLen = 0;
   auto res = decrypt(reinterpret_cast<const unsigned char *>(payload->c_str()),
-      payload->size(), mAllKeys.at(version).mKey, mIV, &buffer[0], &plainLen);
+      payload->size(), mSecKeys->getKeyByVersion(version), mIV, &buffer[0], &plainLen);
   if (res == 0) {
       payload->assign(reinterpret_cast<const char *>(&buffer[0]), plainLen);
   }
@@ -147,39 +104,18 @@ std::string CryptoUtil::hmac(const unsigned char *d, std::size_t n, SecKeyVersio
   if (!mEnabled) {
     return "";
   }
-  assertValidVersion(version);
 
   unsigned char digest[EVP_MAX_MD_SIZE];
   unsigned int len = 0;
 
   /// Using sha256 hash engine here.
   /// You may use other hash engines. e.g., EVP_md5(), EVP_sha224(), EVP_sha512(), etc
-  auto *ptr = HMAC(EVP_sha256(), mAllKeys.at(version).mKey, SecretKey::kKeyLen, d, n, digest, &len);
+  auto *ptr = HMAC(EVP_sha256(), mSecKeys->getKeyByVersion(version), SecretKey::kKeyLen, d, n, digest, &len);
 
   assert(ptr != nullptr);
   assert(len == 32);  /// output length of SHA256 should be 32 bytes (a.k.a. 256 bits).
 
   return std::string(reinterpret_cast<const char *>(digest), len);
-}
-
-void CryptoUtil::decodeBase64Key(const std::string &base64,
-                                 unsigned char *key, int keyLen) {
-  BIO *bio;
-  BIO *b64;
-
-  bio = BIO_new_mem_buf(base64.c_str(), base64.length());
-  b64 = BIO_new(BIO_f_base64());
-  bio = BIO_push(b64, bio);
-
-  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);  // Do not use newlines to flush buffer
-
-  auto len = BIO_read(bio, key, keyLen);
-  if (len != keyLen) {
-    // len should equal keyLen, else something went horribly wrong
-    SPDLOG_ERROR("Decode AES key error. expected: {}, actual: {}", SecretKey::kKeyLen, len);
-    exit(1);
-  }
-  BIO_free_all(bio);
 }
 
 int CryptoUtil::handleErrors() {

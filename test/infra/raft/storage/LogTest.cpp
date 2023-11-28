@@ -155,7 +155,8 @@ TEST_F(LogTest, HMACTest) {
   auto cryptoDisableHMAC = std::make_shared<CryptoUtil>();
 
   auto cryptoEnableHMAC = std::make_shared<CryptoUtil>();
-  cryptoEnableHMAC->init(defaultVersion, "01234567890123456789012345678901");
+  const auto &reader = INIReader("../test/infra/util/config/aes2.ini");
+  cryptoEnableHMAC->init(reader);
 
   std::string str4KiB(4 * 1024, 'a');
 
@@ -193,6 +194,61 @@ TEST_F(LogTest, HMACTest) {
   /// HMAC disable
   EXPECT_TRUE(log->getEntry(10, &entry));
   /// HMAC enable
+  EXPECT_TRUE(log->getEntry(20, &entry));
+
+  /// teardown
+  Util::executeCmd("rm -rf " + logDir);
+}
+
+TEST_F(LogTest, HMACCompatibleTest) {
+  /// setup
+  std::string logDir = "./logDir";
+  uint64_t segmentDataSizeLimit = 16 * 1024;
+  uint64_t segmentMetaSizeLimit = 16 * 1024;
+
+  Util::executeCmd("mkdir " + logDir);
+
+  /// init
+  auto cryptoOne = std::make_shared<CryptoUtil>();
+  auto cryptoFour = std::make_shared<CryptoUtil>();
+  const auto &readerOne = INIReader("../test/infra/util/config/aes2.ini");
+  const auto &readerFour = INIReader("../test/infra/util/config/aes3.ini");
+  cryptoOne->init(readerOne);
+  cryptoFour->init(readerFour);
+
+  std::string str4KiB(4 * 1024, 'a');
+
+  auto log = std::make_unique<SegmentLog>(logDir, cryptoOne, segmentDataSizeLimit, segmentMetaSizeLimit);
+
+  /// append 10 entries enable HMAC, use version 1 key
+  for (auto i = 1; i <= 10; ++i) {
+    gringofts::raft::LogEntry entry;
+    entry.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
+    entry.set_index(i);
+    entry.set_payload(str4KiB);
+    log->appendEntry(entry);
+  }
+
+  EXPECT_EQ(log->getLastLogIndex(), 10);
+
+  /// increase key version to 4
+  log.reset();
+  log = std::make_unique<SegmentLog>(logDir, cryptoFour, segmentDataSizeLimit, segmentMetaSizeLimit);
+
+  /// append 10 entries enable HMAC, use version 4 key
+  for (auto i = 11; i <= 20; ++i) {
+    gringofts::raft::LogEntry entry;
+    entry.mutable_version()->set_secret_key_version(log->getLatestSecKeyVersion());
+    entry.set_index(i);
+    entry.set_payload(str4KiB);
+    log->appendEntry(entry);
+  }
+
+  /// read entries
+  gringofts::raft::LogEntry entry;
+  /// HMAC version 1 key
+  EXPECT_TRUE(log->getEntry(10, &entry));
+  /// HMAC version 4 key
   EXPECT_TRUE(log->getEntry(20, &entry));
 
   /// teardown

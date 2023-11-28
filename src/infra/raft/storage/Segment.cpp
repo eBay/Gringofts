@@ -253,10 +253,7 @@ void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
     if (mCrypto->isEnabled()) {
       if (entry.version().secret_key_version() == SecretKey::kInvalidSecKeyVersion) {
         /// for compatibility: if no version field, use oldest one
-        const auto &descendingVersions = mCrypto->getDescendingVersions();
-        assert(!descendingVersions.empty());
-        auto oldestVersion = descendingVersions.back();
-        createHMAC(&meta, oldestVersion);
+        createHMAC(&meta, SecretKey::kOldestSecKeyVersion);
       } else {
         createHMAC(&meta, entry.version().secret_key_version());
       }
@@ -512,14 +509,17 @@ void Segment::verifyHMAC(const LogMeta &meta) const {
   auto *entryAddr = static_cast<const char *>(getEntryAddr(meta.offset));
   auto message = std::to_string(meta.index) + std::string(entryAddr, meta.length);
   std::string realDigest;
-  const auto &descendingVersions = mCrypto->getDescendingVersions();
-  auto versionCnt = descendingVersions.size();
-  uint64_t recentKeyIndex = mRecentUsedSecKeyIndex;
-  for (auto i = 0; i < versionCnt; ++i) {
-    auto tryVersionIndex = (recentKeyIndex + i + versionCnt) % versionCnt;
-    realDigest = mCrypto->hmac(message, descendingVersions[tryVersionIndex]);
+  const SecKeyVersion latestVersion = mCrypto->getLatestSecKeyVersion();
+  SecKeyVersion recentKeyVersion = mRecentUsedSecKeyVersion;
+
+  for (auto i = 0; i < latestVersion; ++i) {
+    auto tryVersion = (recentKeyVersion - 1 + i) % latestVersion + 1;
+    realDigest = mCrypto->hmac(message, tryVersion);
     if (!realDigest.empty() && realDigest == expectDigest) {
-      mRecentUsedSecKeyIndex = tryVersionIndex;
+      if (mRecentUsedSecKeyVersion != tryVersion) {
+        mRecentUsedSecKeyVersion = tryVersion;
+        SPDLOG_INFO("For Segment {} verifyHMAC recently used version is: {}", meta.index, mRecentUsedSecKeyVersion);
+      }
       break;
     }
   }

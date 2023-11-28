@@ -29,7 +29,3 @@ add_library(gringofts_infra_raft STATIC
         ${GRINGOFTS_INFRA_RAFT_SRC})
 add_dependencies(gringofts_infra_raft gringofts_raft_proto_library)
 target_link_libraries(gringofts_infra_raft gringofts_raft_proto_library)
-
-# Executables
-add_executable(StorageMain StorageMain.cpp)
-target_link_libraries(StorageMain gringofts_infra ${GRINGOFTS_LIBRARIES})

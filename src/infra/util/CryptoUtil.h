@@ -17,30 +17,14 @@ limitations under the License.
 
 #include <algorithm>
 #include <openssl/aes.h>
-#include <openssl/bio.h>
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-#include <openssl/hmac.h>
 
 #include <INIReader.h>
 #include <spdlog/spdlog.h>
 
-#include "../monitor/MonitorTypes.h"
+#include "SecretKey.h"
+#include "SecretKeyFactory.h"
 
 namespace gringofts {
-
-using SecKeyVersion = uint64_t;
-
-struct SecretKey {
-  /// Use EVP_aes_256_cbc, 32 bytes equals 256 bit
-  static constexpr uint64_t kKeyLen = 32;
-  static constexpr SecKeyVersion kInvalidSecKeyVersion = 0;
-
-  SecKeyVersion mVersion = kInvalidSecKeyVersion;
-  /// A 256 bit key
-  unsigned char mKey[kKeyLen] = {0};
-};
 
 /**
  * This class is a wrapper for openssl functions, which is used to
@@ -50,7 +34,7 @@ struct SecretKey {
  */
 class CryptoUtil {
  public:
-  CryptoUtil() : mLatestVersionGauge(getGauge("key_version", {})) {
+  CryptoUtil() {
     /// set up IV
     memset(mIV, 0x00, AES_BLOCK_SIZE);
   }
@@ -59,14 +43,11 @@ class CryptoUtil {
   CryptoUtil &operator=(const CryptoUtil &) = delete;
 
   void init(const INIReader &reader);
-  void init(SecKeyVersion version, const std::string &key);
+  void init(const INIReader &reader, const SecretKeyFactoryInterface &secretFactory);
 
   bool isEnabled() { return mEnabled; }
-  /// sorted versions in ascending order
-  const std::vector<SecKeyVersion>& getDescendingVersions() const {
-    return mDescendingSecKeyVersions;
-  }
-  SecKeyVersion getLatestSecKeyVersion() const { return mLatestVersion; }
+  SecKeyVersion getLatestSecKeyVersion() {
+      return isEnabled() ? mSecKeys->getLatestSecKeyVersion() : SecretKey::kInvalidSecKeyVersion; }
 
   /// do a in-place encryption on std::string,
   /// if not enabled, do nothing.
@@ -85,11 +66,6 @@ class CryptoUtil {
   std::string hmac(const unsigned char *d, std::size_t n, SecKeyVersion version) const;
 
  private:
-  void assertValidVersion(SecKeyVersion version) const;
-  /// decode aes key from base64 to raw bytes
-  static void decodeBase64Key(const std::string &base64,
-                              unsigned char *key, int keyLen);
-
   /// print error msg from openssl and abort
   static int handleErrors();
 
@@ -112,13 +88,9 @@ class CryptoUtil {
   /// Whether aes feature is enable
   bool mEnabled = false;
 
-  std::vector<SecKeyVersion> mDescendingSecKeyVersions;
-  std::map<SecKeyVersion, SecretKey> mAllKeys;
-  SecKeyVersion mLatestVersion = SecretKey::kInvalidSecKeyVersion;
+  std::shared_ptr<SecretKey> mSecKeys;
   /// A 128 bit IV
   unsigned char mIV[AES_BLOCK_SIZE];
-
-  mutable santiago::MetricsCenter::GaugeType mLatestVersionGauge;
 };
 
 }  /// namespace gringofts
