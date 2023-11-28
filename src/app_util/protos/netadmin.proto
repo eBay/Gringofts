@@ -15,6 +15,7 @@ service AppNetAdmin {
 
   // for ISR
   rpc GetAppliedCreatedTime(GetAppliedCreatedTime.Request) returns (GetAppliedCreatedTime.Response) {}
+  rpc GetAppliedIndex(GetAppliedIndex.Request) returns (GetAppliedIndex.Response) {}
 }
 
 message CreateSnapshot {
@@ -112,11 +113,6 @@ message Query {
   }
 }
 
-message CreatedTimeInfo {
-  bool isLeader = 1;
-  uint64 created_time_in_nanos = 2;
-}
-
 message Status {
   uint64 code = 1;
   string error_message = 2;
@@ -127,7 +123,19 @@ message GetAppliedCreatedTime {
  
   }
   message Response {
-    Status status = 1;    
-    CreatedTimeInfo created_time_info = 2;
+    Status status = 1;
+    bool is_leader = 2;
+    uint64 created_time_in_nanos = 3;
+  }
+}
+
+message GetAppliedIndex {
+  message Request {
+ 
+  }
+  message Response {
+    Status status = 1;
+    bool is_leader = 2;  
+    uint64 applied_index = 3;
   }
 }
