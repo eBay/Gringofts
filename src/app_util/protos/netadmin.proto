@@ -12,6 +12,10 @@ service AppNetAdmin {
   rpc SyncLog(ScaleControl.SyncRequest) returns (ScaleControl.SyncResponse) {}
   rpc Query(Query.StateRequest) returns (Query.StateResponse) {}
   rpc Startup(ScaleControl.StartupRequest) returns (ScaleControl.StartupResponse) {}
+
+  // for ISR
+  rpc GetAppliedCreatedTime(GetAppliedCreatedTime.Request) returns (GetAppliedCreatedTime.Response) {}
+  rpc GetAppliedIndex(GetAppliedIndex.Request) returns (GetAppliedIndex.Response) {}
 }
 
 message CreateSnapshot {
@@ -106,5 +110,32 @@ message Query {
     string clusterInfo = 5;
     SplitState splitState = 6;
     Role role = 7;
+  }
+}
+
+message Status {
+  uint64 code = 1;
+  string error_message = 2;
+}
+
+message GetAppliedCreatedTime {
+  message Request {
+ 
+  }
+  message Response {
+    Status status = 1;
+    bool is_leader = 2;
+    uint64 created_time_in_nanos = 3;
+  }
+}
+
+message GetAppliedIndex {
+  message Request {
+ 
+  }
+  message Response {
+    Status status = 1;
+    bool is_leader = 2;  
+    uint64 applied_index = 3;
   }
 }
