@@ -67,8 +67,6 @@ class EventApplyLoopInterface : public Loop,
 
   virtual void clearState() = 0;
 
-  virtual bool isLeader() const = 0;
-
   virtual bool isReady() const = 0;
 };
 
