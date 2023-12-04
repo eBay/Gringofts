@@ -91,7 +91,7 @@ class StateMachine {
   /**
    * Reset state of other state machine.
    */
-  virtual void resetState()  { /* do nothing by default */ }
+  virtual void swapStateWithEAL()  { /* do nothing by default */ }
 
   /**
    * Clear state of state machine.

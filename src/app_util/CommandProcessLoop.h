@@ -51,7 +51,7 @@ class CommandProcessLoopInterface : public Loop, public Recoverable {
   virtual void processCommand(std::shared_ptr<Command> command) = 0;
   // @formatter:on
 
-  virtual void resetState() = 0;
+  virtual void swapStateWithEAL() = 0;
 };
 
 /**
@@ -101,7 +101,7 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
     return mEventApplyLoop->waitTillLeaderIsReadyOrStepDown(currentTerm);
   }
 
-  void resetState() override {
+  void swapStateWithEAL() override {
     mEventApplyLoop->swapStateAndTeardown(*mAppStateMachine);
   }
 
