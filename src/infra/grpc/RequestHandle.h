@@ -22,6 +22,7 @@ limitations under the License.
 
 #include "../../infra/util/TimeUtil.h"
 #include "../monitor/MonitorTypes.h"
+#include "../es/Event.h"
 
 namespace gringofts {
 
@@ -54,6 +55,13 @@ class RequestHandle {
   virtual void fillResultAndReply(uint32_t code,
                                   const std::string &message,
                                   std::optional<uint64_t> leaderId) = 0;
+
+  virtual void fillResultAndReply(const std::vector<std::shared_ptr<Event>> &events,
+                                  uint32_t code,
+                                  const std::string &message,
+                                  std::optional<uint64_t> leaderId) {
+    fillResultAndReply(code, message, leaderId);
+  }
 
   /**
    * Validate if this is a valid test

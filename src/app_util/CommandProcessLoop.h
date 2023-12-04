@@ -50,6 +50,8 @@ class CommandProcessLoopInterface : public Loop, public Recoverable {
   // @formatter:off
   virtual void processCommand(std::shared_ptr<Command> command) = 0;
   // @formatter:on
+
+  virtual void swapStateWithEAL() = 0;
 };
 
 /**
@@ -97,6 +99,10 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   uint64_t waitTillLeaderIsReady() const {
     uint64_t currentTerm = mCommandEventStore->getCurrentTerm();
     return mEventApplyLoop->waitTillLeaderIsReadyOrStepDown(currentTerm);
+  }
+
+  void swapStateWithEAL() override {
+    mEventApplyLoop->swapStateAndTeardown(*mAppStateMachine);
   }
 
   /**
@@ -168,6 +174,7 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
 
   mCrypto.init(reader);
   mAppStateMachine = std::make_unique<StateMachineType>(factory);
+  mEventApplyLoop->initState(mAppStateMachine.get());
 }
 
 template<typename StateMachineType>

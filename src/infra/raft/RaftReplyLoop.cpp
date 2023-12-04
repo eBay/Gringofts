@@ -57,6 +57,7 @@ RaftReplyLoop::~RaftReplyLoop() {
 
 void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
                              RequestHandle *handle,
+                             const std::vector<std::shared_ptr<Event>> &events,
                              uint64_t code, const std::string &message) {
   auto taskPtr = std::make_shared<Task>();
 
@@ -64,6 +65,7 @@ void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
   taskPtr->term = term;
 
   taskPtr->handle = handle;
+  taskPtr->events = events;
   taskPtr->code = code;
   taskPtr->message = message;
 
@@ -184,7 +186,7 @@ void RaftReplyLoop::replyTask(Task *task) {
   auto ts2InNano = TimeUtil::currentTimeInNanos();
 
   if (task->handle) {
-    task->handle->fillResultAndReply(task->code, task->message.c_str(), mRaftImpl->getLeaderHint());
+    task->handle->fillResultAndReply(task->events, task->code, task->message.c_str(), mRaftImpl->getLeaderHint());
   }
 
   auto ts3InNano = TimeUtil::currentTimeInNanos();

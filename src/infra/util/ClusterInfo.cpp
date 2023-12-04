@@ -80,20 +80,42 @@ std::tuple<ClusterId, NodeId, std::map<ClusterId, ClusterInfo>> ClusterInfo::res
     /// load from local config, the cluster id and node id must be specified
     auto clusterConf = iniReader.Get("cluster", "cluster.conf", "");
     auto allClusterInfo = parseToClusterInfo(clusterConf);
-    auto myClusterId = iniReader.GetInteger("cluster", "self.clusterId", 0);
-    auto myNodeId = iniReader.GetInteger("cluster", "self.nodeId", 0);
-    bool hasMe = false;
-    for (auto &[clusterId, info] : allClusterInfo) {
-      if (myClusterId == clusterId) {
+    auto myClusterId = iniReader.GetInteger("cluster", "self.clusterId", -1);
+    auto myNodeId = iniReader.GetInteger("cluster", "self.nodeId", -1);
+    if (myClusterId != -1 && myNodeId != -1) {
+      bool hasMe = false;
+      for (auto &[clusterId, info] : allClusterInfo) {
+        if (myClusterId == clusterId) {
+          for (auto &[nodeId, node] : info.mNodes) {
+            if (nodeId == myNodeId) {
+              hasMe = true;
+              break;
+            }
+          }
+        }
+      }
+      assert(hasMe);
+    } else {
+      std::string myHostname;
+      const char* selfUdns = getenv("SELF_UDNS");
+      if (selfUdns == nullptr) {
+        myHostname = Util::getHostname();
+      } else {
+        myHostname = selfUdns;
+      }
+      SPDLOG_INFO("SELF HOSTNAME: {}", myHostname);
+      for (auto &[clusterId, info] : allClusterInfo) {
         for (auto &[nodeId, node] : info.mNodes) {
-          if (nodeId == myNodeId) {
-            hasMe = true;
+          if (myHostname == node.mHostName) {
+            myClusterId = clusterId;
+            myNodeId = nodeId;
             break;
           }
         }
       }
+      assert(myClusterId != -1);
+      assert(myNodeId != -1);
     }
-    assert(hasMe);
 
     Signal::hub.handle<RouteSignal>([](const Signal &s) {
       const auto &signal = dynamic_cast<const RouteSignal &>(s);

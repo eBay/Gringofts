@@ -62,6 +62,14 @@ class EventApplyLoopInterface : public Loop,
   virtual void swapStateAndTeardown(StateMachine &target) = 0;  // NOLINT [runtime/references]
 
   virtual const StateMachine &getStateMachine() const = 0;
+
+  virtual void initState(StateMachine *target) = 0;
+
+  virtual void clearState() = 0;
+
+  virtual bool isLeader() const = 0;
+
+  virtual bool isReady() const = 0;
 };
 
 /**
@@ -112,6 +120,16 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
     mShouldRecover = true;
   }
 
+  void initState(StateMachine *target) override {
+    std::lock_guard<std::mutex> lock(mLoopMutex);
+    target->initState(mAppStateMachine.get());
+  }
+
+  void clearState() override {
+    std::lock_guard<std::mutex> lock(mLoopMutex);
+    mAppStateMachine->clearState();
+  }
+
   const StateMachine &getStateMachine() const override {
     // SPDLOG_WARN("should ONLY see this log in unit test");
     return *mAppStateMachine;
@@ -127,6 +145,14 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
 
   uint64_t lastAppliedLogCreateTime() const override {
     return mLastAppliedLogCreateTimeinNanos;
+  }
+
+  bool isReady() const override {
+    if (isLeader()) {
+      std::lock_guard<std::mutex> lock(mLoopMutex);
+      return !mShouldRecover && !mShouldExit;
+    }
+    return false;
   }
 
  protected:

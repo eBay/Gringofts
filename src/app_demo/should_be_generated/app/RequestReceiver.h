@@ -36,7 +36,9 @@ class CallDataHandler : public app::CallDataHandler<DemoService,
                                                     IncreaseResponse,
                                                     IncreaseCommand> {
  public:
-  grpc::Status buildResponse(const IncreaseCommand &command, uint32_t code,
+  grpc::Status buildResponse(const IncreaseCommand &command,
+                             const std::vector<std::shared_ptr<Event>> &events,
+                             uint32_t code,
                              const std::string &message,
                              std::optional<uint64_t> leaderId,
                              IncreaseResponse *response) override;
