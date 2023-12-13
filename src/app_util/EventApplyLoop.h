@@ -89,7 +89,7 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
       : mReadonlyCommandEventStore(std::move(readonlyCommandEventStore)),
         mCommandEventDecoder(decoder),
         mSnapshotDir(snapshotDir),
-        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})) { mCrypto.init(reader); }
+        mLastAppliedIndexGauge(getGauge("eal_last_applied_index", {})) {}
 
   ~EventApplyLoopBase() override = default;
 
@@ -164,7 +164,6 @@ class EventApplyLoopBase : public EventApplyLoopInterface {
   std::unique_ptr<ReadonlyCommandEventStore> mReadonlyCommandEventStore;
   std::shared_ptr<CommandEventDecoder> mCommandEventDecoder;
 
-  mutable CryptoUtil mCrypto;
   std::string mSnapshotDir;
 
   std::atomic<bool> mShouldExit = false;
