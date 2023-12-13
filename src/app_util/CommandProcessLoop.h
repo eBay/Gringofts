@@ -131,7 +131,7 @@ class CommandProcessLoopBase : public CommandProcessLoopInterface {
   std::shared_ptr<CommandEventStore> mCommandEventStore;
 
   std::shared_ptr<CommandEventDecoder> mCommandEventDecoder;
-  CryptoUtil mCrypto;
+
   std::string mSnapshotDir;
 
   /// metrics
@@ -172,7 +172,6 @@ CommandProcessLoopBase<StateMachineType>::CommandProcessLoopBase(
       })) {
   assert(mEventApplyLoop);
 
-  mCrypto.init(reader);
   mAppStateMachine = std::make_unique<StateMachineType>(factory);
   mEventApplyLoop->initState(mAppStateMachine.get());
 }
