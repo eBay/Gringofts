@@ -16,6 +16,7 @@ limitations under the License.
 #define SRC_INFRA_MONITOR_SANTIAGO_APPINFO_H_
 
 #include "MetricsCenter.h"
+#include <unistd.h>
 
 namespace santiago {
 
@@ -24,7 +25,7 @@ class AppInfo : public MetricsCenter {
   void setAppInfo(const std::string &name, const std::string &version, const std::string &env, int clusterId = 0) {
     gauge("app_info",
           {{"app_name", name}, {"app_version", version}, {"app_env", env}, {"cluster", std::to_string(clusterId)}}).set(
-        1);
+        getpid());
   }
   ~AppInfo() override = default;
 };
