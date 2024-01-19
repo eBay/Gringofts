@@ -78,6 +78,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   mMaxLenInBytes = iniReader.GetInteger("raft.default", "max.len.in.bytes", 0);
   mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
   mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
+  mPreVoteEnabled = iniReader.GetBoolean("raft.protocol", "enable.prevote", true);
   // @formatter:on
 
   assert(mMaxBatchSize != 0
@@ -89,8 +90,9 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               "max.batch.size={}, "
               "max.len.in.bytes={}, "
               "max.decr.step={}, "
-              "max.tailed.entry.num={}.",
-              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum);
+              "max.tailed.entry.num={}."
+              "enable.provote={}.",
+              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum, mPreVoteEnabled);
 }
 
 void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId) {
@@ -208,6 +210,7 @@ void RaftCore::raftLoopMain() {
     /// 1) minimize atomic regions,
     /// 2) support single-server cluster
     advanceCommitIndex();
+    becomeCandidate();
     becomeLeader();
     electionTimeout();
     leadershipTimeout();
@@ -359,7 +362,7 @@ void RaftCore::appendEntries() {
 }
 
 void RaftCore::requestVote() {
-  if (mRaftRole != RaftRole::Candidate) {
+  if (mRaftRole != RaftRole::Candidate && mRaftRole != RaftRole::PreCandidate) {
     return;
   }
 
@@ -375,7 +378,6 @@ void RaftCore::requestVote() {
       continue;
     }
 
-    /// build RV_req
     auto currentTerm = mLog->getCurrentTerm();
     auto lastLogIndex = mLog->getLastLogIndex();
     auto lastLogTerm = termOfLogEntryAt(lastLogIndex);
@@ -388,13 +390,23 @@ void RaftCore::requestVote() {
     request.set_last_log_term(lastLogTerm);
     request.set_create_time_in_nano(TimeUtil::currentTimeInNanos());
 
-    /// send RV_req
+    std::string requestName;
+    if (mRaftRole == RaftRole::Candidate) {
+      /// build RV_req
+      requestName = "RV";
+    } else if (mRaftRole == RaftRole::PreCandidate) {
+      /// build RPV_req
+      requestName = "RPV";
+      request.set_prevote(true);
+    }
+
+    /// send RV_req/RPV_req
     auto &client = *mClients[peer.mId];
     client.requestVote(request);
 
-    SPDLOG_INFO("{} send RV_req to Node {} for term {} "
+    SPDLOG_INFO("{} send {}_req to Node {} for term {} "
                 "with <lastLogIndex, lastLogTerm>=<{}, {}>",
-                selfId(), peer.mId, currentTerm, lastLogIndex, lastLogTerm);
+                selfId(), requestName, peer.mId, currentTerm, lastLogIndex, lastLogTerm);
 
     /// turn off switch
     peer.mNextRequestTimeInNano = std::numeric_limits<uint64_t>::max();
@@ -443,7 +455,7 @@ grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &
   }
 
   if (request.term() > currentTerm
-      || (request.term() == currentTerm && mRaftRole == RaftRole::Candidate)) {
+      || (request.term() == currentTerm && (mRaftRole == RaftRole::Candidate || mRaftRole == RaftRole::PreCandidate))) {
     stepDown(request.term());
   }
 
@@ -593,6 +605,8 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
 
 grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
                                         RequestVote::Response *response) {
+  std::string requestName = request.prevote() ? "RPV" : "RV";
+
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare RV_resp
@@ -601,6 +615,7 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
   response->set_create_time_in_nano(TimeUtil::currentTimeInNanos());
   response->set_id(mSelfInfo.mId);
   response->set_saved_term(request.term());
+  response->set_prevote(request.prevote());
 
   if (mRaftRole == RaftRole::Syncer || mRaftRole == RaftRole::Learner) {
     SPDLOG_WARN("Syncer or Learner mode won't process RV request");
@@ -612,13 +627,15 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
     return grpc::Status::CANCELLED;
   }
 
-  if (request.term() < currentTerm) {
+  // prevote doesn't check term
+  if (!request.prevote() && request.term() < currentTerm) {
     SPDLOG_INFO("{} reject RV_req from Node {}, remoteTerm {} < currentTerm {}.",
                 selfId(), request.candidate_id(), request.term(), currentTerm);
     return grpc::Status::OK;
   }
 
-  if (request.term() > currentTerm) {
+  // prevote won't step down
+  if (!request.prevote() && request.term() > currentTerm) {
     response->set_term(request.term());
     stepDown(request.term());
   }
@@ -628,37 +645,60 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
 
   bool logIsOk = request.last_log_term() > lastLogTerm
       || (request.last_log_term() == lastLogTerm && request.last_log_index() >= lastLogIndex);
+  if (!logIsOk) {
+    SPDLOG_INFO("{} reject {}_req from Node {}, logIsOk={}, lastLogIndex={}, "
+                "lastLogTerm={}, request.last_log_index={}, request.last_log_term={}",
+                selfId(), requestName, request.candidate_id(), logIsOk, lastLogIndex, lastLogTerm,
+                request.last_log_index(), request.last_log_term());
+    return grpc::Status::OK;
+  }
 
+  // check for vote
   auto voteFor = mLog->getVote();
-
-  if (logIsOk && (voteFor == 0 || voteFor == request.candidate_id())) {
+  if (!request.prevote() && (voteFor == 0 || voteFor == request.candidate_id())) {
     mLog->setVoteFor(request.candidate_id());
     response->set_vote_granted(true);
 
     /// grant vote to candidate
     updateElectionTimePoint();
 
-    SPDLOG_INFO("{} vote for Node {} in term {}.",
-                selfId(), request.candidate_id(), request.term());
-  } else {
-    SPDLOG_INFO("{} reject RV_req from Node {}, logIsOk={}, voteFor={}",
-                selfId(), request.candidate_id(), logIsOk, voteFor);
+    SPDLOG_INFO("{} vote for Node {} in term {}, logIsOk={}, voteFor={}",
+                selfId(), request.candidate_id(), request.term(), logIsOk, voteFor);
+    return grpc::Status::OK;
   }
+
+  // check for prevote
+  bool noLeader = mRaftRole == RaftRole::Candidate || mRaftRole == RaftRole::PreCandidate ||
+                  (mRaftRole == RaftRole::Follower && mElectionTimePointInNano <= TimeUtil::currentTimeInNanos());
+  if (request.prevote() && noLeader) {
+    response->set_vote_granted(true);
+    SPDLOG_INFO("{} prevote for Node {} in term {}, logIsOk={}, noLeader={}",
+                 selfId(), request.candidate_id(), request.term(), logIsOk, noLeader);
+    return grpc::Status::OK;
+  }
+
+  SPDLOG_INFO("{} reject {}_req from Node {} on term {}, logIsOk={}, voteFor={}, noLeader={}",
+                selfId(), requestName, request.candidate_id(), request.term(), logIsOk, voteFor, noLeader);
   return grpc::Status::OK;
 }
 
 void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) {
+  std::string requestName = response.prevote() ? "RPV" : "RV";
+  std::string voteName = response.prevote() ? "prevote" : "vote";
+
   auto currentTerm = mLog->getCurrentTerm();
 
-  if (currentTerm != response.saved_term() || mRaftRole != RaftRole::Candidate) {
-    SPDLOG_INFO("{} ignore stale RV_resp from Node {} for term {}",
-                selfId(), response.id(), response.saved_term());
+  if (currentTerm != response.saved_term() ||
+      (!response.prevote() && mRaftRole != RaftRole::Candidate) ||
+      (response.prevote() && mRaftRole != RaftRole::PreCandidate)) {
+    SPDLOG_INFO("{} ignore stale {}_resp from Node {} for term {}, currentRole={}, currentTerm={}",
+                selfId(), requestName, response.id(), response.saved_term(), mRaftRole, currentTerm);
     return;
   }
 
   if (response.term() > currentTerm) {
-    SPDLOG_INFO("{} receive RV_resp from Node {}, remoteTerm {} > currentTerm {}",
-                selfId(), response.id(), response.term(), currentTerm);
+    SPDLOG_INFO("{} receive {}_resp from Node {}, remoteTerm {} > currentTerm {}",
+                selfId(), requestName, response.id(), response.term(), currentTerm);
     stepDown(response.term());
     return;
   }
@@ -668,11 +708,11 @@ void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) 
 
   if (response.vote_granted()) {
     peer.mHaveVote = true;
-    SPDLOG_INFO("{} got vote from Node {} for term {}.",
-                selfId(), response.id(), currentTerm);
+    SPDLOG_INFO("{} got {} from Node {} for term {}.",
+                selfId(), voteName, response.id(), currentTerm);
   } else {
-    SPDLOG_INFO("{} is reject by Node {} for term {}.",
-                selfId(), response.id(), currentTerm);
+    SPDLOG_INFO("{} {} is rejected by Node {} for term {}.",
+                selfId(), voteName, response.id(), currentTerm);
   }
 }
 
@@ -805,6 +845,51 @@ void RaftCore::advanceCommitIndex() {
   }
 }
 
+void RaftCore::becomeCandidate() {
+  if (mRaftRole != RaftRole::PreCandidate) {
+    return;
+  }
+
+  uint64_t voteNum = 1;
+
+  for (const auto &p : mPeers) {
+    auto &peer = p.second;
+    if (peer.mHaveVote) {
+      ++voteNum;
+    }
+  }
+
+  auto quorumNum = getMajorityNumber(mPeers.size() + 1);
+  if (voteNum < quorumNum) {
+    return;
+  }
+
+  SPDLOG_INFO("{}, become Candidate on term {}, voteNum={}, quorumNum={}.",
+              selfId(), mLog->getCurrentTerm(), voteNum, quorumNum);
+
+  auto currentTerm = mLog->getCurrentTerm();
+  /// become Candidate
+  mRaftRole = RaftRole::Candidate;
+  /// increment currentTerm
+  mLog->setCurrentTerm(++currentTerm);
+  /// vote for self
+  mLog->setVoteFor(mSelfInfo.mId);
+  /// clear leaderHint
+  mLeaderId = 0;
+  /// reset election timer
+  updateElectionTimePoint();
+
+  /// schedule a round of RV_req immediately
+  for (auto &p : mPeers) {
+    auto &peer = p.second;
+    peer.mRequestVoteDone = false;
+    peer.mHaveVote = false;
+
+    /// turn on switch
+    peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+  }
+}
+
 void RaftCore::becomeLeader() {
   if (mRaftRole != RaftRole::Candidate) {
     return;
@@ -833,6 +918,7 @@ void RaftCore::becomeLeader() {
               selfId(), mLog->getCurrentTerm(), voteNum, quorumNum);
 
   mRaftRole = RaftRole::Leader;
+  mLeaderId = mSelfInfo.mId;
 
   /// schedule a round of AE_req (heartbeat) immediately
   for (auto &p : mPeers) {
@@ -880,18 +966,25 @@ void RaftCore::electionTimeout() {
   auto currentTerm = mLog->getCurrentTerm();
   SPDLOG_INFO("{} on term {} election timeout.", selfId(), currentTerm);
 
-  /// become Candidate
-  mRaftRole = RaftRole::Candidate;
-  /// increment currentTerm
-  mLog->setCurrentTerm(++currentTerm);
-  /// vote for self
-  mLog->setVoteFor(mSelfInfo.mId);
+  if (!mPreVoteEnabled) {   // request vote directly
+    /// become Candidate
+    mRaftRole = RaftRole::Candidate;
+    /// increment currentTerm
+    mLog->setCurrentTerm(++currentTerm);
+    /// vote for self
+    mLog->setVoteFor(mSelfInfo.mId);
+  } else {  // request prevote before vote
+    /// become PreCandidate
+    mRaftRole = RaftRole::PreCandidate;
+    /// keep currentTerm
+  }
+
   /// clear leaderHint
   mLeaderId = 0;
   /// reset election timer
   updateElectionTimePoint();
 
-  /// schedule a round of RV_req immediately
+  /// schedule a round of RV_req/RPV_req immediately
   for (auto &p : mPeers) {
     auto &peer = p.second;
     peer.mRequestVoteDone = false;
@@ -955,7 +1048,8 @@ void RaftCore::stepDown(uint64_t newTerm) {
     SPDLOG_INFO("{} stepDown, increase term from {} to {}.",
                 selfId(), currentTerm, newTerm);
   } else {
-    assert(prevRole == RaftRole::Candidate);
+    assert(prevRole == RaftRole::Candidate || prevRole == RaftRole::PreCandidate);
+    assert(mLeaderId == 0);
     SPDLOG_INFO("{} on term {} stepDown.", selfId(), currentTerm);
   }
 

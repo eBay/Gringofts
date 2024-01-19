@@ -246,7 +246,9 @@ RaftEventBase::Type AsyncClientCall<AppendEntries::Response>::getType() const {
 template<>
 inline
 std::string AsyncClientCall<RequestVote::Response>::toString() const {
-  return "Candidate sending RV_req to Follower " + std::to_string(mPeerId);
+  std::string roleName = mResponse.prevote() ? "PreCandidate" : "Candidate";
+  std::string requestName = mResponse.prevote() ? "RPV_req" : "RV_req";
+  return roleName + " sending " + requestName + " to Follower " + std::to_string(mPeerId);
 }
 
 template<>

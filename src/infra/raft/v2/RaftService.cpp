@@ -142,6 +142,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
   auto *call = new RequestVoteClientCall;
 
   call->mPeerId = mPeerId;
+  call->mResponse.set_prevote(request.prevote());
 
   std::chrono::time_point deadline = std::chrono::system_clock::now()
       + std::chrono::milliseconds(RaftConstants::RequestVote::kRpcTimeoutInMillis);

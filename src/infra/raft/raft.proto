@@ -36,6 +36,7 @@ message RequestVote {
 
         // metrics
         uint64 create_time_in_nano  = 5;
+        bool prevote                = 6;
     }
 
     message Response {
@@ -51,6 +52,7 @@ message RequestVote {
 
         // metrics
         uint64 create_time_in_nano  = 5;
+        bool   prevote              = 6;
     }
 }
 
