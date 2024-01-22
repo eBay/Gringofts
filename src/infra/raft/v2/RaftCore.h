@@ -49,7 +49,7 @@ struct Peer {
   std::string mAddress;
 
   /**
-   * Set to true if this server has responded to our RV_req
+   * Set to true if this server has responded to our RV_req/RPV_req
    * in the current term, false otherwise.
    */
   bool mRequestVoteDone = false;
@@ -90,18 +90,18 @@ struct Peer {
   bool mSuppressBulkData = true;
 
   /**
-   * Last sent time of AE_req/RV_req by Leader/Candidate
+   * Last sent time of AE_req/RV_req/RPV_req by Leader/Candidate/PreCandidate
    */
   uint64_t mLastRequestTimeInNano = 0;
 
   /**
-   * As a switch used by Leader/Candidate to determine
-   * whether next AE_req/RV_req is ready to send.
+   * As a switch used by Leader/Candidate/PreCandidate to determine
+   * whether next AE_req/RV_req/RPV_req is ready to send.
    */
   uint64_t mNextRequestTimeInNano = 0;
 
   /**
-   * Last response time of AE_resp/RV_resp, used by Leader
+   * Last response time of AE_resp/RV_resp/RPV_resp, used by Leader
    * to ensure its leadership. Leader should step down if can not
    * communicate with majority within election timeout.
    */
@@ -201,7 +201,7 @@ class RaftCore : public RaftInterface {
   /// send AE_req
   void appendEntries();
 
-  /// send RV_req
+  /// send RV_req/RPV_req
   void requestVote();
 
   /// receive AE_req, reply AE_resp
@@ -211,11 +211,11 @@ class RaftCore : public RaftInterface {
   /// receive AE_resp
   void handleAppendEntriesResponse(const AppendEntries::Response &response);
 
-  /// receive RV_req, reply RV_resp
+  /// receive RV_req/RPV_req, reply RV_resp/RPV_resp
   grpc::Status handleRequestVoteRequest(const RequestVote::Request &request,
                                 RequestVote::Response *response);
 
-  /// receive RV_resp
+  /// receive RV_resp/RPV_resp
   void handleRequestVoteResponse(const RequestVote::Response &response);
 
   /// receive ClientRequests
@@ -227,6 +227,9 @@ class RaftCore : public RaftInterface {
   void advanceCommitIndex();
 
   void becomeLeader();
+
+  /// preCandidate -> Candidate
+  void becomeCandidate();
 
   /// transition from Follower/Candidate to Candidate of next term
   void electionTimeout();
@@ -263,6 +266,7 @@ class RaftCore : public RaftInterface {
       case RaftRole::Follower: return "Follower " + std::to_string(mSelfInfo.mId);
       case RaftRole::Candidate: return "Candidate " + std::to_string(mSelfInfo.mId);
       case RaftRole::Syncer: return "Syncer " + std::to_string(mSelfInfo.mId);
+      case RaftRole::PreCandidate: return "PreCandidate " + std::to_string(mSelfInfo.mId);
       case RaftRole::Learner: return "Learner " + std::to_string(mSelfInfo.mId);
       default: return "";
     }
@@ -284,6 +288,7 @@ class RaftCore : public RaftInterface {
   uint64_t mMaxDecrStep = 2000;
   /// for printStatus()
   uint64_t mMaxTailedEntryNum = 5;
+  bool mPreVoteEnabled = false;
 
   /**
    * raft state
