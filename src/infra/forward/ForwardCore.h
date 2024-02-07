@@ -35,7 +35,7 @@ class ForwardCore {
   ForwardCore() {}
   ~ForwardCore() {}
 
-  void init(const char* configPath, const NodeId &myNodeId,
+  void init(const INIReader &reader, const NodeId &myNodeId,
       const ClusterInfo &clusterInfo, std::shared_ptr<DNSResolver> dnsResolver = nullptr) {
     mSelfId = myNodeId;
     initClusterConf(clusterInfo);
@@ -43,7 +43,12 @@ class ForwardCore {
       /// use default dns resolver
       dnsResolver = std::make_shared<DNSResolver>();
     }
-    initClients(configPath, dnsResolver);
+    initClients(reader, dnsResolver);
+    mInitialized = true;
+  }
+
+  bool isInitialized() const {
+    return mInitialized;
   }
 
   template<typename RequestType, typename RpcFuncType, typename CallType>
@@ -73,13 +78,8 @@ class ForwardCore {
     SPDLOG_INFO("cluster.size={}, self.id={}", mPeers.size() + 1, mSelfId);
   }
 
-  void initClients(const char* configPath, std::shared_ptr<DNSResolver> dnsResolver) {
-    INIReader iniReader(configPath);
-    if (iniReader.ParseError() < 0) {
-      SPDLOG_ERROR("Can't load configure file {}, exit", configPath);
-      throw std::runtime_error("Can't load config file");
-    }
-    auto tlsConfOpt = TlsUtil::parseTlsConf(iniReader, "tls");
+  void initClients(const INIReader &reader, std::shared_ptr<DNSResolver> dnsResolver) {
+    auto tlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
     for (auto &[peerId, peer] : mPeers) {
       for (int i = 0; i < mConcurrency; ++i) {
         auto clientId = peerId * mConcurrency + i;
@@ -95,6 +95,7 @@ class ForwardCore {
   const uint64_t mConcurrency = 3;
   std::map<uint64_t, Peer> mPeers;
   uint64_t mSelfId;
+  bool mInitialized = false;
 };
 
 }  /// namespace forward

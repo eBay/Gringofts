@@ -35,7 +35,7 @@ struct ForwardMetaBase {
   uint64_t mLeaderId;
   grpc::ServerContext* mServerContext;
 
-  explicit ForwardMetaBase(uint64_t leaderId, grpc::ServerContext* serverContext) :
+  explicit ForwardMetaBase(uint64_t leaderId, grpc::ServerContext* serverContext = nullptr) :
       mLeaderId(leaderId), mServerContext(serverContext) {}
 };
 
