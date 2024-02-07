@@ -35,6 +35,7 @@ struct ExecuteForwardCall :
     if (!mStatus.ok()) {
       // forward failed, follower set code to 301
       mResponse.set_code(301);
+      mResponse.set_message("Not a leader any longer");
     }
     if (mResponse.reserved().empty()) {
       mResponse.set_reserved(std::to_string(mMeta->mLeaderId));

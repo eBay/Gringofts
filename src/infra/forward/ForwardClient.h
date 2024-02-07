@@ -70,6 +70,9 @@ class ForwardClientBase {
     call->mForwardRquestTime = TimeUtil::currentTimeInNanos();
     if (call->mMeta->mServerContext != nullptr) {
       call->mContext.set_deadline(call->mMeta->mServerContext->deadline());
+    } else {
+      std::chrono::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(5);
+      call->mContext.set_deadline(deadline);
     }
 
     std::shared_lock<std::shared_mutex> lock(mMutex);

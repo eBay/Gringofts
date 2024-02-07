@@ -49,7 +49,7 @@ App::App(const char *configPath) : mIsShutdown(false) {
 
   initCommandEventStore(reader);
 
-  initForwarder(configPath);
+  initForwarder(reader);
 
   std::string snapshotDir = reader.Get("snapshot", "dir", "UNKNOWN");
   assert(snapshotDir != "UNKNOWN");
@@ -195,10 +195,10 @@ void App::initCommandEventStore(const INIReader &reader) {
   }
 }
 
-void App::initForwarder(const char *configPath) {
+void App::initForwarder(const INIReader &reader) {
   auto myNodeId = gringofts::app::AppInfo::getMyNodeId();
   auto myClusterInfo = gringofts::app::AppInfo::getMyClusterInfo();
-  gringofts::Singleton<ExecuteForwardCore>::getInstance().init(configPath, myNodeId, myClusterInfo);
+  gringofts::Singleton<ExecuteForwardCore>::getInstance().init(reader, myNodeId, myClusterInfo);
 }
 
 void App::startRequestReceiver() {
