@@ -18,6 +18,7 @@ limitations under the License.
 #include "../../../infra/es/Command.h"
 #include "../../../infra/es/ProcessCommandStateMachine.h"
 #include "../../generated/grpc/demo.pb.h"
+#include "../app/RequestForward.h"
 
 namespace gringofts {
 namespace demo {

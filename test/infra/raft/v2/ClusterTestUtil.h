@@ -36,6 +36,8 @@ class SyncRequestHandle : public RequestHandle {
   }
   void proceed() override {}
   void failOver() override {}
+  void forwardResponseReply(void *response) {}
+  grpc::ServerContext *getContext() {return nullptr;}
   void fillResultAndReply(
       uint32_t code,
       const std::string &message,

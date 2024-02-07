@@ -46,6 +46,15 @@ void IncreaseCommand::onPersistFailed(
     SPDLOG_WARN("This command does not have request attached.");
     return;
   }
+  if (reserved && code == 301) {
+    auto* call = new ExecuteForwardCall(callData);
+    call->mMeta = std::make_shared<gringofts::forward::ForwardMetaBase>(reserved.value(), callData->getContext());
+    auto request = std::make_shared<protos::IncreaseRequest>(mRequest);
+
+    gringofts::Singleton<ExecuteForwardCore>::getInstance().forwardRequest(
+        request, &protos::DemoService::Stub::PrepareAsyncExecute, call);
+    return;
+  }
   callData->fillResultAndReply(code, errorMessage, reserved);
 }
 

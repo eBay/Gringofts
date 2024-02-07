@@ -65,6 +65,8 @@ class App final {
 
   void initCommandEventStore(const INIReader &reader);
 
+  void initForwarder(const char *configPath);
+
   void startRequestReceiver();
 
   void startNetAdminServer();
