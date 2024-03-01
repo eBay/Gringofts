@@ -316,7 +316,15 @@ void RaftCore::appendEntries() {
     auto currentTerm = mLog->getCurrentTerm();
 
     auto prevLogIndex = peer.mNextIndex - 1;
-    auto prevLogTerm = termOfLogEntryAt(prevLogIndex);
+    uint64_t prevLogTerm = 0;
+    if (prevLogIndex < mLog->getFirstLogIndex() - 1 || prevLogIndex > mLog->getLastLogIndex()) {
+      SPDLOG_ERROR("prevLogIndex of Follower {} is out of range, turn on peer.mSurpressBulkData, "
+                   "prevLogIndex={}, firstIndex={}, lastIndex={}",
+                   peer.mId, prevLogIndex, mLog->getFirstLogIndex(), mLog->getLastLogIndex());
+      peer.mSuppressBulkData = true;
+    } else {
+      prevLogTerm = termOfLogEntryAt(prevLogIndex);
+    }
 
     std::vector<LogEntry> entries;
     uint64_t batchSize = 0;
@@ -571,10 +579,7 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
   }
 
   /// if a follower drops his log and starts from a specified firstIndex,
-  /// make sure that his firstIndex is:
-  /// 1) greater than or equal to leader's firstIndex,
-  /// 2) greater than his matchIndex in leader.
-  /// otherwise, his AE_resp will trigger assertion in leader.
+  /// leader will reset follower's nextIndex and matchIndex as per follower's response.
   if (response.success()) {
     /// matchIndex increase monotonically
     assert(peer.mMatchIndex <= response.match_index());
@@ -586,12 +591,31 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
     /// logging metrics
     printMetrics(response.metrics());
   } else {
-    assert(peer.mMatchIndex <= response.last_log_index());
+    if (peer.mMatchIndex > response.last_log_index()) {
+      // Peer's storage was rolled back.
+      // We should reset peer.mMatchIndex and peer.mNextIndex.
+      auto prevNextIndex = peer.mNextIndex;
+      auto prevMatchIndex = peer.mMatchIndex;
+      peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      peer.mMatchIndex = 0;
+      // Suppress bulk data until we find a proper nextIndex.
+      peer.mSuppressBulkData = true;
+      SPDLOG_WARN("{} reset Follower {}: matchIndex from {} to 0, nextIndex from {} to {} ",
+                  selfId(), response.id(), prevMatchIndex, prevNextIndex, peer.mNextIndex);
+    }
 
     /// there should be a gap between matchIndex and nextIndex
     assert(peer.mMatchIndex + 1 < peer.mNextIndex);
 
-    if (peer.mNextIndex > response.last_log_index() + 1) {
+    if (response.last_log_index() < mLog->getFirstLogIndex()) {
+      // reset peer.mNextIndex until peer's data is recovered.
+      auto prevNextIndex = peer.mNextIndex;
+      peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      SPDLOG_WARN("There is gap between Follower {} lastLogIndex({}) and {} firstLogIndex({})",
+                  response.id(), response.last_log_index(), selfId(), mLog->getFirstLogIndex());
+      SPDLOG_INFO("{} reset Follower {}: nextIndex from {} to {}",
+                  selfId(), response.id(), prevNextIndex, peer.mNextIndex);
+    } else if (peer.mNextIndex > response.last_log_index() + 1) {
       peer.mNextIndex = response.last_log_index() + 1;
     } else {
       auto prevNextIndex = peer.mNextIndex;
