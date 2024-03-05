@@ -63,6 +63,10 @@ class RequestHandle {
     fillResultAndReply(code, message, leaderId);
   }
 
+  virtual void forwardResponseReply(void *response) = 0;
+
+  virtual grpc::ServerContext *getContext() = 0;
+
   /**
    * Validate if this is a valid test
    * Return true if it is valid, otherwise, return false

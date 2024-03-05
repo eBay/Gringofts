@@ -142,6 +142,16 @@ class RequestCallData final : public RequestHandle {
     mResponder.Finish(mResponse, s, this);
   }
 
+  void forwardResponseReply(void *response) {
+    mResponse = std::move(*static_cast<Response *>(response));
+    mStatus = FINISH;
+    mResponder.Finish(mResponse, grpc::Status::OK, this);
+  }
+
+  grpc::ServerContext *getContext() {
+    return &mContext;
+  }
+
   void failOver() override {
     SPDLOG_WARN("Cannot proceed as callData is no longer valid probably because client has cancelled the request.");
     new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList);
