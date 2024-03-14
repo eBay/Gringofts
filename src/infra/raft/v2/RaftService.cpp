@@ -92,12 +92,16 @@ RaftClient::RaftClient(const std::string &peerAddress,
                        std::optional<TlsConf> tlsConfOpt,
                        std::shared_ptr<DNSResolver> dnsResolver,
                        uint64_t peerId,
-                       EventQueue *aeRvQueue) :
+                       EventQueue *aeRvQueue,
+                       uint64_t rpcAppendEntriesTimeoutInMillis,
+                       uint64_t rpcRequestVoteTimeoutInMillis) :
     mPeerAddress(peerAddress),
     mDNSResolver(dnsResolver),
     mTLSConfOpt(tlsConfOpt),
     mPeerId(peerId),
-    mAeRvQueue(aeRvQueue) {
+    mAeRvQueue(aeRvQueue),
+    mRpcAppendEntriesTimeoutInMillis(rpcAppendEntriesTimeoutInMillis),
+    mRpcRequestVoteTimeoutInMillis(rpcRequestVoteTimeoutInMillis) {
   refressChannel();
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
@@ -145,7 +149,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
   call->mResponse.set_prevote(request.prevote());
 
   std::chrono::time_point deadline = std::chrono::system_clock::now()
-      + std::chrono::milliseconds(RaftConstants::RequestVote::kRpcTimeoutInMillis);
+      + std::chrono::milliseconds(mRpcRequestVoteTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
   std::shared_lock<std::shared_mutex> lock(mMutex);
@@ -162,7 +166,7 @@ void RaftClient::appendEntries(const AppendEntries::Request &request) {
   call->mPeerId = mPeerId;
 
   std::chrono::time_point deadline = std::chrono::system_clock::now()
-      + std::chrono::milliseconds(RaftConstants::AppendEntries::kRpcTimeoutInMillis);
+      + std::chrono::milliseconds(mRpcAppendEntriesTimeoutInMillis);
   call->mContext.set_deadline(deadline);
 
   std::shared_lock<std::shared_mutex> lock(mMutex);

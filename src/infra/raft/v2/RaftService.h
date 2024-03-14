@@ -268,7 +268,9 @@ class RaftClient {
              std::optional<TlsConf> tlsConfOpt,
              std::shared_ptr<DNSResolver> dnsResolver,
              uint64_t peerId,
-             EventQueue *aeRvQueue);
+             EventQueue *aeRvQueue,
+             uint64_t rpcAppendEntriesTimeoutInMillis = RaftConstants::AppendEntries::kRpcTimeoutInMillis,
+             uint64_t rpcRequestVoteTimeoutInMillis = RaftConstants::RequestVote::kRpcTimeoutInMillis);
   ~RaftClient();
 
   void requestVote(const RequestVote::Request &request);
@@ -287,6 +289,8 @@ class RaftClient {
   std::unique_ptr<Raft::Stub> mStub;
   std::shared_mutex mMutex;  /// the lock to guarantee thread-safe access of mStub
   grpc::CompletionQueue mCompletionQueue;
+  uint64_t mRpcAppendEntriesTimeoutInMillis;
+  uint64_t mRpcRequestVoteTimeoutInMillis;
 
   /// event queue
   EventQueue *mAeRvQueue;
