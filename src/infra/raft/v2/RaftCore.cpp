@@ -79,20 +79,56 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
   mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
   mPreVoteEnabled = iniReader.GetBoolean("raft.protocol", "enable.prevote", true);
+  mHeartBeatIntervalInMillis = iniReader.GetInteger("raft.default", "heartbeat.interval.millis",
+                                                    RaftConstants::kHeartBeatIntervalInMillis);
+  mMinElectionTimeoutInMillis = iniReader.GetInteger("raft.default", "min.election.timeout.millis",
+                                                     RaftConstants::kMinElectionTimeoutInMillis);
+  mMaxElectionTimeoutInMillis = iniReader.GetInteger("raft.default", "max.election.timeout.millis",
+                                                     RaftConstants::kMaxElectionTimeoutInMillis);
+  mRpcAppendEntriesTimeoutInMillis = iniReader.GetInteger("raft.default", "rpc.append.entries.timeout.millis",
+                                                          RaftConstants::AppendEntries::kRpcTimeoutInMillis);
+  mRpcRequestVoteTimeoutInMillis = iniReader.GetInteger("raft.default", "rpc.request.vote.timeout.millis",
+                                                        RaftConstants::RequestVote::kRpcTimeoutInMillis);
   // @formatter:on
 
   assert(mMaxBatchSize != 0
              && mMaxLenInBytes != 0
              && mMaxDecrStep != 0
              && mMaxTailedEntryNum != 0);
+  // these configurable variables should follow below rules:
+  // leader side:
+  // 1. broadcastTime(payload with mMaxLenInBytes) < mRpcAppendEntriesTimeoutInMillis < mMaxElectionTimeoutInMillis
+  // 2. mHeartBeatIntervalInMillis << mMinElectionTimeoutInMillis
+  // follower side:
+  // 1. mRpcAppendEntriesTimeoutInMillis < mMinElectionTimeoutInMillis < mMaxElectionTimeoutInMillis
+  if (mRpcAppendEntriesTimeoutInMillis >= mMinElectionTimeoutInMillis) {
+    SPDLOG_ERROR("mRpcAppendEntriesTimeoutInMillis({}) should be less than mMinElectionTimeoutInMillis({})",
+                 mRpcAppendEntriesTimeoutInMillis, mMinElectionTimeoutInMillis);
+    abort();
+  } else if (mHeartBeatIntervalInMillis >= mMinElectionTimeoutInMillis) {
+    SPDLOG_ERROR("mHeartBeatIntervalInMillis({}) should be less than mMinElectionTimeoutInMillis({})",
+                 mHeartBeatIntervalInMillis, mMinElectionTimeoutInMillis);
+    abort();
+  } else if (mMinElectionTimeoutInMillis >= mMaxElectionTimeoutInMillis) {
+    SPDLOG_ERROR("mMinElectionTimeoutInMillis({}) should be less than mMaxElectionTimeoutInMillis({})",
+                 mMinElectionTimeoutInMillis, mMaxElectionTimeoutInMillis);
+    abort();
+  }
 
   SPDLOG_INFO("ConfigurableVars: "
               "max.batch.size={}, "
               "max.len.in.bytes={}, "
               "max.decr.step={}, "
-              "max.tailed.entry.num={}."
-              "enable.provote={}.",
-              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum, mPreVoteEnabled);
+              "max.tailed.entry.num={}, "
+              "enable.provote={}, "
+              "heartbeat.interval.millis={}, "
+              "min.election.timeout.millis={}, "
+              "max.election.timeout.millis={}, "
+              "rpc.append.entries.timeout.millis={}, "
+              "rpc.request.vote.timeout.millis={}",
+              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum, mPreVoteEnabled,
+              mHeartBeatIntervalInMillis, mMinElectionTimeoutInMillis, mMaxElectionTimeoutInMillis,
+              mRpcAppendEntriesTimeoutInMillis, mRpcRequestVoteTimeoutInMillis);
 }
 
 void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId) {
@@ -249,7 +285,7 @@ void RaftCore::receiveMessage() {
 
     /// turn on switch
     auto &peer = mPeers[ptr->mPeerId];
-    auto hbIntervalInNano = RaftConstants::kHeartBeatIntervalInMillis * 1000 * 1000;
+    auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
     peer.mNextRequestTimeInNano = std::max(peer.mLastRequestTimeInNano + hbIntervalInNano,
                                            TimeUtil::currentTimeInNanos());
 
@@ -274,7 +310,7 @@ void RaftCore::receiveMessage() {
     auto &peer = mPeers[ptr->mPeerId];
 
     /// turn on switch
-    auto hbIntervalInNano = RaftConstants::kHeartBeatIntervalInMillis * 1000 * 1000;
+    auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
     peer.mNextRequestTimeInNano = std::max(peer.mLastRequestTimeInNano + hbIntervalInNano,
                                            TimeUtil::currentTimeInNanos());
 
@@ -1043,7 +1079,7 @@ void RaftCore::leadershipTimeout() {
             [](uint64_t x, uint64_t y) { return x > y; });
 
   auto timeElapseInNano = nowInNano - timePoints[timePoints.size() >> 1];
-  if (timeElapseInNano / 1000000.0 < RaftConstants::kMaxElectionTimeoutInMillis) {
+  if (timeElapseInNano / 1000000.0 < mMaxElectionTimeoutInMillis) {
     return;
   }
 
@@ -1052,7 +1088,7 @@ void RaftCore::leadershipTimeout() {
   SPDLOG_INFO("{} on term {} stepDown due to lost authority, "
               "timeElapse={}ms, maxElectionTimeout={}ms",
               selfId(), currentTerm,
-              timeElapseInNano / 1000000.0, RaftConstants::kMaxElectionTimeoutInMillis);
+              timeElapseInNano / 1000000.0, mMaxElectionTimeoutInMillis);
 
   stepDown(currentTerm + 1);
 }

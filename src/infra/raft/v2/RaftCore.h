@@ -255,8 +255,8 @@ class RaftCore : public RaftInterface {
   /// 3) become Follower
   /// 4) become Candidate
   void updateElectionTimePoint() {
-    auto timeIntervalInNano = RandomUtil::randomRange(RaftConstants::kMinElectionTimeoutInMillis * 1000 * 1000,
-                                                      RaftConstants::kMaxElectionTimeoutInMillis * 1000 * 1000);
+    auto timeIntervalInNano = RandomUtil::randomRange(mMinElectionTimeoutInMillis * 1000 * 1000,
+                                                      mMaxElectionTimeoutInMillis * 1000 * 1000);
     mElectionTimePointInNano = TimeUtil::currentTimeInNanos() + timeIntervalInNano;
   }
 
@@ -281,6 +281,14 @@ class RaftCore : public RaftInterface {
   /**
    * configurable vars
    */
+  /// heart beat interval that leader will wait before sending a heartbeat to follower
+  uint64_t mHeartBeatIntervalInMillis = RaftConstants::kHeartBeatIntervalInMillis;
+  /// the minimum/maximum timeout follower will wait before starting a new election
+  uint64_t mMinElectionTimeoutInMillis = RaftConstants::kMinElectionTimeoutInMillis;
+  uint64_t mMaxElectionTimeoutInMillis = RaftConstants::kMaxElectionTimeoutInMillis;
+  /// the timeout for RPCs
+  uint64_t mRpcAppendEntriesTimeoutInMillis = RaftConstants::AppendEntries::kRpcTimeoutInMillis;
+  uint64_t mRpcRequestVoteTimeoutInMillis = RaftConstants::RequestVote::kRpcTimeoutInMillis;
   /// for getEntries()
   uint64_t mMaxBatchSize = 2000;
   uint64_t mMaxLenInBytes = 5000000;
