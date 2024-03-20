@@ -894,12 +894,13 @@ void RaftCore::becomeCandidate() {
   auto currentTerm = mLog->getCurrentTerm();
   /// become Candidate
   mRaftRole = RaftRole::Candidate;
+  /// clear leaderHint
+  mLeaderId = 0;
   /// increment currentTerm
   mLog->setCurrentTerm(++currentTerm);
   /// vote for self
   mLog->setVoteFor(mSelfInfo.mId);
-  /// clear leaderHint
-  mLeaderId = 0;
+
   /// reset election timer
   updateElectionTimePoint();
 
@@ -993,6 +994,8 @@ void RaftCore::electionTimeout() {
   if (!mPreVoteEnabled) {   // request vote directly
     /// become Candidate
     mRaftRole = RaftRole::Candidate;
+    /// clear leaderHint
+    mLeaderId = 0;
     /// increment currentTerm
     mLog->setCurrentTerm(++currentTerm);
     /// vote for self
@@ -1000,11 +1003,11 @@ void RaftCore::electionTimeout() {
   } else {  // request prevote before vote
     /// become PreCandidate
     mRaftRole = RaftRole::PreCandidate;
+    /// clear leaderHint
+    mLeaderId = 0;
     /// keep currentTerm
   }
 
-  /// clear leaderHint
-  mLeaderId = 0;
   /// reset election timer
   updateElectionTimePoint();
 
@@ -1066,9 +1069,9 @@ void RaftCore::stepDown(uint64_t newTerm) {
   if (mRaftRole != RaftRole::Learner) mRaftRole = RaftRole::Follower;
 
   if (currentTerm < newTerm) {
+    mLeaderId = 0;
     mLog->setCurrentTerm(newTerm);
     mLog->setVoteFor(0);  /// 0 means vote for nobody
-    mLeaderId = 0;
     SPDLOG_INFO("{} stepDown, increase term from {} to {}.",
                 selfId(), currentTerm, newTerm);
   } else {
