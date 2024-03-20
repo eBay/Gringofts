@@ -51,9 +51,12 @@ void IncreaseCommand::onPersistFailed(
     call->mMeta = std::make_shared<gringofts::forward::ForwardMetaBase>(reserved.value(), callData->getContext());
     auto request = std::make_shared<protos::IncreaseRequest>(mRequest);
 
-    gringofts::Singleton<ExecuteForwardCore>::getInstance().forwardRequest(
-        request, &protos::DemoService::Stub::PrepareAsyncExecute, call);
-    return;
+    if (gringofts::Singleton<ExecuteForwardCore>::getInstance().forwardRequest(
+        request, &protos::DemoService::Stub::PrepareAsyncExecute, call)) {
+      return;
+    } else {
+      delete call;
+    }
   }
   callData->fillResultAndReply(code, errorMessage, reserved);
 }

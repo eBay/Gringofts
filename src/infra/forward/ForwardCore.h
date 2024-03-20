@@ -44,20 +44,31 @@ class ForwardCore {
       dnsResolver = std::make_shared<DNSResolver>();
     }
     initClients(reader, dnsResolver);
-    mInitialized = true;
-  }
-
-  bool isInitialized() const {
-    return mInitialized;
   }
 
   template<typename RequestType, typename RpcFuncType, typename CallType>
-  void forwardRequest(std::shared_ptr<RequestType> request, RpcFuncType rpcFunc, CallType *call) {
+  bool forwardRequest(std::shared_ptr<RequestType> request, RpcFuncType rpcFunc, CallType *call) {
+    if (call == nullptr || call->mMeta == nullptr) {
+      SPDLOG_ERROR("call or call->mMeta is nullptr");
+      return false;
+    }
+    if (rpcFunc == nullptr || request == nullptr) {
+      SPDLOG_ERROR("rpcFunc or request is nullptr");
+      return false;
+    }
+    if (mPeers.find(call->mMeta->mLeaderId) == mPeers.end()) {
+      SPDLOG_ERROR("mLeaderID not legal", call->mMeta->mLeaderId);
+      return false;
+    }
     auto &peer = mPeers[call->mMeta->mLeaderId];
-    auto index = peer.mPointer.fetch_add(1) % mConcurrency;
-    auto &client = mClients[peer.mId * mConcurrency + index];
-    client->forwardRequest(request, rpcFunc, call);
+    auto clientIndex = (peer.mId * mConcurrency) + (peer.mPointer.fetch_add(1) % mConcurrency);
+    auto client = mClients.find(clientIndex);
+    if (client == mClients.end() || client->second == nullptr) {
+      SPDLOG_ERROR("ForwardClient for peer {} not found", peer.mId);
+      return false;
+    }
     SPDLOG_DEBUG("Forward Request to {}", peer.mId);
+    return client->second->forwardRequest(request, rpcFunc, call);
   }
 
  private:
@@ -95,7 +106,6 @@ class ForwardCore {
   const uint64_t mConcurrency = 3;
   std::map<uint64_t, Peer> mPeers;
   uint64_t mSelfId;
-  bool mInitialized = false;
 };
 
 }  /// namespace forward
