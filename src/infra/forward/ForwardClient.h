@@ -66,7 +66,11 @@ class ForwardClientBase {
   }
 
   template<typename RequestType, typename RpcFuncType, typename CallType>
-  void forwardRequest(std::shared_ptr<RequestType> request, RpcFuncType rpcFunc, CallType *call) {
+  bool forwardRequest(std::shared_ptr<RequestType> request, RpcFuncType rpcFunc, CallType *call) {
+    if (mStub == nullptr) {
+      SPDLOG_WARN("ForwardClient for {} is nullptr", mPeerId);
+      return false;
+    }
     call->mForwardRquestTime = TimeUtil::currentTimeInNanos();
     if (call->mMeta->mServerContext != nullptr) {
       call->mContext.set_deadline(call->mMeta->mServerContext->deadline());
@@ -84,6 +88,7 @@ class ForwardClientBase {
     call->mResponseReader->Finish(&call->mResponse,
         &call->mStatus,
         reinterpret_cast<void *>(call));
+    return true;
   }
 
  private:
