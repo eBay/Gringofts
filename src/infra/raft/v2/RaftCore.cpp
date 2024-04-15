@@ -644,9 +644,13 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
     assert(peer.mMatchIndex + 1 < peer.mNextIndex);
 
     if (response.last_log_index() < mLog->getFirstLogIndex()) {
-      // reset peer.mNextIndex until peer's data is recovered.
       auto prevNextIndex = peer.mNextIndex;
-      peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      if (response.last_log_index() == 0 && mLog->getFirstLogIndex() == 1) {
+        peer.mNextIndex = response.last_log_index() + 1;
+      } else {
+        // reset peer.mNextIndex until peer's data is recovered.
+        peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      }
       SPDLOG_WARN("There is gap between Follower {} lastLogIndex({}) and {} firstLogIndex({})",
                   response.id(), response.last_log_index(), selfId(), mLog->getFirstLogIndex());
       SPDLOG_INFO("{} reset Follower {}: nextIndex from {} to {}",
