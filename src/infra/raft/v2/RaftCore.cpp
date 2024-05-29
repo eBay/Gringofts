@@ -122,7 +122,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               "max.decr.step={}, "
               "max.tailed.entry.num={}, "
               "enable.provote={}, "
-              "enable.streaming={}, "
+              "streaming.enable={}, "
               "heartbeat.interval.millis={}, "
               "min.election.timeout.millis={}, "
               "max.election.timeout.millis={}, "
