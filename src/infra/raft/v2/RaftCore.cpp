@@ -79,6 +79,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
   mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
   mPreVoteEnabled = iniReader.GetBoolean("raft.protocol", "enable.prevote", true);
+  mStreamingSvcEnabled = iniReader.GetBoolean("streaming", "enable", true);
   mHeartBeatIntervalInMillis = iniReader.GetInteger("raft.default", "heartbeat.interval.millis",
                                                     RaftConstants::kHeartBeatIntervalInMillis);
   mMinElectionTimeoutInMillis = iniReader.GetInteger("raft.default", "min.election.timeout.millis",
@@ -121,12 +122,14 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               "max.decr.step={}, "
               "max.tailed.entry.num={}, "
               "enable.provote={}, "
+              "streaming.enable={}, "
               "heartbeat.interval.millis={}, "
               "min.election.timeout.millis={}, "
               "max.election.timeout.millis={}, "
               "rpc.append.entries.timeout.millis={}, "
               "rpc.request.vote.timeout.millis={}",
-              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum, mPreVoteEnabled,
+              mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum,
+              mPreVoteEnabled, mStreamingSvcEnabled,
               mHeartBeatIntervalInMillis, mMinElectionTimeoutInMillis, mMaxElectionTimeoutInMillis,
               mRpcAppendEntriesTimeoutInMillis, mRpcRequestVoteTimeoutInMillis);
 }
@@ -222,8 +225,10 @@ void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolv
   /// init raftMainLoop
   mRaftLoop = std::thread(&RaftCore::raftLoopMain, this);
 
-  /// init StreamingService
-  mStreamingService = std::make_unique<StreamingService>(mStreamingPort, iniReader, *this);
+  /// init StreamingService if enabled
+  if (mStreamingSvcEnabled) {
+    mStreamingService = std::make_unique<StreamingService>(mStreamingPort, iniReader, *this);
+  }
 }
 
 RaftCore::~RaftCore() {
