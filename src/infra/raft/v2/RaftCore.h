@@ -345,6 +345,7 @@ class RaftCore : public RaftInterface {
   std::map<uint64_t, std::unique_ptr<RaftClient>> mClients;
 
   /// streaming service
+  bool mStreamingSvcEnabled = false;
   uint64_t mStreamingPort;
   std::unique_ptr<StreamingService> mStreamingService;
   std::optional<TlsConf> mTlsConfOpt;
