@@ -79,7 +79,7 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
   mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
   mPreVoteEnabled = iniReader.GetBoolean("raft.protocol", "enable.prevote", true);
-  mStreamingSvcEnabled = iniReader.GetBoolean("streaming.svc", "enable", true);
+  mStreamingSvcEnabled = iniReader.GetBoolean("streaming", "enable", true);
   mHeartBeatIntervalInMillis = iniReader.GetInteger("raft.default", "heartbeat.interval.millis",
                                                     RaftConstants::kHeartBeatIntervalInMillis);
   mMinElectionTimeoutInMillis = iniReader.GetInteger("raft.default", "min.election.timeout.millis",
