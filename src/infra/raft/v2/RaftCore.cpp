@@ -918,12 +918,15 @@ void RaftCore::becomeCandidate() {
 
   for (const auto &p : mPeers) {
     auto &peer = p.second;
+    if (mLearners.find(peer.mId) != mLearners.end()) {
+      continue;
+    }
     if (peer.mHaveVote) {
       ++voteNum;
     }
   }
 
-  auto quorumNum = getMajorityNumber(mPeers.size() + 1);
+  auto quorumNum = getMajorityNumber(mPeers.size() + 1 - mLearners.size());
   if (voteNum < quorumNum) {
     return;
   }
