@@ -33,10 +33,12 @@ class ForwardClientBase {
   ForwardClientBase(const std::string &peerHostname,
                     std::optional<TlsConf> tlsConfOpt,
                     std::shared_ptr<DNSResolver> dnsResolver,
+                    ClusterId clusterId,
                     uint64_t peerId, uint64_t clientId):
       mPeerAddress(peerHostname),
       mTLSConfOpt(tlsConfOpt),
       mDNSResolver(dnsResolver),
+      mClusterId(clusterId),
       mPeerId(peerId),
       mClientId(clientId),
       mGaugeReplyQueueSize(gringofts::getGauge("forward_reply_queue_size", {{"clientId", std::to_string(clientId)}})) {
@@ -71,6 +73,9 @@ class ForwardClientBase {
       SPDLOG_WARN("ForwardClient for {} is nullptr", mPeerId);
       return false;
     }
+    // use lowercase letters(a-z), digits(0-9), hyphen(-) and underscores(_) in header key
+    call->mContext.AddMetadata("req_source", "forward");
+    call->mContext.AddMetadata("cluster_id", std::to_string(mClusterId));
     call->mForwardRquestTime = TimeUtil::currentTimeInNanos();
     if (call->mMeta->mServerContext != nullptr) {
       call->mContext.set_deadline(call->mMeta->mServerContext->deadline());
@@ -168,6 +173,7 @@ class ForwardClientBase {
   std::string mResolvedPeerAddress;
   std::optional<TlsConf> mTLSConfOpt;
   std::shared_ptr<DNSResolver> mDNSResolver;
+  ClusterId mClusterId;
   uint64_t mPeerId = 0;
 
   /// flag that notify thread to quit
