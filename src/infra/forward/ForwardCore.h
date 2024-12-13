@@ -73,6 +73,7 @@ class ForwardCore {
 
  private:
   void initClusterConf(const ClusterInfo &clusterInfo) {
+    mClusterId = clusterInfo.getClusterId();
     auto nodes = clusterInfo.getAllNodeInfo();
     for (auto &[nodeId, node] : nodes) {
       std::string host = node.mHostName;
@@ -95,7 +96,7 @@ class ForwardCore {
       for (int i = 0; i < mConcurrency; ++i) {
         auto clientId = peerId * mConcurrency + i;
         mClients[clientId] = std::make_unique<ForwardClientBase<StubType>>(
-            peer.mAddress, tlsConfOpt, dnsResolver, peerId, clientId);
+            peer.mAddress, tlsConfOpt, dnsResolver, mClusterId, peerId, clientId);
       }
     }
   }
@@ -106,6 +107,7 @@ class ForwardCore {
   const uint64_t mConcurrency = 3;
   std::map<uint64_t, Peer> mPeers;
   uint64_t mSelfId;
+  ClusterId mClusterId;
 };
 
 }  /// namespace forward
