@@ -168,13 +168,14 @@ class RequestCallData final : public RequestHandle {
   // check grpc meta data from client before processing the request
   bool verifyClusterId() {
     std::multimap<grpc::string_ref, grpc::string_ref> clientMeta = mContext.client_metadata();
-    auto reqIter = clientMeta.find("req_source");
-    if (reqIter != clientMeta.end() && (reqIter->second).compare("forward") == 0) {
-      auto clusterIter = clientMeta.find("cluster_id");
+    auto reqIter = clientMeta.find(kReqSource);
+    if (reqIter != clientMeta.end() && (reqIter->second).compare(kForwardReqSource) == 0) {
+      auto clusterIter = clientMeta.find(kClusterId);
       if (clusterIter != clientMeta.end()) {
         auto myClusterId = std::to_string(app::AppInfo::groupId());
         if ((clusterIter->second).compare(myClusterId.c_str()) != 0) {
-          SPDLOG_WARN("req clusterId does not match this clusterid {}, reject the request", myClusterId);
+          SPDLOG_WARN("req clusterId {} does not match this clusterid {},reject the request",
+              (clusterIter->second).data(), myClusterId);
           return false;
         }
       }

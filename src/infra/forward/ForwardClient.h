@@ -73,9 +73,8 @@ class ForwardClientBase {
       SPDLOG_WARN("ForwardClient for {} is nullptr", mPeerId);
       return false;
     }
-    // use lowercase letters(a-z), digits(0-9), hyphen(-) and underscores(_) in header key
-    call->mContext.AddMetadata("req_source", "forward");
-    call->mContext.AddMetadata("cluster_id", std::to_string(mClusterId));
+    call->mContext.AddMetadata(kReqSource, kForwardReqSource);
+    call->mContext.AddMetadata(kClusterId, std::to_string(mClusterId));
     call->mForwardRquestTime = TimeUtil::currentTimeInNanos();
     if (call->mMeta->mServerContext != nullptr) {
       call->mContext.set_deadline(call->mMeta->mServerContext->deadline());
