@@ -94,6 +94,13 @@ class RequestCallData final : public RequestHandle {
       // the one for this CallData. The instance will deallocate itself as
       // part of its FINISH state.
       new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList);
+
+      if (!verifyClusterId()) {
+        mStatus = FINISH;
+        mResponder.Finish(mResponse, grpc::Status(grpc::INVALID_ARGUMENT, "forward to wrong cluster"), this);
+        return;
+      }
+
       // check black list
       if (mBlackList != nullptr && mBlackList->inBlackList(mRequest)) {
         fillResultAndReply(201, "Duplicated request", std::nullopt);
@@ -156,6 +163,23 @@ class RequestCallData final : public RequestHandle {
     SPDLOG_WARN("Cannot proceed as callData is no longer valid probably because client has cancelled the request.");
     new RequestCallData(mService, mCompletionQueue, mCommandQueue, mBlackList);
     delete this;
+  }
+
+  // check grpc meta data from client before processing the request
+  bool verifyClusterId() {
+    std::multimap<grpc::string_ref, grpc::string_ref> clientMeta = mContext.client_metadata();
+    auto reqIter = clientMeta.find("req_source");
+    if (reqIter != clientMeta.end() && (reqIter->second).compare("forward") == 0) {
+      auto clusterIter = clientMeta.find("cluster_id");
+      if (clusterIter != clientMeta.end()) {
+        auto myClusterId = std::to_string(app::AppInfo::groupId());
+        if ((clusterIter->second).compare(myClusterId.c_str()) != 0) {
+          SPDLOG_WARN("req clusterId does not match this clusterid {}, reject the request", myClusterId);
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
  protected:

@@ -68,6 +68,14 @@ class ClusterInfo final {
 
   std::string to_string() const;
 
+  void setClusterId(ClusterId clusterId) {
+    mClusterId = clusterId;
+  }
+
+  ClusterId getClusterId() const {
+    return mClusterId;
+  }
+
  private:
   /// example with two three-node clusters:
   /// 0#1@node01.ebay.com:5245|50055|50056|5678|50065|61203,2@node02.ebay.com:5245|50055|50056|5678|50065|61203,
