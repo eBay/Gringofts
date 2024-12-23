@@ -52,6 +52,11 @@ enum class DeploymentMode {
   Distributed = 1
 };
 
+// use lowercase letters(a-z), digits(0-9), hyphen(-) and underscores(_) in header key and value for gprc metadata
+static constexpr const char *kReqSource = "req_source";
+static constexpr const char *kForwardReqSource = "forward";
+static constexpr const char *kClusterId = "cluster_id";
+
 }  /// namespace gringofts
 
 #endif  // SRC_INFRA_COMMON_TYPES_H_
