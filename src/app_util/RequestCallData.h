@@ -174,8 +174,7 @@ class RequestCallData final : public RequestHandle {
       if (clusterIter != clientMeta.end()) {
         auto myClusterId = std::to_string(app::AppInfo::groupId());
         if ((clusterIter->second).compare(myClusterId.c_str()) != 0) {
-          SPDLOG_WARN("req clusterId {} does not match this clusterid {},reject the request",
-              (clusterIter->second).data(), myClusterId);
+          SPDLOG_WARN("req clusterId does not match this clusterid {},reject the request", myClusterId);
           return false;
         }
       }
