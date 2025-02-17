@@ -75,6 +75,7 @@ class PrometheusHistogram {
   PrometheusHistogram(const PrometheusHistogram &) = default;
   PrometheusHistogram(PrometheusHistogram &&) = default;
   void observe(double);
+  uint64_t collect(std::size_t index) const;
  private:
   InnerType &mHistogram;
 };

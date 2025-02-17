@@ -72,6 +72,7 @@ class Histogram {
       mImplPtr(std::make_shared<ImplType>(std::forward<ArgT>(args)...)) {}
   Histogram(const Histogram &_c) : mImplPtr(_c.mImplPtr) {}
   void observe(double);
+  uint64_t collect(std::size_t index);
  private:
   std::shared_ptr<ImplType> mImplPtr;
 };

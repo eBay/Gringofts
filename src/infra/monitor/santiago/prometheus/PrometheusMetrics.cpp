@@ -57,4 +57,10 @@ void PrometheusHistogram::observe(double val) {
   mHistogram.Observe(val);
 }
 
+uint64_t PrometheusHistogram::collect(std::size_t index) const {
+  const auto& buckets = mHistogram.Collect().histogram.bucket;
+  assert(index < buckets.size());
+  return buckets[index].cumulative_count;
+}
+
 }  /// namespace santiago

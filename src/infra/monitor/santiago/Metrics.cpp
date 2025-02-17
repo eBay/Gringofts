@@ -54,4 +54,9 @@ void Histogram<PrometheusHistogram>::observe(double val) {
   mImplPtr->observe(val);
 }
 
+template <>
+uint64_t Histogram<PrometheusHistogram>::collect(std::size_t index) {
+  return mImplPtr->collect(index);
+}
+
 }  /// namespace santiago
