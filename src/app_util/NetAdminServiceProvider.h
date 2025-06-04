@@ -16,8 +16,10 @@ limitations under the License.
 #define SRC_APP_UTIL_NETADMINSERVICEPROVIDER_H_
 
 #include <optional>
-#include <vector>
 #include <string>
+#include <vector>
+
+#include "../infra/raft/RaftInterface.h"
 #include "control/CtrlState.h"
 
 namespace gringofts {
@@ -56,6 +58,20 @@ class NetAdminServiceProvider {
   virtual uint64_t lastApplied() const = 0;
 
   virtual uint64_t lastAppliedLogCreateTime() const = 0;
+
+  /**
+   * raft members' offsets
+   * @return <leader's offset info, a vector of followers' offset info>
+   */
+  virtual bool getMemberOffsets(gringofts::raft::MemberOffsetInfo *,
+                                             std::vector<gringofts::raft::MemberOffsetInfo> *) const {
+    /// not supported by default
+    return false;
+  }
+  virtual std::optional<uint64_t> getLeaderHint() const {
+    /// not supported by default
+    return std::nullopt;
+  }
 
   virtual bool isLeader() const = 0;
 

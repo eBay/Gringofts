@@ -21,14 +21,14 @@ limitations under the License.
 #include <grpcpp/server_context.h>
 #include <grpcpp/support/status.h>
 
-#include "../infra/util/TlsUtil.h"
-#include "../infra/util/Signal.h"
+#include "../infra/raft/RaftInterface.h"
 #include "../infra/raft/RaftSignal.h"
+#include "../infra/util/Signal.h"
+#include "../infra/util/TlsUtil.h"
 #include "AppInfo.h"
-#include "sync/LogReader.h"
-
-#include "generated/grpc/netadmin.grpc.pb.h"
 #include "NetAdminServiceProvider.h"
+#include "generated/grpc/netadmin.grpc.pb.h"
+#include "sync/LogReader.h"
 
 namespace gringofts {
 namespace app {
@@ -45,25 +45,27 @@ using gringofts::app::protos::AppNetAdmin;
 using gringofts::app::protos::CreateSnapshot_Request;
 using gringofts::app::protos::CreateSnapshot_Response;
 using gringofts::app::protos::CreateSnapshot_ResponseType;
-using gringofts::app::protos::Hotfix_Request;
-using gringofts::app::protos::Hotfix_Response;
-using gringofts::app::protos::Hotfix_ResponseType;
-using gringofts::app::protos::Query_StateRequest;
-using gringofts::app::protos::Query_StateResponse;
-using gringofts::app::protos::Query_Role;
-using gringofts::app::protos::ScaleControl_SyncRequest;
-using gringofts::app::protos::ScaleControl_SyncResponse;
-using gringofts::app::protos::ScaleControl_StartupRequest;
-using gringofts::app::protos::ScaleControl_StartupResponse;
-using gringofts::app::protos::TruncatePrefix_Request;
-using gringofts::app::protos::TruncatePrefix_Response;
-using gringofts::app::protos::TruncatePrefix_ResponseType;
 using gringofts::app::protos::GetAppliedCreatedTime;
 using gringofts::app::protos::GetAppliedCreatedTime_Request;
 using gringofts::app::protos::GetAppliedCreatedTime_Response;
 using gringofts::app::protos::GetAppliedIndex;
 using gringofts::app::protos::GetAppliedIndex_Request;
 using gringofts::app::protos::GetAppliedIndex_Response;
+using gringofts::app::protos::GetMemberOffsets_Request;
+using gringofts::app::protos::GetMemberOffsets_Response;
+using gringofts::app::protos::Hotfix_Request;
+using gringofts::app::protos::Hotfix_Response;
+using gringofts::app::protos::Hotfix_ResponseType;
+using gringofts::app::protos::Query_Role;
+using gringofts::app::protos::Query_StateRequest;
+using gringofts::app::protos::Query_StateResponse;
+using gringofts::app::protos::ScaleControl_StartupRequest;
+using gringofts::app::protos::ScaleControl_StartupResponse;
+using gringofts::app::protos::ScaleControl_SyncRequest;
+using gringofts::app::protos::ScaleControl_SyncResponse;
+using gringofts::app::protos::TruncatePrefix_Request;
+using gringofts::app::protos::TruncatePrefix_Response;
+using gringofts::app::protos::TruncatePrefix_ResponseType;
 using gringofts::raft::RaftRole;
 /**
  * A server class which exposes some management functionalities to external clients, e.g., pubuddy.
@@ -292,6 +294,44 @@ class NetAdminServer final : public AppNetAdmin::Service {
     reply->mutable_status()->set_code(200);
     reply->set_is_leader(mServiceProvider->isLeader());
     reply->set_created_time_in_nanos(mServiceProvider->lastAppliedLogCreateTime());
+    return Status::OK;
+  }
+
+  /**
+   * get member offsets.
+   */
+  Status GetMemberOffsets(ServerContext *context,
+                          const GetMemberOffsets_Request *request,
+                          GetMemberOffsets_Response *reply) override {
+    gringofts::raft::MemberOffsetInfo leader;
+    std::vector<gringofts::raft::MemberOffsetInfo> members;
+    bool isLeader = mServiceProvider->isLeader();
+    if (!isLeader) {
+      reply->mutable_header()->set_code(301);
+      reply->mutable_header()->set_message("Not Leader");
+      auto leaderId = mServiceProvider->getLeaderHint();
+      if (leaderId) {
+        reply->mutable_header()->set_reserved(std::to_string(*leaderId));
+        SPDLOG_INFO("Not leader, leadhint = {}", std::to_string(*leaderId));
+      }
+      return Status::OK;
+    }
+    bool success = mServiceProvider->getMemberOffsets(&leader, &members);
+    if (!success) {
+      reply->mutable_header()->set_code(503);
+      reply->mutable_header()->set_message("General Error: Failed to get member offsets");
+      return Status::OK;
+    }
+    reply->mutable_header()->set_code(200);
+    reply->mutable_leader()->set_server(leader.toString());
+    reply->mutable_leader()->set_offset(leader.mOffset);
+    SPDLOG_DEBUG("Leader addr = {}, offset = {}", leader.toString(), leader.mOffset);
+    for (auto &mem : members) {
+      auto follower = reply->add_followers();
+      follower->set_server(mem.toString());
+      follower->set_offset(mem.mOffset);
+      SPDLOG_DEBUG("Follower addr = {}, offset = {}", mem.toString(), mem.mOffset);
+    }
     return Status::OK;
   }
 
