@@ -14,6 +14,7 @@ service AppNetAdmin {
   rpc Startup(ScaleControl.StartupRequest) returns (ScaleControl.StartupResponse) {}
 
   // for ISR
+  rpc GetMemberOffsets(GetMemberOffsets.Request) returns (GetMemberOffsets.Response) {}
   rpc GetAppliedCreatedTime(GetAppliedCreatedTime.Request) returns (GetAppliedCreatedTime.Response) {}
   rpc GetAppliedIndex(GetAppliedIndex.Request) returns (GetAppliedIndex.Response) {}
 }
@@ -137,5 +138,23 @@ message GetAppliedIndex {
     Status status = 1;
     bool is_leader = 2;  
     uint64 applied_index = 3;
+  }
+}
+
+message ServerOffsetInfo {
+  // format: id@ip:port
+  string server = 1;
+  uint64 offset = 2;
+}
+
+message GetMemberOffsets {
+  message Request {
+
+  }
+  message Response {
+    ResponseHeader header = 1;
+    // example: id1@ip1:port, id2@ip2:port, etc
+    ServerOffsetInfo leader = 2;
+    repeated ServerOffsetInfo followers = 3;
   }
 }
