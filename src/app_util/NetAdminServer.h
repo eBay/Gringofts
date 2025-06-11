@@ -81,8 +81,8 @@ class NetAdminServer final : public AppNetAdmin::Service {
       mPrefixTruncateFailedCounter(getCounter("prefix_truncate_failed_counter", {})),
       mHotfixAppliedCounter(getCounter("hotfix_applied_counter", {})),
       mHotfixFailedCounter(getCounter("hotfix_failed_counter", {})) {
-    mIpPort = absl::StrFormat("0.0.0.0:%d", port);
-    assert(mIpPort != "UNKNOWN");
+    auto netadminPort = reader.Get("netadmin", "ip.port", "UNKNOWN");
+    mIpPort = (netadminPort == "UNKNOWN")? absl::StrFormat("0.0.0.0:%d", port) : netadminPort;
 
     mTlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
   }
