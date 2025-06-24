@@ -36,8 +36,10 @@ class ForwardCore {
   ~ForwardCore() {}
 
   void init(const INIReader &reader, const NodeId &myNodeId,
-      const ClusterInfo &clusterInfo, std::shared_ptr<DNSResolver> dnsResolver = nullptr) {
+      const ClusterInfo &clusterInfo, std::shared_ptr<DNSResolver> dnsResolver = nullptr,
+      uint32_t customPort = 0) {
     mSelfId = myNodeId;
+    mCustomPort = customPort;
     initClusterConf(clusterInfo);
     if (dnsResolver == nullptr) {
       /// use default dns resolver
@@ -78,6 +80,9 @@ class ForwardCore {
     for (auto &[nodeId, node] : nodes) {
       std::string host = node.mHostName;
       std::string port = std::to_string(node.mPortForGateway);
+      if (mCustomPort != 0) {
+        port = std::to_string(mCustomPort);
+      }
       std::string addr = host + ":" + port;
 
       if (nodeId != mSelfId) {
@@ -108,6 +113,7 @@ class ForwardCore {
   std::map<uint64_t, Peer> mPeers;
   uint64_t mSelfId;
   ClusterId mClusterId;
+  uint32_t mCustomPort = 0;
 };
 
 }  /// namespace forward
