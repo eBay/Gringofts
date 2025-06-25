@@ -38,6 +38,7 @@ class CallDataHandler {
   typedef REQ Request;
   typedef RES Response;
   typedef CMD Command_t;
+  typedef SVC Service;
   virtual grpc::Status buildResponse(const CMD &command,
                                      const std::vector<std::shared_ptr<Event>> &events,
                                      uint32_t code,
@@ -152,6 +153,8 @@ class RequestCallData final : public RequestHandle {
   void forwardResponseReply(void *response) {
     mResponse = std::move(*static_cast<Response *>(response));
     mStatus = FINISH;
+    getCounter("forward_succ_counter",
+               {{"service", Handler::Service::service_full_name()}}).increase();
     mResponder.Finish(mResponse, grpc::Status::OK, this);
   }
 
