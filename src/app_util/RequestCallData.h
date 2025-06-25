@@ -152,6 +152,8 @@ class RequestCallData final : public RequestHandle {
   void forwardResponseReply(void *response) {
     mResponse = std::move(*static_cast<Response *>(response));
     mStatus = FINISH;
+    getCounter("forward_succ_counter",
+               {{"service", Handler::Service::service_full_name()}}).increase();
     mResponder.Finish(mResponse, grpc::Status::OK, this);
   }
 
