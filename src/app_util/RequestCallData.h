@@ -38,6 +38,7 @@ class CallDataHandler {
   typedef REQ Request;
   typedef RES Response;
   typedef CMD Command_t;
+  typedef SVC Service;
   virtual grpc::Status buildResponse(const CMD &command,
                                      const std::vector<std::shared_ptr<Event>> &events,
                                      uint32_t code,
