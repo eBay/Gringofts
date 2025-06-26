@@ -20,15 +20,6 @@ limitations under the License.
 namespace gringofts {
 namespace raft {
 
-RaftReplyLoop::Task::Task() {
-  mTaskCreateTime = gringofts::TimeUtil::currentTimeInNanos();
-}
-
-RaftReplyLoop::Task::~Task() {
-  auto endTime = TimeUtil::currentTimeInNanos();
-  auto latency = (endTime - mTaskCreateTime) / 1000000.0;
-}
-
 RaftReplyLoop::RaftReplyLoop(const std::shared_ptr<RaftInterface> &raftImpl)
     : mRaftImpl(raftImpl),
       mPendingReplyGauge(gringofts::getGauge("pending_reply_queue_size", {})) {
@@ -68,6 +59,10 @@ void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
   taskPtr->events = events;
   taskPtr->code = code;
   taskPtr->message = message;
+
+  if (taskPtr->handle) {
+    taskPtr->handle->recordCommandProcessedTimeInNanos();
+  }
 
   /// write lock
   std::unique_lock<std::shared_mutex> lock(mMutex);
@@ -186,7 +181,9 @@ void RaftReplyLoop::replyTask(Task *task) {
   auto ts2InNano = TimeUtil::currentTimeInNanos();
 
   if (task->handle) {
+    task->handle->recordCommandCommittedTimeInNanos();
     task->handle->fillResultAndReply(task->events, task->code, task->message.c_str(), mRaftImpl->getLeaderHint());
+    task->handle->recordCommandRepliedTimeInNanos();
   }
 
   auto ts3InNano = TimeUtil::currentTimeInNanos();
