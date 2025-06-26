@@ -21,7 +21,7 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "../../infra/util/TimeUtil.h"
-#include "../monitor/MonitorTypes.h"
+#include "../util/MetricReporter.h"
 #include "../es/Event.h"
 
 namespace gringofts {
@@ -35,8 +35,14 @@ class RequestHandle {
   RequestHandle() = default;
 
   virtual ~RequestHandle() {
-    auto summary = getSummary("request_call_latency_in_ms", {});
-    summary.observe((TimeUtil::currentTimeInNanos() - mCommandCreateTime) / 1000000.0);
+    gringofts::MetricReporter::reportLatencyInHistogram("request_call_latency_in_ms",
+        mCommandCreateTime, TimeUtil::currentTimeInNanos());
+    gringofts::MetricReporter::reportLatencyInHistogram("request_process_latency_in_ms",
+        mCommandCreateTime, mCommandProcessedTime);
+    gringofts::MetricReporter::reportLatencyInHistogram("request_commit_latency_in_ms",
+        mCommandProcessedTime, mCommandCommittedTime);
+    gringofts::MetricReporter::reportLatencyInHistogram("request_reply_latency_in_ms",
+        mCommandCommittedTime, mCommandRepliedTime);
   }
 
   /**
@@ -94,9 +100,25 @@ class RequestHandle {
     return true;
   }
 
+  void recordCommandProcessedTimeInNanos() {
+    mCommandProcessedTime = gringofts::TimeUtil::currentTimeInNanos();
+  }
+  void recordCommandCommittedTimeInNanos() {
+    mCommandCommittedTime = gringofts::TimeUtil::currentTimeInNanos();
+  }
+  void recordCommandRepliedTimeInNanos() {
+    mCommandRepliedTime = gringofts::TimeUtil::currentTimeInNanos();
+  }
+  TimestampInNanos getCommandProcessTime() { return mCommandProcessedTime - mCommandCreateTime; }
+  TimestampInNanos getCommandCommitTime() { return mCommandCommittedTime - mCommandProcessedTime; }
+  TimestampInNanos getCommandReplyTime() { return mCommandRepliedTime - mCommandCommittedTime; }
+
  protected:
   // command create time in nanos
   TimestampInNanos mCommandCreateTime;
+  TimestampInNanos mCommandProcessedTime;
+  TimestampInNanos mCommandCommittedTime;
+  TimestampInNanos mCommandRepliedTime;
 };
 
 }  /// namespace gringofts

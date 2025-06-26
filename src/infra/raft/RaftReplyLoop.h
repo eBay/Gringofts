@@ -47,8 +47,6 @@ class RaftReplyLoop {
 
  private:
   struct Task {
-    Task();
-    ~Task();
     /// <index, term> of log entry of raft
     uint64_t index = 0;
     uint64_t term  = 0;
@@ -64,8 +62,6 @@ class RaftReplyLoop {
 
     /// 0:initial, 1:doing, 2:done
     std::atomic<uint64_t> flag = 0;
-
-    TimestampInNanos mTaskCreateTime = 0;
   };
 
   using TaskPtr = std::shared_ptr<Task>;
