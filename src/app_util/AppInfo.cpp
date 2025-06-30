@@ -14,6 +14,7 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "AppInfo.h"
+#include "../infra/monitor/MonitorTypes.h"
 
 namespace gringofts::app {
 
@@ -38,6 +39,9 @@ void AppInfo::init(const INIReader &reader) {
   appInfo.setGroupVersion(reader.GetInteger("app", "group.version", 0));
   appInfo.enableStressTest(reader.GetBoolean("app", "stress.test.enabled", false));
   appInfo.setAppVersion(reader.Get("app", "version", "v2"));
+
+  std::string clusterInfoString = appInfo.getMyClusterInfo().to_string();
+  gringofts::getGauge("configuration_version", {{"address", clusterInfoString}}).set(0);
 
   SPDLOG_INFO("Global settings: subsystem.id={}, "
               "group.id={}, "

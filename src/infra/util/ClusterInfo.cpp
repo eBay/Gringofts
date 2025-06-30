@@ -25,13 +25,20 @@ namespace gringofts {
 
 std::string ClusterInfo::to_string() const {
   std::string str;
-  for (const auto &kv : mNodes) {
-    auto idx = kv.first;
-    auto node = kv.second;
-    str += absl::StrFormat("%d@%s:%d|%d|%d|%d|%d|%d,",
-                           idx, node.mHostName,
-                           node.mPortForRaft, node.mPortForGateway, node.mPortForFetcher,
-                           node.mPortForStream, node.mPortForNetAdmin, node.mPortForScale);
+  // mClusterId
+  str += "cluster id: " + std::to_string(mClusterId) + ";";
+  // mNodes
+  if (mNodes.empty()) {
+    str += "no members";
+  } else {
+    for (const auto &kv : mNodes) {
+      auto idx = kv.first;
+      auto node = kv.second;
+      str += absl::StrFormat("%d@%s:%d|%d|%d|%d|%d|%d,",
+                            idx, node.mHostName,
+                            node.mPortForRaft, node.mPortForGateway, node.mPortForFetcher,
+                            node.mPortForStream, node.mPortForNetAdmin, node.mPortForScale);
+    }
   }
   return str;
 }
