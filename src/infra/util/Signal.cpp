@@ -27,7 +27,6 @@ SignalSlot::SignalSlot() :
     mEventQueue(std::make_unique<MpscDoubleBufferQueue<Signal::Ptr>>()),
     mRunning(true) {
   handle<EndSignal>([this](const Signal &) {
-    SPDLOG_INFO("stop event dispatcher");
     mRunning = false;
   });
   mThread = std::thread([this]() {

@@ -9,48 +9,40 @@ checkLastSuccess() {
   fi
 }
 
+set +x
 mkdir ~/temp
 
 # preparation
 apt-get update -y &&
   apt-get install -y wget tar git build-essential apt-utils &&
-  # To work around "E: The method driver /usr/lib/apt/methods/https could not be found." issue
-  apt-get install -y apt-transport-https ca-certificates &&
-  # download cmake 3.12
-  cd ~/temp && version=3.12 && build=0 &&
-  wget https://cmake.org/files/v$version/cmake-$version.$build.tar.gz &&
-  tar -xzvf cmake-$version.$build.tar.gz &&
-  mv cmake-$version.$build cmake
-# download and install clang/clang++ 6.0.1
-CLANG6=$(clang-6.0 --version | grep "6.0")
-if [ -z "$CLANG6" ]; then
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - &&
-    apt-get install -y software-properties-common &&
-    apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main" &&
-    apt-get update -y &&
-    apt-get install -y clang-6.0
-  checkLastSuccess "install clang 6.0 fails"
-else
-  echo "clang 6.0 has been installed, skip"
-fi
+  apt-get install -y apt-transport-https ca-certificates
+# download cmake
+cmake_version=3.14
+cd ~/temp && version=${cmake_version} && build=0 &&
+wget https://cmake.org/files/v$version/cmake-$version.$build.tar.gz &&
+tar -xzf cmake-$version.$build.tar.gz &&
+mv cmake-$version.$build cmake
 # download and install gcc/g++
-GCC9=$(g++-9 --version | grep "9")
+gcc9_version=9.5.0
+GCC9=$(g++-9 --version | grep ${gcc9_version})
 if [ -z "$GCC9" ]; then
   apt-get install -y software-properties-common &&
     add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
     apt-get update -y &&
     apt-get install -y gcc-9 g++-9
-  checkLastSuccess "install g++ 9 fails"
+  checkLastSuccess "install g++ ${gcc9_version} fails"
 else
-  echo "g++ 9.3 has been installed, skip"
+  echo "g++ ${gcc9_version} has been installed, skip"
 fi
 # download prometheus cpp client
+prometheus_version="1.0.0"
 apt-get install -y libcurl4-gnutls-dev &&
-  cd ~/temp && version=v0.4.2 &&
-  git clone -b $version https://github.com/jupp0r/prometheus-cpp.git &&
+  cd ~/temp &&
+  git clone -b v${prometheus_version} https://github.com/jupp0r/prometheus-cpp.git &&
   cd prometheus-cpp/ && git submodule init && git submodule update
 # download grpc and related components
-cd ~/temp && version=1.16 && build=1 &&
+grpc_version="1.16"
+cd ~/temp && version=${grpc_version} && build=1 &&
   git clone https://github.com/grpc/grpc &&
   cd grpc && git fetch --all --tags --prune &&
   git checkout tags/v$version.$build -b v$version.$build &&
@@ -60,17 +52,18 @@ apt-get install -y autoconf automake libtool curl make unzip libssl-dev
 # download and install pre-requisites for rocksdb
 apt-get install -y libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 # download rocksdb
+rocksdb_version="6.5.2"
 cd ~/temp &&
   git clone https://github.com/facebook/rocksdb.git &&
   cd rocksdb &&
-  git checkout v6.5.2 &&
+  git checkout v${rocksdb_version} &&
   git submodule update --init --recursive
 # download and install tools for code coverage
 apt-get install -y lcov
 # download and install tools required by gringofts
 apt-get install -y libcrypto++-dev &&
   apt-get install -y doxygen &&
-  apt-get install -y python=2.7* &&
+  apt-get install -y python2 &&
   apt-get install -y python-pip &&
   # Must use gcovr 3.2-1 as later version will create *.gcov files under tmp dir and remove them afterwards.
   # The consequence is we cannot upload these gcov files to sonarcube
