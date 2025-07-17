@@ -62,7 +62,7 @@ else
   cd "$DIR" || return
   git submodule add -f https://github.com/jupp0r/prometheus-cpp.git "$PROMETHEUS"
   cd "$PROMETHEUS" || return
-  git checkout v0.9.0
+  git checkout v1.0.0
   git submodule update --init --recursive
 fi
 # CodeCoverage

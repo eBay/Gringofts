@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef SRC_INFRA_UTIL_PERFCONFIG_H_
 #define SRC_INFRA_UTIL_PERFCONFIG_H_
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>

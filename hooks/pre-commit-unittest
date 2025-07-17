@@ -1,6 +1,4 @@
 #!/bin/sh
 set -e
 echo "running unit tests" &&
-  # so that lcov can find llvm-gcov.sh
-  PATH=$PATH:$(pwd)/cmake/clang-6 &&
   make gringofts_test_coverage_cobertura
