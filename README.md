@@ -67,7 +67,7 @@ This feature is especially useful when an application recovers after a crash or 
 # Get Started
 
 ## Supported Platforms
-Currently the only recommended platform is Ubuntu 22.04. We plan to support more platforms in the near future.
+Currently, the recommended platforms are Ubuntu 22.04 and macOS 15.4.1. We plan to support more platforms in the near future.
 
 ## Set up Source Dependencies
 ```bash
@@ -91,8 +91,6 @@ This approach requires minimum dependencies on the target OS as all of the depen
 1. Install external dependencies (one-time setup)
    ```bash
    sudo bash ./scripts/setupDevEnvironment.sh
-   if ! grep 'export PATH=/usr/local/go/bin:$PATH' ~/.profile; then echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.profile; fi && \
-   source ~/.profile
    ```
 1. Build binaries
    ```bash

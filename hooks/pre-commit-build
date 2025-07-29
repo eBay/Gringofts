@@ -1,7 +1,19 @@
 #!/bin/sh
 ./scripts/cleanup.sh
 set -e # exit on non-zero if build failed
-# CXX=clang++-6.0 CC=clang-6.0 cmake -DCMAKE_BUILD_TYPE=Debug && \
-CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug &&
-  echo "running cpplint" && make gringofts_check &&
-  echo "building remaining targets" && make -j4
+
+OS_TYPE=$(uname)
+
+if [ "$OS_TYPE" = "Darwin" ]; then
+  echo "Detected macOS, using clang"
+  CXX=clang++ CC=clang cmake -DCMAKE_BUILD_TYPE=Debug
+elif [ "$OS_TYPE" = "Linux" ]; then
+  echo "Detected Linux, using gcc-9"
+  CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug
+else
+  echo "Unsupported OS: $OS_TYPE"
+  exit 1
+fi
+
+echo "running cpplint" && make gringofts_check &&
+echo "building remaining targets" && make -j4
