@@ -127,6 +127,30 @@ else
   echo "RocksDB ${rocksdb_version} has been installed, skip"
 fi
 
+# install abseil-cpp
+abseil_version="20250512.1"
+ABSL=$(find /usr -name '*libabsl*')
+if [ -z "$ABSL" ]; then
+  if [[ "$OS_TYPE" == "Darwin" ]]; then
+    cd ~/temp/abseil-cpp &&
+        # explicitly set DCMAKE_CXX_STANDARD due to https://github.com/abseil/abseil-cpp/issues/218
+        cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 &&
+        make && make install
+  elif [[ "$OS_TYPE" == "Linux" ]]; then
+    cd ~/temp/abseil-cpp &&
+        # explicitly set DCMAKE_CXX_STANDARD due to https://github.com/abseil/abseil-cpp/issues/218
+        CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 &&
+        make && make install
+  else
+    echo "Unsupported OS: $OS_TYPE"
+    exit 1
+  fi
+  checkLastSuccess "install abseil-cpp ${abseil_version} fails"
+  echo -e "\033[32mabseil-cpp ${abseil_version} installed successfully.\033[0m"
+else
+  echo "abseil ${abseil_version} has been installed, skip"
+fi
+
 if [[ "$OS_TYPE" == "Darwin" ]]; then
   PROFILE="$HOME/.zshrc"
   # python
@@ -139,7 +163,6 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
   chmod o+rx -R /usr/local/include/
   # link python
   ln -s /usr/bin/python2 /usr/bin/python
-  pip2 install gcovr
 else
   echo "Unsupported OS: $OS_TYPE"
   exit 1

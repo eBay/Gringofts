@@ -44,16 +44,7 @@ else
   cd "$SPDLOG" || return
   git checkout v1.9.2
 fi
-# abseil-cpp
-ABSL="third_party/abseil-cpp"
-if [[ "$SUMMARY" == *"$ABSL"* ]]; then
-  echo "Skipping $ABSL"
-else
-  cd "$DIR" || return
-  git submodule add -f https://github.com/abseil/abseil-cpp.git "$ABSL"
-  cd "$ABSL" || return
-  git checkout 20250512.1
-fi
+
 # prometheus-cpp
 PROMETHEUS="third_party/prometheus-cpp"
 if [[ "$SUMMARY" == *"$PROMETHEUS"* ]]; then

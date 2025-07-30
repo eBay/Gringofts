@@ -108,6 +108,14 @@ cd "$HOME/temp" &&
   git submodule update --init --recursive
 echo -e "\033[32mrocksdb ${rocksdb_version} downloaded successfully.\033[0m"
 
+# download abseil
+abseil_version="20250512.1"
+cd "$HOME/temp" &&
+  git clone https://github.com/abseil/abseil-cpp.git &&
+  cd abseil-cpp &&
+  git checkout ${abseil_version}
+echo -e "\033[32mabseil-cpp ${abseil_version} downloaded successfully.\033[0m"
+
 # download and install tools for code coverage
 if [[ "$OS_TYPE" == "Darwin" ]]; then
   sudo -u "$(logname)" brew install lcov
