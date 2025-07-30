@@ -24,7 +24,7 @@ namespace forward {
 template<typename ResponseType>
 struct AsyncClientCall : public AsyncClientCallBase {
   ResponseType mResponse;
-  std::unique_ptr<grpc::ClientAsyncResponseReader<ResponseType>> mResponseReader;
+  std::unique_ptr<grpc_impl::ClientAsyncResponseReader<ResponseType>> mResponseReader;
 };
 
 template<typename StubType>

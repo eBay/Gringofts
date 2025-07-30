@@ -81,8 +81,8 @@ TEST(FileUtilTest, FileSizeTest) {
   FileUtil::deleteFile(fileName);
   auto fd = ::open(fileName.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_EXCL, 0644);
 
-  /// behavior
-  auto expected = 4096 * 6;
+  /// behavior，64MB
+  auto expected = 67108864;
   FileUtil::setFileSize(fd, expected);
   auto size = FileUtil::getFileSize(fd);
 

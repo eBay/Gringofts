@@ -89,7 +89,7 @@ void RocksDBBackedAppStateMachine::openRocksDB(const std::string &walDir,
 }
 
 void RocksDBBackedAppStateMachine::closeRocksDB(std::shared_ptr<rocksdb::DB> *dbPtr) {
-  while (!(*dbPtr).unique()) {
+  while (dbPtr->use_count() > 1) {
     usleep(1);
   }
 

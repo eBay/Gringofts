@@ -20,37 +20,7 @@ limitations under the License.
 #include <string>
 #include <unistd.h>
 
-#ifndef MAC_OS
 #include <memory_resource>
-#else
-/// LLVM doesn't support PMR right now
-/// using boost libraries
-#include <boost/container/pmr/memory_resource.hpp>
-#include <boost/container/pmr/global_resource.hpp>
-#include <boost/container/pmr/monotonic_buffer_resource.hpp>
-
-#include <boost/container/pmr/map.hpp>
-#include <boost/container/pmr/set.hpp>
-namespace std::pmr {
-using memory_resource = boost::container::pmr::memory_resource;
-using monotonic_buffer_resource = boost::container::pmr::monotonic_buffer_resource;
-
-template <class _CharT, class _Traits = char_traits<_CharT>>
-using basic_string =
-_VSTD::basic_string<_CharT, _Traits, boost::container::pmr::polymorphic_allocator<_CharT>>;
-typedef basic_string<char> string;
-
-template<class _Key, class _Value, class _Compare = less<_Key>>
-using map = boost::container::pmr::map<_Key, _Value, _Compare>;
-
-template<class _Key, class _Compare = less<_Key>>
-using set = boost::container::pmr::set<_Key, _Compare>;
-
-using boost::container::pmr::get_default_resource;
-using boost::container::pmr::new_delete_resource;
-using boost::container::pmr::null_memory_resource;
-};  // namespace std::pmr
-#endif
 
 namespace gringofts {
 
