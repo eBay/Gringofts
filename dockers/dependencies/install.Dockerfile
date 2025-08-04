@@ -1,5 +1,5 @@
 # This Dockerfile installs all the external dependencies
-# tag: gringofts/compile:v3
+# tag: gringofts/compile:v4
 FROM gringofts/dependencies:v4
 LABEL maintainer="jingyichen@ebay.com"
 WORKDIR /usr/external
