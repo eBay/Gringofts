@@ -22,7 +22,7 @@ else
   cd "$DIR" || return
   git submodule add -f https://github.com/google/googletest.git "$GTEST"
   cd "$GTEST" || return
-  git checkout 2fe3bd9
+  git checkout v1.17.0
 fi
 # inih
 INIH="third_party/inih"

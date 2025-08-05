@@ -69,7 +69,7 @@ class SetMovePointeeAction {
 
   template <typename Result, typename ArgumentTuple>
   void Perform(const ArgumentTuple& args) const {
-    internal::CompileAssertTypesEqual<void, Result>();
+    static_assert(std::is_same<void, Result>::value, "Return type must be void");
     gringofts::ReadonlyCommandEventStore::CommandEventsList& commandEventsList = *::testing::get<N>(args);
     commandEventsList = std::move(*mCommandEventsList);
   }
