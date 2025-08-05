@@ -71,7 +71,7 @@ void RaftReplyLoop::pushTask(uint64_t index, uint64_t term,
 }
 
 void RaftReplyLoop::popThreadMain() {
-  pthread_setname_np(pthread_self(), "ReplyLoop_pop");
+  pthread_setname_np_cross(pthread_self(), "ReplyLoop_pop");
 
   while (mRunning) {
     bool busy = false;
@@ -96,7 +96,7 @@ void RaftReplyLoop::popThreadMain() {
 }
 
 void RaftReplyLoop::replyThreadMain() {
-  pthread_setname_np(pthread_self(), "ReplyLoop_reply");
+  pthread_setname_np_cross(pthread_self(), "ReplyLoop_reply");
 
   while (mRunning) {
     TaskPtr taskPtr;

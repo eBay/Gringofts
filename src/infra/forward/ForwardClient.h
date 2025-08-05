@@ -117,7 +117,7 @@ class ForwardClientBase {
 
   void clientLoopMain() {
     auto peerThreadName = std::string("ForwardClient") + std::to_string(mPeerId);
-    pthread_setname_np(pthread_self(), peerThreadName.c_str());
+    pthread_setname_np_cross(pthread_self(), peerThreadName.c_str());
 
     void *tag;  /// The tag is the memory location of the call object
     bool ok = false;
@@ -151,7 +151,7 @@ class ForwardClientBase {
 
   void replyLoopMain() {
     auto peerThreadName = std::string("ForwardReply") + std::to_string(mPeerId);
-    pthread_setname_np(pthread_self(), peerThreadName.c_str());
+    pthread_setname_np_cross(pthread_self(), peerThreadName.c_str());
     while (mRunning) {
       auto call = mReplyQueue.dequeue();
       mGaugeReplyQueueSize.set(mReplyQueue.size());

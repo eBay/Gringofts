@@ -59,7 +59,7 @@ RaftServer::~RaftServer() {
 }
 
 void RaftServer::serverLoopMain() {
-  pthread_setname_np(pthread_self(), "RaftServer");
+  pthread_setname_np_cross(pthread_self(), "RaftServer");
 
   /// Spawn a new CallData instance to serve new clients.
   new RequestVoteCallData(&mService, mCompletionQueue.get(), mAeRvQueue);
@@ -179,7 +179,7 @@ void RaftClient::appendEntries(const AppendEntries::Request &request) {
 
 void RaftClient::clientLoopMain() {
   auto peerThreadName = std::string("RaftClient_") + std::to_string(mPeerId);
-  pthread_setname_np(pthread_self(), peerThreadName.c_str());
+  pthread_setname_np_cross(pthread_self(), peerThreadName.c_str());
 
   void *tag;  /// The tag is the memory location of the call object
   bool ok = false;

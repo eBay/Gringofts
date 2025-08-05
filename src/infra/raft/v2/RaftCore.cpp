@@ -239,7 +239,7 @@ RaftCore::~RaftCore() {
 }
 
 void RaftCore::raftLoopMain() {
-  pthread_setname_np(pthread_self(), "RaftMainLoop");
+  pthread_setname_np_cross(pthread_self(), "RaftMainLoop");
 
   while (running) {
     /// message interaction

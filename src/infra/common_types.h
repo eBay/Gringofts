@@ -30,9 +30,9 @@ using Id = ulong;
 using Type = ::std::int8_t;
 
 #ifdef MAC_OS
-#define pthread_setname_np(_self_, _name_) ::pthread_setname_np(_name_);
+#define pthread_setname_np_cross(_self_, _name_) ::pthread_setname_np(_name_);
 #else
-#define pthread_setname_np(_self_, _name_) ::pthread_setname_np(_self_, _name_);
+#define pthread_setname_np_cross(_self_, _name_) ::pthread_setname_np(_self_, _name_);
 #endif
 
 /**

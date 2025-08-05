@@ -149,7 +149,7 @@ void RaftLogStore::maySendBatch() {
 }
 
 void RaftLogStore::persistLoopMain() {
-  pthread_setname_np(pthread_self(), "RaftBatchThread");
+  pthread_setname_np_cross(pthread_self(), "RaftBatchThread");
 
   while (mRunning) {
     if (mPersistQueue.size() != 0) {
