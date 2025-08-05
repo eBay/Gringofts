@@ -67,7 +67,7 @@ This feature is especially useful when an application recovers after a crash or 
 # Get Started
 
 ## Supported Platforms
-Currently the only recommended platform is Ubuntu 22.04. We plan to support more platforms in the near future.
+Currently, the recommended platforms are Ubuntu 22.04 and macOS 15.4.1. We plan to support more platforms in the near future.
 
 ## Set up Source Dependencies
 ```bash
@@ -79,20 +79,18 @@ bash ./scripts/addSubmodules.sh
 This approach requires minimum dependencies on the target OS as all of the dependencies are encapsulated in a docker image.
 1. Build docker image for compiling the project (one-time setup)
    ```bash
-   sudo docker build --rm -t gringofts/dependencies:v3 -f dockers/dependencies/download.Dockerfile .
-   sudo docker build --rm -t gringofts/compile:v3 -f dockers/dependencies/install.Dockerfile .
+   sudo docker build --rm -t gringofts/dependencies:v4 -f dockers/dependencies/download.Dockerfile .
+   sudo docker build --rm -t gringofts/compile:v4 -f dockers/dependencies/install.Dockerfile .
    ```
 1. Build binaries
    ```bash
-   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v3 hooks/pre-commit
+   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v4 hooks/pre-commit
    ```
 
 ### Build directly on local OS
 1. Install external dependencies (one-time setup)
    ```bash
    sudo bash ./scripts/setupDevEnvironment.sh
-   if ! grep 'export PATH=/usr/local/go/bin:$PATH' ~/.profile; then echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.profile; fi && \
-   source ~/.profile
    ```
 1. Build binaries
    ```bash

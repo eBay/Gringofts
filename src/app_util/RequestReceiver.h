@@ -94,7 +94,7 @@ class RequestReceiver final : public Service {
     for (uint64_t i = 0; i < Concurrency; ++i) {
       mRcvThreads[i] = std::thread([this, i]() {
         std::string threadName = (std::string("RcvThread_") + std::to_string(i));
-        pthread_setname_np(pthread_self(), threadName.c_str());
+        pthread_setname_np_cross(pthread_self(), threadName.c_str());
         handleRpcs(i);
       });
     }

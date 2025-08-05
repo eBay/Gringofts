@@ -150,7 +150,7 @@ class RequestCallData final : public RequestHandle {
     mResponder.Finish(mResponse, s, this);
   }
 
-  void forwardResponseReply(void *response) {
+  void forwardResponseReply(void *response) override {
     mResponse = std::move(*static_cast<Response *>(response));
     mStatus = FINISH;
     getCounter("forward_succ_counter",
@@ -158,7 +158,7 @@ class RequestCallData final : public RequestHandle {
     mResponder.Finish(mResponse, grpc::Status::OK, this);
   }
 
-  grpc::ServerContext *getContext() {
+  grpc::ServerContext *getContext() override {
     return &mContext;
   }
 

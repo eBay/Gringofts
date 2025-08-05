@@ -58,7 +58,7 @@ void LogSyncService::setTargets(std::vector<std::string> endPoints, std::string 
 }
 
 void LogSyncService::run() {
-  pthread_setname_np(pthread_self(), "SyncLogThread");
+  pthread_setname_np_cross(pthread_self(), "SyncLogThread");
   uint64_t clientIdx = 0;
   while (mRunning) {
     if (mEndLogFlag) {

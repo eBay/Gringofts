@@ -213,8 +213,7 @@ include_directories(third_party/inih/cpp)
 
 # abseil-cpp
 set(CMAKE_CXX_STANDARD 17)
-add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
-include_directories(third_party/abseil-cpp)
+find_package(absl CONFIG REQUIRED)
 set(ABSL_LIBS absl::strings absl::base absl::str_format absl::time)
 
 # prometheus
