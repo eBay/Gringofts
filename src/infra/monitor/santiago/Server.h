@@ -27,7 +27,7 @@ class Exposer;
 namespace santiago {
 class Server {
  public:
-  explicit Server(const std::string &address = "0.0.0.0", uint16_t port = 9091);
+  explicit Server(const std::string &address = "0.0.0.0", uint16_t port = 8083);
   virtual ~Server() = default;
   void Registry(MetricsCenter &);
  private:
