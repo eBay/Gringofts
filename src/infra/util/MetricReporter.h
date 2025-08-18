@@ -28,6 +28,7 @@ class MetricReporter final {
       const std::string &metricName,
       TimestampInNanos start,
       TimestampInNanos end,
+      std::string goblin_ns,
       bool reportHistogram = true,
       bool reportDetail = false,
       bool reportLog = false) {
@@ -50,11 +51,11 @@ class MetricReporter final {
     }
     auto latency = (end - start) / 1000000.0;
     if (reportHistogram) {
-      auto histogram = gringofts::getHistogram(metricName, {}, bucketBoundaries);
+      auto histogram = gringofts::getHistogram(metricName, {{"goblin_ns", goblin_ns}}, bucketBoundaries);
       histogram.observe(latency);
     }
     if (reportDetail) {
-      auto gauge = gringofts::getGauge("detail_" + metricName, {});
+      auto gauge = gringofts::getGauge("detail_" + metricName, {{"goblin_ns", goblin_ns}});
       gauge.set(latency);
     }
     if (reportLog) {

@@ -67,17 +67,24 @@ class RequestCallData final : public RequestHandle {
   // Take in the "service" instance (in this case representing an asynchronous
   // server) and the completion queue "cq" used for asynchronous communication
   // with the gRPC runtime.
-  RequestCallData(AsyncService *service,
-                  ::grpc::ServerCompletionQueue *cq,
-                  BlockingQueue<std::shared_ptr<Command>> &commandQueue,  // NOLINT(runtime/references)
+  RequestCallData(AsyncService *service, ::grpc::ServerCompletionQueue *cq,
+                  BlockingQueue<std::shared_ptr<Command>>
+                      &commandQueue, // NOLINT(runtime/references)
                   const BlackList<Request> *blackList)
       : mService(service), mCompletionQueue(cq), mStatus(CREATE),
-        mCommandQueue(commandQueue), mResponder(&mContext), mBlackList(blackList) {
+        mCommandQueue(commandQueue), mResponder(&mContext),
+        mBlackList(blackList) {
     // Invoke the serving logic right away.
     proceed();
   }
 
-  virtual ~RequestCallData() = default;
+  ~RequestCallData() override {
+    reportLatency();
+  }
+
+  std::string getRequestNamespace() const override {
+    return mRequest.header().namespace_();
+  }
 
   void proceed() override {
     if (mStatus == CREATE) {

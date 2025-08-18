@@ -31,6 +31,7 @@ class RequestHandleMock : public RequestHandle {
       uint32_t,
       const std::string&,
       std::optional<uint64_t>));
+  MOCK_METHOD(std::string, getRequestNamespace, (), (const, override));
 };
 
 TEST(RequestHandleTest, ValidateTestTag) {

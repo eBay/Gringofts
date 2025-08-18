@@ -21,8 +21,8 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "../../infra/util/TimeUtil.h"
-#include "../util/MetricReporter.h"
 #include "../es/Event.h"
+#include "../util/MetricReporter.h"
 
 namespace gringofts {
 
@@ -34,16 +34,18 @@ class RequestHandle {
  public:
   RequestHandle() = default;
 
-  virtual ~RequestHandle() {
+  void reportLatency() const {
     gringofts::MetricReporter::reportLatencyInHistogram("request_call_latency_in_ms",
-        mCommandCreateTime, TimeUtil::currentTimeInNanos());
+        mCommandCreateTime, TimeUtil::currentTimeInNanos(), getRequestNamespace());
     gringofts::MetricReporter::reportLatencyInHistogram("request_process_latency_in_ms",
-        mCommandCreateTime, mCommandProcessedTime);
+        mCommandCreateTime, mCommandProcessedTime, getRequestNamespace());
     gringofts::MetricReporter::reportLatencyInHistogram("request_commit_latency_in_ms",
-        mCommandProcessedTime, mCommandCommittedTime);
+        mCommandProcessedTime, mCommandCommittedTime, getRequestNamespace());
     gringofts::MetricReporter::reportLatencyInHistogram("request_reply_latency_in_ms",
-        mCommandCommittedTime, mCommandRepliedTime);
+        mCommandCommittedTime, mCommandRepliedTime, getRequestNamespace());
   }
+
+  virtual ~RequestHandle() = default;
 
   /**
    * Wrap the request handling logic
@@ -72,6 +74,8 @@ class RequestHandle {
   virtual void forwardResponseReply(void *response) = 0;
 
   virtual grpc::ServerContext *getContext() = 0;
+
+  virtual std::string getRequestNamespace() const = 0;
 
   /**
    * Validate if this is a valid test
