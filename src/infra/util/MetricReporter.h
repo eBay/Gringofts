@@ -28,7 +28,7 @@ class MetricReporter final {
       const std::string &metricName,
       TimestampInNanos start,
       TimestampInNanos end,
-      std::string goblin_ns,
+      std::string goblin_ns = "",
       bool reportHistogram = true,
       bool reportDetail = false,
       bool reportLog = false) {
