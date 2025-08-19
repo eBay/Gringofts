@@ -69,7 +69,7 @@ class RequestCallData final : public RequestHandle {
   // with the gRPC runtime.
   RequestCallData(AsyncService *service, ::grpc::ServerCompletionQueue *cq,
                   BlockingQueue<std::shared_ptr<Command>>
-                      &commandQueue, // NOLINT(runtime/references)
+                      &commandQueue,  // NOLINT(runtime/references)
                   const BlackList<Request> *blackList)
       : mService(service), mCompletionQueue(cq), mStatus(CREATE),
         mCommandQueue(commandQueue), mResponder(&mContext),
