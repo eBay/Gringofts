@@ -19,7 +19,6 @@ limitations under the License.
 
 #include "AppInfo.h"
 #include "generated/grpc/scale.grpc.pb.h"
-#include "../app_demo/generated/grpc/demo.pb.h"
 #include "../infra/grpc/RequestHandle.h"
 #include "../infra/es/Command.h"
 #include "../infra/util/HttpCode.h"
@@ -58,6 +57,19 @@ class CallDataHandler {
       const REQ &request, TimestampInNanos createdTime) = 0;
 };
 
+namespace detail {
+
+// check if Request have req.header().namespace_()
+template<class T, class = void>
+struct has_header_namespace : std::false_type {};
+
+template<class T>
+struct has_header_namespace<T,
+  std::void_t<decltype(std::declval<const T&>().header().namespace_())>
+> : std::true_type {};
+
+} // namespace detail
+
 template<typename Handler>
 class RequestCallData final : public RequestHandle {
  public:
@@ -84,10 +96,11 @@ class RequestCallData final : public RequestHandle {
   }
 
   std::string getRequestNamespace() const override {
-    if constexpr (std::is_same_v<Request, gringofts::demo::protos::IncreaseRequest>) {
-      return {};
-    } else {
+    using ReqT = std::decay_t<Request>;
+    if constexpr (detail::has_header_namespace<ReqT>::value) {
       return std::string(mRequest.header().namespace_());
+    } else {
+      return {};
     }
   }
 
