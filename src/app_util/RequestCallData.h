@@ -68,7 +68,7 @@ struct has_header_namespace<T,
   std::void_t<decltype(std::declval<const T&>().header().namespace_())>
 > : std::true_type {};
 
-} // namespace detail
+}  // namespace detail
 
 template<typename Handler>
 class RequestCallData final : public RequestHandle {
