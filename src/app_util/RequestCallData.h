@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "AppInfo.h"
 #include "generated/grpc/scale.grpc.pb.h"
+#include "../app_demo/generated/grpc/demo.pb.h"
 #include "../infra/grpc/RequestHandle.h"
 #include "../infra/es/Command.h"
 #include "../infra/util/HttpCode.h"
@@ -83,7 +84,11 @@ class RequestCallData final : public RequestHandle {
   }
 
   std::string getRequestNamespace() const override {
-    return mRequest.header().namespace_();
+    if constexpr (std::is_same_v<Request, gringofts::demo::protos::IncreaseRequest>) {
+      return {};
+    } else {
+      return std::string(mRequest.header().namespace_());
+    }
   }
 
   void proceed() override {

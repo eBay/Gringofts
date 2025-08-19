@@ -23,14 +23,12 @@ namespace gringofts::test {
 
 class RequestHandleMock : public RequestHandle {
  public:
-  MOCK_METHOD0(proceed, void());
-  MOCK_METHOD0(failOver, void());
-  MOCK_METHOD1(forwardResponseReply, void(void *));
-  MOCK_METHOD0(getContext, grpc::ServerContext*());
-  MOCK_METHOD3(fillResultAndReply, void(
-      uint32_t,
-      const std::string&,
-      std::optional<uint64_t>));
+  MOCK_METHOD(void, proceed, (), (override));
+  MOCK_METHOD(void, failOver, (), (override));
+  MOCK_METHOD(void, forwardResponseReply, (void *), (override));
+  MOCK_METHOD(grpc::ServerContext*, getContext, (), (override));
+  MOCK_METHOD(void, fillResultAndReply,
+    (uint32_t, const std::string&, std::optional<uint64_t>), (override));
   MOCK_METHOD(std::string, getRequestNamespace, (), (const, override));
 };
 
