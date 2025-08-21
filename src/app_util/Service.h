@@ -44,7 +44,7 @@ class RunnableService : public Service {
 
   void start() override {
     mThread = std::thread([this]() {
-      pthread_setname_np(pthread_self(), "Service");
+      pthread_setname_np_cross(pthread_self(), "Service");
       mImpl.run();
     });
   }

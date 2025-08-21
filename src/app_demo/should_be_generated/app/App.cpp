@@ -207,14 +207,14 @@ void App::startRequestReceiver() {
 
 void App::startNetAdminServer() {
   mNetAdminServerThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "NetAdmin");
+    pthread_setname_np_cross(pthread_self(), "NetAdmin");
     mNetAdminServer->run();
   });
 }
 
 void App::startProcessCommandLoop() {
   mCommandProcessLoopThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "CommandProcLoop");
+    pthread_setname_np_cross(pthread_self(), "CommandProcLoop");
     switch (mDeploymentMode) {
       case DeploymentMode::Standalone:mCommandProcessLoop->run();
         break;
@@ -226,21 +226,21 @@ void App::startProcessCommandLoop() {
 
 void App::startEventApplyLoop() {
   mEventApplyLoopThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "EventApplyLoop");
+    pthread_setname_np_cross(pthread_self(), "EventApplyLoop");
     mEventApplyLoop->run();
   });
 }
 
 void App::startPersistLoop() {
   mPersistLoopThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "CmdEvtStoreMain");
+    pthread_setname_np_cross(pthread_self(), "CmdEvtStoreMain");
     mCommandEventStore->run();
   });
 }
 
 void App::startPostServerLoop() {
   mPostServerThread = std::thread([this]() {
-    pthread_setname_np(pthread_self(), "PostServerMain");
+    pthread_setname_np_cross(pthread_self(), "PostServerMain");
     if (mPostServer != nullptr) {
       mPostServer->run();
     }

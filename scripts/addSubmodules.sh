@@ -22,7 +22,7 @@ else
   cd "$DIR" || return
   git submodule add -f https://github.com/google/googletest.git "$GTEST"
   cd "$GTEST" || return
-  git checkout 2fe3bd9
+  git checkout v1.17.0
 fi
 # inih
 INIH="third_party/inih"
@@ -42,18 +42,9 @@ else
   cd "$DIR" || return
   git submodule add -f https://github.com/gabime/spdlog.git "$SPDLOG"
   cd "$SPDLOG" || return
-  git checkout 10578ff
+  git checkout v1.9.2
 fi
-# abseil-cpp
-ABSL="third_party/abseil-cpp"
-if [[ "$SUMMARY" == *"$ABSL"* ]]; then
-  echo "Skipping $ABSL"
-else
-  cd "$DIR" || return
-  git submodule add -f https://github.com/abseil/abseil-cpp.git "$ABSL"
-  cd "$ABSL" || return
-  git checkout 20190808
-fi
+
 # prometheus-cpp
 PROMETHEUS="third_party/prometheus-cpp"
 if [[ "$SUMMARY" == *"$PROMETHEUS"* ]]; then

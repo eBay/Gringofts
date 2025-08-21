@@ -20,7 +20,7 @@ limitations under the License.
 
 class MetricsCenterTest : public ::testing::Test {};
 
-decltype(auto) FirstMetrics(std::shared_ptr<prometheus::Registry> ptr) {
+auto FirstMetrics(std::shared_ptr<prometheus::Registry> ptr) {
   return ptr->Collect()[0].metric[0];
 }
 

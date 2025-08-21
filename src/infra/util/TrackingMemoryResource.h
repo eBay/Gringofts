@@ -15,16 +15,8 @@ limitations under the License.
 #ifndef SRC_INFRA_UTIL_TRACKINGMEMORYRESOURCE_H_
 #define SRC_INFRA_UTIL_TRACKINGMEMORYRESOURCE_H_
 
-#ifndef MAC_OS
+
 #include <memory_resource>
-#else
-#include <boost/container/pmr/memory_resource.hpp>
-#include <boost/container/pmr/global_resource.hpp>
-namespace std::pmr {
-using memory_resource = boost::container::pmr::memory_resource;
-using boost::container::pmr::get_default_resource;
-};
-#endif
 #include <string>
 
 namespace gringofts {

@@ -222,7 +222,7 @@ bool ReadonlyRaftCommandEventStore::isLeader() const {
 }
 
 void ReadonlyRaftCommandEventStore::loadEntriesThreadMain() {
-  pthread_setname_np(pthread_self(), "CES_Load");
+  pthread_setname_np_cross(pthread_self(), "CES_Load");
   while (mRunning) {
     uint64_t queueSize = 0;
 
@@ -301,7 +301,7 @@ void ReadonlyRaftCommandEventStore::decryptEntries(std::vector<raft::LogEntry> *
 }
 
 void ReadonlyRaftCommandEventStore::decryptEntriesThreadMain() {
-  pthread_setname_np(pthread_self(), "CES_Decrypt");
+  pthread_setname_np_cross(pthread_self(), "CES_Decrypt");
 
   while (mRunning) {
     TaskPtr taskPtr;

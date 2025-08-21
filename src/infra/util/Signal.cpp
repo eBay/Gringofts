@@ -43,7 +43,7 @@ void SignalSlot::dispatch(Signal::Ptr signal) {
 }
 
 void SignalSlot::run() {
-  pthread_setname_np(pthread_self(), "signal_dispatch");
+  pthread_setname_np_cross(pthread_self(), "signal_dispatch");
   while (mRunning) {
     auto signalPtr = mEventQueue->dequeue();
     auto &signal = *signalPtr;

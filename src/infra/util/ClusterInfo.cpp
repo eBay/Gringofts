@@ -74,6 +74,9 @@ bool ClusterInfo::checkHasRoute(const std::string &routeStr, uint64_t clusterId,
   } catch (const std::exception &err) {
     SPDLOG_ERROR("error when parse json {} for {}", routeStr, err.what());
     return false;
+  } catch (...) {
+    SPDLOG_ERROR("error when parse json {}, unknown error", routeStr);
+    return false;
   }
 }
 
