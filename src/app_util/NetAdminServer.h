@@ -286,11 +286,6 @@ class NetAdminServer final : public AppNetAdmin::Service {
   Status GetAppliedCreatedTime(ServerContext *context,
                         const GetAppliedCreatedTime_Request *request,
                         GetAppliedCreatedTime_Response *reply) override {
-    if (mServiceProvider->lastAppliedLogCreateTime() == 0) {
-      reply->mutable_status()->set_code(404);
-      reply->mutable_status()->set_error_message("no log applied");
-      return Status::OK;
-    }
     reply->mutable_status()->set_code(200);
     reply->set_is_leader(mServiceProvider->isLeader());
     reply->set_created_time_in_nanos(mServiceProvider->lastAppliedLogCreateTime());
@@ -341,11 +336,6 @@ class NetAdminServer final : public AppNetAdmin::Service {
   Status GetAppliedIndex(ServerContext *context,
                         const GetAppliedIndex_Request *request,
                         GetAppliedIndex_Response *reply) override {
-    if (mServiceProvider->lastApplied() == 0) {
-      reply->mutable_status()->set_code(404);
-      reply->mutable_status()->set_error_message("no log applied");
-      return Status::OK;
-    }
     reply->mutable_status()->set_code(200);
     reply->set_is_leader(mServiceProvider->isLeader());
     reply->set_applied_index(mServiceProvider->lastApplied());
