@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package gringofts.app.protos;
+import "route.proto";
+
+message Scale {
+  message SplitRequest {
+    uint64 epoch = 1;
+    string planId = 2;
+    repeated Impact impacts = 3;
+  }
+  message ResponseHeader {
+    uint32 code = 1;      // 200 and 201 for ok, 400 for client error, 102, 301 and 503 for PU not available
+    string message = 2;   // message info returned by PU
+    string reserved = 3;  // leaderHint
+  }
+
+  message SplitResponse {
+    ResponseHeader header = 1;
+    uint64 tagCommitIndex = 2;
+  }
+}
+
+message Reconfigure {
+  message ClusterHint {
+    string leaderIp = 1;  // leaderIp
+  }
+  message ResponseHeader {
+    uint32 code = 1;      // 200 for success, 301 for not leader, 400 for client field error
+    string message = 2;   // message info returned by PU
+    string reserved = 3;  // leaderHint
+    ClusterHint clusterHint = 4;
+  }
+
+  message Request {
+    uint64 version = 1;                      // configuration version, must be current version + 1
+    ClusterConfiguration configuration = 2;  // raft cluster configuration to use
+  }
+
+  message Response {
+    ResponseHeader header = 1;
+    uint64 reconfigureCommitIndex = 2;        // return the commitIndex of this request
+  }
+}
+
+// The original purpose of this service was to handle scale requst. But now its responsibility is enlarged.
+// Its scope covers handling all control requests.
+// The service name keeps unchanged because so many docs, codes, and codes in other apps are using name `scale`.
+
+service ScaleService {
+  rpc scale(Scale.SplitRequest) returns (Scale.SplitResponse) {}
+  rpc reconfigure(Reconfigure.Request) returns (Reconfigure.Response) {}
+}
+

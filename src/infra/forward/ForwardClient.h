@@ -73,6 +73,7 @@ class ForwardClientBase {
       SPDLOG_WARN("ForwardClient for {} is nullptr", mPeerId);
       return false;
     }
+    // use lowercase letters(a-z), digits(0-9), hyphen(-) and underscores(_) in header key
     call->mContext.AddMetadata(kReqSource, kForwardReqSource);
     call->mContext.AddMetadata(kClusterId, std::to_string(mClusterId));
     call->mForwardRquestTime = TimeUtil::currentTimeInNanos();
@@ -174,15 +175,14 @@ class ForwardClientBase {
   std::shared_ptr<DNSResolver> mDNSResolver;
   ClusterId mClusterId;
   uint64_t mPeerId = 0;
+  uint64_t mClientId;
+  mutable santiago::MetricsCenter::GaugeType mGaugeReplyQueueSize;
 
   /// flag that notify thread to quit
   std::atomic<bool> mRunning = true;
   std::thread mClientLoop;
   std::thread mReplyLoop;
   BlockingQueue<AsyncClientCallBase*> mReplyQueue;
-  uint64_t mClientId;
-
-  mutable santiago::MetricsCenter::GaugeType mGaugeReplyQueueSize;
 };
 
 }  /// namespace forward

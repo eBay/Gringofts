@@ -18,7 +18,7 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "AppInfo.h"
-#include "generated/grpc/scale.grpc.pb.h"
+#include "generated/grpc/ctrl.grpc.pb.h"
 #include "../infra/grpc/RequestHandle.h"
 #include "../infra/es/Command.h"
 #include "../infra/util/HttpCode.h"
