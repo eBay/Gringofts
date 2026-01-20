@@ -13,10 +13,51 @@ message Impact {
   bool newCluster = 3; // indicate this cluster is new cluster or not
 }
 
+enum InitialRaftRole {
+  Voter = 0;                                 // Initial voter means start up as follower
+  Learner = 1;
+  PreFollower = 2;
+}
+
+message Member {
+  uint32 id = 1;                             // unique Id of the member, not need to be continuous or start from 1
+  string address = 2;                        // address(udns) of the member
+  uint32 port = 3;                           // port of raft service
+  bool isLearner = 4 [deprecated = true];    // true for learner, false for voter(follower, candidate, leader)
+  InitialRaftRole role = 5;                  // the initial raft role by the config
+}
+
+// the member ids for the old cluster and the new cluster
+// e.g. oldMemberIds: 1,2,3,4,5; newMemberIds: 6,7,8,9,10
+message JointMember {
+  repeated uint32 oldMemberIds = 1;  // member ids of the old cluster
+  repeated uint32 newMemberIds = 2;  // member ids of the new cluster
+}
+
+message MemberSwitchLag {
+  uint32 id = 1;         // unique Id of the member, not need to be continuous or start from 1
+  uint64 switchLag = 2;  // switch lag of the member
+}
+
+message ClusterConfiguration {
+  uint64 clusterId = 1;                // which cluster's configuration
+  repeated Member members = 2;         // all members of the cluster
+  JointMember jointMembers = 3;        // joint status of the cluster, only used during the joint-consensus Cold&Cnew
+                                       // status. All members are considered as one cluster if jointMembers is empty.
+  repeated uint32 inSyncLearners = 4;  // leader should took the majority index of in-sync learners into consideration
+                                       // when advancing commitIndex, prepare for joint-consensus
+}
+
+// The responsibility of this message is enlarged. It not only contains split state, but also other states of PU.
 message SplitState {
+  // split state:
   repeated Route routes = 1;
   uint64 epoch = 2;
   string planId = 3;
   uint64 clusterId = 4;
   uint64 startIndex = 5;
+  // Raft cluster configuration:
+  uint64 clusterVersion = 7;
+  ClusterConfiguration clusterConfiguration = 8;
+  uint64 clusterReconfigureIndex = 9;  // raft index of the reconfigure command
 }

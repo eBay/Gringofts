@@ -26,6 +26,12 @@ using gringofts::app::ctrl::CtrlState;
 
 class AppStateMachine : public gringofts::ProcessCommandStateMachine {
  public:
+  enum AppStateMachineType : uint64_t {
+    UNDIFINED_STATE_MACHINE_TYPE = 0,
+    EAL_STATE_MACHINE = 1,
+    CPL_STATE_MACHINE = 2,
+  };
+
   AppStateMachine() = default;
 
   // disallow copy ctor and copy assignment
@@ -63,11 +69,22 @@ class AppStateMachine : public gringofts::ProcessCommandStateMachine {
     return ProcessHint{503, "Cannot find command processor for " + std::to_string(command.getType())};
   }
 
+  bool isAppStateMachineForEAL() const {
+    return mType == EAL_STATE_MACHINE;
+  }
+
   StateMachine &applyEvent(const Event &event) override {
     if (ctrl::isCtrlEvent(event.getType())) {
       SPDLOG_INFO("ctrl event is applying");
-      dynamic_cast<const ctrl::CtrlEvent &>(event).apply(&mCtrlState);
+      auto &ctrlEvent = dynamic_cast<const ctrl::CtrlEvent &>(event);
+      // apply to ctrl state in memory
+      ctrlEvent.apply(&mCtrlState);
+      // save ctrl state to persistent storage
       setCtrlState(mCtrlState);
+      // notify others that the event has been persisted and applied
+      if (isAppStateMachineForEAL()) {
+        ctrlEvent.onApplied();
+      }
       return *this;
     }
     const auto entry = mEventApplierMap.find(event.getType());
@@ -98,6 +115,7 @@ class AppStateMachine : public gringofts::ProcessCommandStateMachine {
 
  protected:
   CtrlState mCtrlState;
+  AppStateMachineType mType = UNDIFINED_STATE_MACHINE_TYPE;
 
  private:
   std::unordered_map<Type, CommandProcessor> mCommandProcessorMap;

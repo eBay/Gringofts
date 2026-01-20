@@ -11,52 +11,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 **************************************************************************/
 
-#ifndef SRC_APP_UTIL_CONTROL_SPLIT_SPLITCOMMAND_H_
-#define SRC_APP_UTIL_CONTROL_SPLIT_SPLITCOMMAND_H_
-
+#ifndef SRC_APP_UTIL_CONTROL_RECONFIGURE_RECONFIGURECOMMAND_H_
+#define SRC_APP_UTIL_CONTROL_RECONFIGURE_RECONFIGURECOMMAND_H_
 
 #include "../CtrlCommandEvent.h"
-#include "../../generated/grpc/ctrl.pb.h"
 
-namespace gringofts::app::ctrl::split {
+namespace gringofts::app::ctrl::reconfigure {
 
-const Type SPILT_COMMAND = 101;
+const Type RECONFIGURE_COMMAND = 103;
 
-/**
- * This is the command for execution plan.  For now, it support protobuf
- * for journal and account request. But for execution plans which has predicates,
- * the protobuf does not work yet.
- */
-class SplitCommand : public CtrlCommand {
+class ReconfigureCommand : public CtrlCommand {
  public:
-  using Request = protos::Scale::SplitRequest;
-  SplitCommand(TimestampInNanos createdTimeInNanos, const Request &request)
-      : CtrlCommand(SPILT_COMMAND, createdTimeInNanos), mRequest(request) {
-  }
-
-  SplitCommand(TimestampInNanos createdTimeInNanos, const std::string_view &requestStr)
-      : CtrlCommand(SPILT_COMMAND, createdTimeInNanos) {
+  using Request = protos::Reconfigure::Request;
+  ReconfigureCommand(TimestampInNanos createdTimeInNanos, const Request &request)
+      : CtrlCommand(RECONFIGURE_COMMAND, createdTimeInNanos), mRequest(request) {}
+  ReconfigureCommand(TimestampInNanos createdTimeInNanos, const std::string_view &requestStr)
+      : CtrlCommand(RECONFIGURE_COMMAND, createdTimeInNanos) {
     decodeFromString(std::string(requestStr));
   }
 
-  std::string_view dedupId() const override { return mRequest.planid(); }
-
   std::string encodeToString() const override { return mRequest.SerializeAsString(); }
-
-  std::optional<std::string> specialTag() const override { return mRequest.planid(); }
-
   void decodeFromString(std::string_view encodedString) override {
     mRequest.ParseFromString(std::string(encodedString));
   }
 
-  std::string verifyCommand() const override;
+  std::optional<std::string> specialTag() const override { return std::to_string(mRequest.version()); }
 
+  std::string verifyCommand() const override;
   ProcessHint process(const CtrlState &state, std::vector<std::shared_ptr<Event>> *events) const override;
 
  private:
   Request mRequest;
 };
+}  // namespace gringofts::app::ctrl::reconfigure
 
-}  // namespace gringofts::app::ctrl::split
-
-#endif  // SRC_APP_UTIL_CONTROL_SPLIT_SPLITCOMMAND_H_
+#endif  // SRC_APP_UTIL_CONTROL_RECONFIGURE_RECONFIGURECOMMAND_H_
