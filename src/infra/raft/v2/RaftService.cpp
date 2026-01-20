@@ -102,7 +102,7 @@ RaftClient::RaftClient(const std::string &peerAddress,
     mAeRvQueue(aeRvQueue),
     mRpcAppendEntriesTimeoutInMillis(rpcAppendEntriesTimeoutInMillis),
     mRpcRequestVoteTimeoutInMillis(rpcRequestVoteTimeoutInMillis) {
-  refressChannel();
+  refreshChannel();
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
 }
@@ -124,7 +124,7 @@ RaftClient::~RaftClient() {
   while (mCompletionQueue.Next(&tag, &ok)) { ; }
 }
 
-void RaftClient::refressChannel() {
+void RaftClient::refreshChannel() {
   grpc::ChannelArguments chArgs;
   chArgs.SetMaxReceiveMessageSize(INT_MAX);
   chArgs.SetInt("grpc.testing.fixed_reconnect_backoff_ms", 100);
@@ -202,8 +202,8 @@ void RaftClient::clientLoopMain() {
                   call->mStatus.error_details());
 
       /// collect gRpc error code metrics
-      getCounter("grpc_error_counter", {{"error_code", std::to_string(call->mStatus.error_code())}});
-      refressChannel();
+      getCounter("grpc_error_counter", {{"error_code", std::to_string(call->mStatus.error_code())}}).increase();
+      refreshChannel();
     }
 
     /// enqueue event

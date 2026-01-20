@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 **************************************************************************/
 
-#include "ScaleReceiver.h"
+#include "CtrlReceiver.h"
 
 namespace gringofts::app::ctrl {
 
@@ -50,4 +50,41 @@ std::shared_ptr<SplitCommand> SplitCallDataHandler::buildCommand(const SplitRequ
   command->setGroupVersion(app::AppInfo::groupVersion());
   return command;
 }
+
+grpc::Status ReconfigureCallDataHandler::buildResponse(const ReconfigureCommand &command,
+                                                 const std::vector<std::shared_ptr<gringofts::Event>> &events,
+                                                 uint32_t code,
+                                                 const std::string &message,
+                                                 std::optional<uint64_t> leaderId,
+                                                 ReconfigureResponse *response) {
+  protos::Reconfigure::ResponseHeader *header = response->mutable_header();
+  header->set_code(code);
+  response->set_reconfigurecommitindex(command.getId());
+  if (code == 301 && leaderId) {
+    header->set_reserved(std::to_string(*leaderId));
+    const gringofts::ClusterInfo &clusterInfo = gringofts::app::AppInfo::getMyClusterInfo();
+    const auto &nodesMap = clusterInfo.getAllNodeInfo();
+  }
+  header->set_message(message);
+  return grpc::Status::OK;
+}
+
+void ReconfigureCallDataHandler::request(ScaleService::AsyncService *service,
+                                   ::grpc::ServerContext *context,
+                                   ReconfigureRequest *request,
+                                   ::grpc::ServerAsyncResponseWriter<ReconfigureResponse> *responser,
+                                   ::grpc::ServerCompletionQueue *completionQueue,
+                                   void *tag) {
+  service->Requestreconfigure(context, request, responser, completionQueue, completionQueue, tag);
+}
+
+std::shared_ptr<ReconfigureCommand> ReconfigureCallDataHandler::buildCommand(const ReconfigureRequest &request,
+                                                                             TimestampInNanos createdTime) {
+  auto command = std::make_shared<ReconfigureCommand>(createdTime, request);
+  command->setCreatorId(app::AppInfo::subsystemId());
+  command->setGroupId(app::AppInfo::groupId());
+  command->setGroupVersion(app::AppInfo::groupVersion());
+  return command;
+}
+
 }  // namespace gringofts::app::ctrl

@@ -50,7 +50,8 @@ struct RaftEventBase {
     AppendEntriesRequest = 3,
     AppendEntriesResponse = 4,
     ClientRequest = 5,
-    SyncRequest = 6
+    SyncRequest = 6,
+    ReconfigureRequest = 7
   };
 
   Type mType = Type::Unknown;
@@ -277,7 +278,7 @@ class RaftClient {
   void appendEntries(const AppendEntries::Request &request);
 
  private:
-  void refressChannel();
+  void refreshChannel();
   /// thread function of mClientLoop.
   void clientLoopMain();
 
@@ -310,6 +311,7 @@ using RequestVoteResponseEvent = RaftEvent<std::unique_ptr<RequestVoteClientCall
 
 using ClientRequestsEvent = RaftEvent<ClientRequests>;
 using SyncRequestsEvent = RaftEvent<SyncRequest>;
+using ReconfigureRequestEvent = RaftEvent<ReconfigureRequest>;
 
 }  /// namespace v2
 }  /// namespace raft

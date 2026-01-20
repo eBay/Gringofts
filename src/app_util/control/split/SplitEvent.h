@@ -14,7 +14,7 @@ limitations under the License.
 #ifndef SRC_APP_UTIL_CONTROL_SPLIT_SPLITEVENT_H_
 #define SRC_APP_UTIL_CONTROL_SPLIT_SPLITEVENT_H_
 
-#include "../../generated/grpc/scale.pb.h"
+#include "../../generated/grpc/ctrl.pb.h"
 #include "../CtrlCommandEvent.h"
 #include "../CtrlState.h"
 

@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "../infra/common_types.h"
 #include "../infra/util/ClusterInfo.h"
+#include "../infra/raft/RaftInterface.h"
 
 namespace gringofts {
 namespace app {
@@ -32,7 +33,8 @@ class AppInfo final {
     getInstance().initialized = false;
   }
 
-  static void init(const INIReader &reader);
+  static void init(const INIReader &reader, uint64_t clusterVersionFromState = 0,
+                   const ClusterInfo &clusterInfoFromState = ClusterInfo());
 
   /// disallow copy ctor and copy assignment
   AppInfo(const AppInfo &) = delete;
@@ -45,7 +47,13 @@ class AppInfo final {
   static std::string appVersion() { return getInstance().mAppVersion; }
 
   static ClusterInfo getMyClusterInfo() {
+    std::shared_lock lock(getInstance().mMutex);
     return getInstance().mAllClusterInfo[getInstance().mMyClusterId];
+  }
+
+  static uint64_t getClusterVersion() {
+    std::shared_lock lock(getInstance().mMutex);
+    return getInstance().mClusterVersion;
   }
 
   static ClusterInfo::Node getMyNode() {
@@ -54,6 +62,7 @@ class AppInfo final {
   }
 
   static std::optional<ClusterInfo> getClusterInfo(uint64_t clusterId) {
+    std::shared_lock lock(getInstance().mMutex);
     if (getInstance().mAllClusterInfo.count(clusterId)) {
       return getInstance().mAllClusterInfo[clusterId];
     } else {
@@ -64,13 +73,54 @@ class AppInfo final {
 
   static ClusterId getMyClusterId() { return getInstance().mMyClusterId; }
 
+  static void setClusterInfo(uint64_t clusterVersion, NodeId nodeId, const ClusterInfo &clusterInfo) {
+    assert(getMyClusterId() == clusterInfo.getClusterId());  // cluster id cannot be changed
+    assert(clusterVersion > getClusterVersion());            // version should be increased
+    SPDLOG_INFO("AppInfo receive reconfiguration, selfId: {}, version: {}, cluster configuration: {}",
+                nodeId, clusterVersion, clusterInfo.to_string());
+    SPDLOG_INFO("AppInfo's old reconfiguration, selfId: {}, version: {}, cluster configuration: {}",
+                getMyNodeId(), getClusterVersion(), getMyClusterInfo().to_string());
+    if (nodeId == kUnknownNodeId) {
+      SPDLOG_INFO("node id is unknown({}). exiting...", nodeId);
+      assert(0);
+    }
+    std::unique_lock lock(getInstance().mMutex);
+    getInstance().mClusterVersion = clusterVersion;
+    getInstance().mAllClusterInfo[clusterInfo.getClusterId()] = clusterInfo;
+
+    std::string clusterInfoString = clusterInfo.to_string();
+    getGauge("configuration_version", {{"address", clusterInfoString}}).set(clusterVersion);
+  }
+
+  static raft::RaftRole getMyInitRaftRole() {
+    assert(getInstance().initialized);
+
+    raft::RaftRole role;
+    const auto& initialRoleMap = getMyClusterInfo().getAllInitialRoles();
+    const auto iter = initialRoleMap.find(getMyNodeId());
+    if (iter == initialRoleMap.end()) {
+      SPDLOG_INFO("cluster is 0, and node default role not set, will start with follower role");
+      role = raft::RaftRole::Follower;
+    } else if (iter->second == protos::InitialRaftRole::Learner) {
+      SPDLOG_INFO("cluster is 0, and node is learner, will start with learner role");
+      role = raft::RaftRole::Learner;
+    } else if (iter->second == protos::InitialRaftRole::PreFollower) {
+      SPDLOG_INFO("cluster is 0, and node is pre-follower, will start with pre-follower role");
+      role = raft::RaftRole::PreFollower;
+    } else {
+      SPDLOG_INFO("cluster is 0, and node is voter, will start with follower role");
+      role = raft::RaftRole::Follower;
+    }
+    return role;
+  }
+
   static Port netAdminPort() {
     auto node = getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
     return node.mPortForNetAdmin;
   }
 
-  static Port scalePort() {
-    return getMyNode().mPortForScale;
+  static Port ctrlPort() {
+    return getMyNode().mPortForCtrl;
   }
 
   static Port gatewayPort() {
@@ -123,7 +173,9 @@ class AppInfo final {
   /**
    * Cluster Info
    */
+  mutable std::shared_mutex mMutex;  // protect mAllClusterInfo, mClusterVersion
   std::map<ClusterId, ClusterInfo> mAllClusterInfo;
+  uint64_t mClusterVersion = 0;      // verion of mAllClusterInfo
   ClusterId mMyClusterId;
   NodeId mMyNodeId;
 };

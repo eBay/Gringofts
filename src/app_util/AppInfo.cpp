@@ -14,11 +14,10 @@ limitations under the License.
 #include <spdlog/spdlog.h>
 
 #include "AppInfo.h"
-#include "../infra/monitor/MonitorTypes.h"
 
 namespace gringofts::app {
 
-void AppInfo::init(const INIReader &reader) {
+void AppInfo::init(const INIReader &reader, uint64_t clusterVersionFromState, const ClusterInfo &clusterInfoFromState) {
   auto &appInfo = getInstance();
 
   auto &initialized = appInfo.initialized;
@@ -29,10 +28,12 @@ void AppInfo::init(const INIReader &reader) {
     return;
   }
 
-  auto[myClusterId, myNodeId, allClusterInfo] = ClusterInfo::resolveAllClusters(reader, nullptr);
+  auto[myClusterId, myNodeId, clusterVersion, allClusterInfo] = ClusterInfo::resolveAllClusters(reader,
+      clusterVersionFromState, clusterInfoFromState, nullptr);
   appInfo.mMyClusterId = myClusterId;
   appInfo.mMyNodeId = myNodeId;
   appInfo.mAllClusterInfo = allClusterInfo;
+  appInfo.mClusterVersion = clusterVersion;
 
   appInfo.setSubsystemId(reader.GetInteger("app", "subsystem.id", 0));
   appInfo.setGroupId(appInfo.mMyClusterId);
@@ -41,14 +42,14 @@ void AppInfo::init(const INIReader &reader) {
   appInfo.setAppVersion(reader.Get("app", "version", "v2"));
 
   std::string clusterInfoString = appInfo.getMyClusterInfo().to_string();
-  gringofts::getGauge("configuration_version", {{"address", clusterInfoString}}).set(0);
+  getGauge("configuration_version", {{"address", clusterInfoString}}).set(appInfo.mClusterVersion);
 
   SPDLOG_INFO("Global settings: subsystem.id={}, "
               "group.id={}, "
               "group.version={}, "
               "stress.test.enabled={}, "
-              "app.version={}"
-              "app.clusterid={}"
+              "app.version={}, "
+              "app.clusterid={}, "
               "app.nodeid={}",
               appInfo.mSubsystemId,
               appInfo.mMyClusterId,

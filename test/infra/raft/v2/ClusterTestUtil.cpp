@@ -64,8 +64,8 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
                                                       info,
                                                       &SyncPointProcessor::getInstance()));
   } else {
-    auto[myClusterId, nodeId, allClusterInfo] =
-    ClusterInfo::resolveAllClusters(reader, nullptr);
+    auto[myClusterId, nodeId, clusterVersion, allClusterInfo] =
+    ClusterInfo::resolveAllClusters(reader, 0, ClusterInfo(), nullptr);
     /**
      * in default, the config path is the app-level path,
      * which included raft config path
@@ -77,7 +77,7 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
                                                       allClusterInfo[myClusterId],
                                                       &SyncPointProcessor::getInstance()));
   }
-  const auto &member = raftImpl->mSelfInfo;
+  const auto &member = raftImpl->mClusterMembers->constCurrent()->mSelfInfo;
   assert(mRaftInsts.find(member) == mRaftInsts.end());
   mRaftInstConfigs[member] = raftConfigPath;
   mRaftInsts[member] = raftImpl;
@@ -85,7 +85,7 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
       member.mAddress,
       std::nullopt,
       std::make_shared<DNSResolver>(),
-      raftImpl->mSelfInfo.mId,
+      member.mId,
       &mAeRvQueue);
   return member;
 }
@@ -102,7 +102,7 @@ void ClusterTestUtil::killServer(const MemberInfo &member) {
 
 MemberInfo ClusterTestUtil::getMemberInfo(const MemberInfo &member) {
   assert(mRaftInsts.find(member) != mRaftInsts.end());
-  return mRaftInsts[member]->mSelfInfo;
+  return mRaftInsts[member]->mClusterMembers->constCurrent()->mSelfInfo;
 }
 
 std::vector<MemberInfo> ClusterTestUtil::getAllMemberInfo() {
