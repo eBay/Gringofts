@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "../util/ClusterInfo.h"
 #include "ForwardClient.h"
+#include "ForwardSignal.h"
 
 namespace gringofts {
 namespace forward {
@@ -40,12 +41,47 @@ class ForwardCore {
       uint32_t customPort = 0) {
     mSelfId = myNodeId;
     mCustomPort = customPort;
-    initClusterConf(clusterInfo);
-    if (dnsResolver == nullptr) {
+    mTlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
+    mDNSResolver = dnsResolver;
+    if (mDNSResolver == nullptr) {
       /// use default dns resolver
-      dnsResolver = std::make_shared<DNSResolver>();
+      mDNSResolver = std::make_shared<DNSResolver>();
     }
-    initClients(reader, dnsResolver);
+    initClusterConf(clusterInfo);
+    initClients();
+    Signal::hub.handle<ForwardReconfigureSignal>([this](const Signal &s) {
+      const auto &signal = dynamic_cast<const ForwardReconfigureSignal &>(s);
+      SPDLOG_INFO("ForwardCore receive reconfigure signal, cluster configuration: {}",
+        signal.getClusterConfiguration().to_string());
+      update(signal.getClusterConfiguration());
+    });
+  }
+
+  // reconfiguration may happen, so we need to add the peers
+  // we only add peers for nonexisting nodes for forwardcore rathan than rebuilding all
+  void update(const ClusterInfo &clusterInfo) {
+    std::unique_lock lock(mMutex);
+    auto nodes = clusterInfo.getAllNodeInfo();
+    for (auto &[nodeId, node] : nodes) {
+      if (mPeers.find(nodeId) == mPeers.end()) {
+        if (nodeId == mSelfId) {
+          continue;
+        }
+        std::string host = node.mHostName;
+        std::string port = mCustomPort > 0 ? std::to_string(mCustomPort) : std::to_string(node.mPortForGateway);
+        std::string addr = host + ":" + port;
+
+        mPeers[nodeId].mId = nodeId;
+        mPeers[nodeId].mAddress = addr;
+        mPeers[nodeId].mPointer.store(0);
+        SPDLOG_INFO("Add peer mId {}, mAddress {}", nodeId, addr);
+        for (int i = 0; i < mConcurrency; ++i) {
+          auto clientId = nodeId * mConcurrency + i;
+          mClients[clientId] = std::make_unique<ForwardClientBase<StubType>>(
+              addr, mTlsConfOpt, mDNSResolver, mClusterId, nodeId, clientId);
+        }
+      }
+    }
   }
 
   template<typename RequestType, typename RpcFuncType, typename CallType>
@@ -77,31 +113,29 @@ class ForwardCore {
   void initClusterConf(const ClusterInfo &clusterInfo) {
     mClusterId = clusterInfo.getClusterId();
     auto nodes = clusterInfo.getAllNodeInfo();
+    std::unique_lock lock(mMutex);
     for (auto &[nodeId, node] : nodes) {
       std::string host = node.mHostName;
-      std::string port = std::to_string(node.mPortForGateway);
-      if (mCustomPort != 0) {
-        port = std::to_string(mCustomPort);
-      }
+      std::string port = mCustomPort > 0 ? std::to_string(mCustomPort) : std::to_string(node.mPortForGateway);
       std::string addr = host + ":" + port;
 
       if (nodeId != mSelfId) {
         mPeers[nodeId].mId = nodeId;
         mPeers[nodeId].mAddress = addr;
         mPeers[nodeId].mPointer.store(0);
-        SPDLOG_INFO("Add peer mid {}, mAddress {}", nodeId, addr);
+        SPDLOG_INFO("Add peer mId {}, mAddress {}", nodeId, addr);
       }
     }
     SPDLOG_INFO("cluster.size={}, self.id={}", mPeers.size() + 1, mSelfId);
   }
 
-  void initClients(const INIReader &reader, std::shared_ptr<DNSResolver> dnsResolver) {
-    auto tlsConfOpt = TlsUtil::parseTlsConf(reader, "tls");
+  void initClients() {
+    std::unique_lock lock(mMutex);
     for (auto &[peerId, peer] : mPeers) {
       for (int i = 0; i < mConcurrency; ++i) {
         auto clientId = peerId * mConcurrency + i;
         mClients[clientId] = std::make_unique<ForwardClientBase<StubType>>(
-            peer.mAddress, tlsConfOpt, dnsResolver, mClusterId, peerId, clientId);
+            peer.mAddress, mTlsConfOpt, mDNSResolver, mClusterId, peerId, clientId);
       }
     }
   }
@@ -110,10 +144,15 @@ class ForwardCore {
   std::map<uint64_t, std::unique_ptr<ForwardClientBase<StubType>>> mClients;
   // use multiple clients for one pu node to reach max tps
   const uint64_t mConcurrency = 3;
+  // to protect mPeers, mClients, may be updated by reconfiguration
+  mutable std::shared_mutex mMutex;
   std::map<uint64_t, Peer> mPeers;
   uint64_t mSelfId;
   ClusterId mClusterId;
   uint32_t mCustomPort = 0;
+
+  std::optional<TlsConf> mTlsConfOpt;
+  std::shared_ptr<DNSResolver> mDNSResolver;
 };
 
 }  /// namespace forward

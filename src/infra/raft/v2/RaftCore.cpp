@@ -34,7 +34,7 @@ RaftCore::RaftCore(
     std::shared_ptr<DNSResolver> dnsResolver,
     RaftRole role,
     std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory) :
-    mRaftRole(role),
+    mRaftRole(role), mDNSResolver(dnsResolver),
     mLeadershipGauge(gringofts::getGauge("leadership_gauge", {{"status", "isLeader"}})),
     mCommitIndexCounter(gringofts::getCounter("committed_log_counter", {{"status", "committed"}})) {
   INIReader iniReader(configPath);
@@ -43,24 +43,29 @@ RaftCore::RaftCore(
     throw std::runtime_error("Can't load config file");
   }
 
-  std::string learnersStr = iniReader.Get("raft.default", "learners.ids", "");
-  if (!learnersStr.empty()) {
-    std::vector<std::string> learners = absl::StrSplit(learnersStr, ",");
-    for (auto learner : learners) {
-      mLearners.insert(std::stoi(learner));
-    }
-  }
+  mTlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
+  mClusterMembers = std::make_shared<DoubleBuffer<ClusterMemberShip>>();
 
   initConfigurableVars(iniReader);
-  initClusterConf(clusterInfo, myNodeId);
+  SPDLOG_INFO("RaftCore is confiugured after starting to currentLoc {}", mClusterMembers->getCurrentLoc());
+  initClusterConf(clusterInfo, myNodeId, mClusterMembers->getCurrent());
+
+  checkSelfNeedExit();
+
   initStorage(iniReader, secretKeyFactory);
-  initService(iniReader, dnsResolver);
+  initService(iniReader);
 
   /// registry signal handler
   Signal::hub.handle<StopSyncRoleSignal>([this](const Signal &s) {
     const auto &signal = dynamic_cast<const StopSyncRoleSignal &>(s);
     SPDLOG_INFO("receive stop sync role signal");
     enqueueSyncRequest({{}, 0, 0, SyncFinishMeta{signal.getInitIndex()}});
+  });
+  Signal::hub.handle<ReconfigureSignal>([this](const Signal &s) {
+    const auto &signal = dynamic_cast<const ReconfigureSignal &>(s);
+    SPDLOG_INFO("RaftCore receive reconfigure signal, selfId: {}, cluster configuration: {}",
+                signal.getSelfId(), signal.getClusterConfiguration().to_string());
+    enqueueReconfigureRequest({signal.getSelfId(), signal.getClusterConfiguration()});
   });
   Signal::hub.handle<QuerySignal>([this](const Signal &s) {
     const auto &querySignal = dynamic_cast<const QuerySignal &>(s);
@@ -134,7 +139,9 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               mRpcAppendEntriesTimeoutInMillis, mRpcRequestVoteTimeoutInMillis);
 }
 
-void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId) {
+void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId,
+    std::shared_ptr<ClusterMemberShip> members) {
+  members->clear();
   auto nodes = clusterInfo.getAllNodeInfo();
   for (auto &[nodeId, node] : nodes) {
     std::string host = node.mHostName;
@@ -142,26 +149,50 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
     std::string addr = host + ":" + port;
 
     if (selfId == nodeId) {
-      mSelfInfo.mId = selfId;
-      mSelfInfo.mAddress = addr;
-      mAddressForRaftSvc = "0.0.0.0:" + port;
+      members->mSelfInfo.mId = selfId;
+      members->mSelfInfo.mAddress = "0.0.0.0:" + port;
       mStreamingPort = node.mPortForStream;
     } else {
       Peer peer;
       peer.mId = nodeId;
       peer.mAddress = addr;
-      mPeers[nodeId] = peer;
+      members->mPeers[nodeId] = peer;
     }
+    members->mInitialRoles[nodeId] = RaftRole::Follower;
+    SPDLOG_INFO("nodeid={} is set to follower by default, addr {}", nodeId, addr);
   }
 
-  // note that, config a syncer to a learner is invalid
-  if (mRaftRole != RaftRole::Syncer &&
-      mLearners.find(mSelfInfo.mId) != mLearners.end()) {
-    mRaftRole = RaftRole::Learner;
+  for (const auto node : clusterInfo.getAllInitialRoles()) {
+    if (node.second == app::protos::InitialRaftRole::PreFollower) {
+      members->mInitialRoles[node.first] = RaftRole::PreFollower;
+    } else if (node.second == app::protos::InitialRaftRole::Learner) {
+      members->mInitialRoles[node.first] = RaftRole::Learner;
+    } else {
+      members->mInitialRoles[node.first] = RaftRole::Follower;
+    }
+    SPDLOG_INFO("nodeid={} is set to {} by config", node.first, roleString(members->mInitialRoles.at(node.first)));
   }
-  assert(mSelfInfo.mId != kBadID);
-  SPDLOG_INFO("cluster.size={}, self.id={}, self.address={}, learner.size={}, myrole={}",
-              mPeers.size() + 1, mSelfInfo.mId, mSelfInfo.mAddress, mLearners.size(), this->selfId());
+
+  assert(members->mSelfInfo.mId != kBadID);
+  SPDLOG_INFO("cluster.size={}, self.id={}, self.address={}, self.initialrole={}",
+      members->mPeers.size() + 1, members->mSelfInfo.mId,
+      members->mSelfInfo.mAddress, members->mInitialRoles.at(members->mSelfInfo.mId));
+
+  /// init RaftClient
+  for (auto &p : members->mPeers) {
+    auto &peer = p.second;
+    members->mClients[peer.mId] = std::make_unique<RaftClient>(
+        peer.mAddress,
+        mTlsConfOpt,
+        mDNSResolver,
+        peer.mId,
+        &mAeRvQueue);
+  }
+
+  members->mOldMembers = clusterInfo.getOldJointMembers();
+  members->mNewMembers = clusterInfo.getNewJointMembers();
+  members->mInsyncLearners = clusterInfo.getInsyncLearners();
+  members->printCluster();
 }
 
 void RaftCore::initStorage(const INIReader &iniReader, std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory) {
@@ -191,21 +222,10 @@ void RaftCore::initStorage(const INIReader &iniReader, std::shared_ptr<SecretKey
   mLog = std::make_unique<storage::SegmentLog>(storageDir, crypto, dataSizeLimit, metaSizeLimit);
 }
 
-void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver) {
-  mTlsConfOpt = TlsUtil::parseTlsConf(iniReader, "raft.tls");
+void RaftCore::initService(const INIReader &iniReader) {
   /// init RaftServer
-  mServer = std::make_unique<RaftServer>(mAddressForRaftSvc, mTlsConfOpt, &mAeRvQueue, dnsResolver);
-
-  /// init RaftClient
-  for (auto &p : mPeers) {
-    auto &peer = p.second;
-    mClients[peer.mId] = std::make_unique<RaftClient>(
-        peer.mAddress,
-        mTlsConfOpt,
-        dnsResolver,
-        peer.mId,
-        &mAeRvQueue);
-  }
+  auto members = mClusterMembers->constCurrent();
+  mServer = std::make_unique<RaftServer>(members->mSelfInfo.mAddress, mTlsConfOpt, &mAeRvQueue, mDNSResolver);
 
   /// sleep 10s, can we receive any AE_req from current Leader ?
   auto initialElectionTimeout = static_cast<uint64_t>(
@@ -232,6 +252,7 @@ void RaftCore::initService(const INIReader &iniReader, std::shared_ptr<DNSResolv
 }
 
 RaftCore::~RaftCore() {
+  SPDLOG_INFO("deconstruct raft core.");
   running = false;
   if (mRaftLoop.joinable()) {
     mRaftLoop.join();
@@ -269,8 +290,10 @@ void RaftCore::receiveMessage() {
     return;
   }
 
+  auto members = mClusterMembers->getCurrent();
+
   TEST_POINT_WITH_TWO_ARGS(mTPProcessor,
-                           TPRegistry::RaftCore_receiveMessage_interceptIncoming, &mSelfInfo, event.get());
+                           TPRegistry::RaftCore_receiveMessage_interceptIncoming, &(members->mSelfInfo), event.get());
 
   /// AE_req
   if (event->mType == RaftEventBase::Type::AppendEntriesRequest) {
@@ -288,8 +311,12 @@ void RaftCore::receiveMessage() {
     auto ptr = std::move(dynamic_cast<AppendEntriesResponseEvent &>(*event).mPayload);
     (*ptr->mResponse.mutable_metrics()).set_response_event_dequeue_time(TimeUtil::currentTimeInNanos());
 
+    // in reconfiguration, we may receive AE_resp from old members
+    if (members->mPeers.find(ptr->mPeerId) == members->mPeers.end()) {
+      return;
+    }
     /// turn on switch
-    auto &peer = mPeers[ptr->mPeerId];
+    auto &peer = members->mPeers.at(ptr->mPeerId);
     auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
     peer.mNextRequestTimeInNano = std::max(peer.mLastRequestTimeInNano + hbIntervalInNano,
                                            TimeUtil::currentTimeInNanos());
@@ -312,7 +339,12 @@ void RaftCore::receiveMessage() {
   /// RV_resp
   if (event->mType == RaftEventBase::Type::RequestVoteResponse) {
     auto ptr = std::move(dynamic_cast<RequestVoteResponseEvent &>(*event).mPayload);
-    auto &peer = mPeers[ptr->mPeerId];
+
+    // in reconfiguration, we may receive RV_resp from old members
+    if (members->mPeers.find(ptr->mPeerId) == members->mPeers.end()) {
+      return;
+    }
+    auto &peer = members->mPeers.at(ptr->mPeerId);
 
     /// turn on switch
     auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
@@ -336,6 +368,12 @@ void RaftCore::receiveMessage() {
     SyncRequest syncRequest = std::move(dynamic_cast<SyncRequestsEvent &>(*event).mPayload);
     handleSyncRequest(std::move(syncRequest));
   }
+
+  // reconfig req
+  if (event->mType == RaftEventBase::Type::ReconfigureRequest) {
+    ReconfigureRequest reconfigureRequest = std::move(dynamic_cast<ReconfigureRequestEvent &>(*event).mPayload);
+    handleReconfigureRequest(std::move(reconfigureRequest));
+  }
 }
 
 void RaftCore::appendEntries() {
@@ -343,7 +381,8 @@ void RaftCore::appendEntries() {
     return;
   }
 
-  for (auto &p : mPeers) {
+  auto members = mClusterMembers->getCurrent();
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
 
     if (peer.mNextRequestTimeInNano > TimeUtil::currentTimeInNanos()) {
@@ -376,14 +415,14 @@ void RaftCore::appendEntries() {
     }
 
     (*request.mutable_metrics()).set_term(currentTerm);
-    (*request.mutable_metrics()).set_leader_id(mSelfInfo.mId);
+    (*request.mutable_metrics()).set_leader_id(members->mSelfInfo.mId);
     (*request.mutable_metrics()).set_entries_count(batchSize);
     (*request.mutable_metrics()).set_entries_reading_done_time(TimeUtil::currentTimeInNanos());
 
     auto commitIndex = std::min(mCommitIndex.load(), prevLogIndex + batchSize);
 
     request.set_term(currentTerm);
-    request.set_leader_id(mSelfInfo.mId);
+    request.set_leader_id(members->mSelfInfo.mId);
     request.set_prev_log_index(prevLogIndex);
     request.set_prev_log_term(prevLogTerm);
     request.set_commit_index(commitIndex);
@@ -394,14 +433,16 @@ void RaftCore::appendEntries() {
 
     (*request.mutable_metrics()).set_request_send_time(TimeUtil::currentTimeInNanos());
 
+    assert(members->mClients.find(peer.mId) != members->mClients.end());
+
     /// send AE_req
-    auto &client = *mClients[peer.mId];
+    auto &client = *(members->mClients.at(peer.mId));
     client.appendEntries(request);
 
     /// avoid printing trace for heartbeat.
     if (batchSize > 0) {
-      SPDLOG_INFO("{} send AE_req to Follower {} for term {}, copy {} entries",
-                  selfId(), peer.mId, currentTerm, batchSize);
+      SPDLOG_INFO("{} send AE_req to {} for term {}, copy {} entries",
+                  selfId(), otherId(peer.mId), currentTerm, batchSize);
     }
 
     /// turn off switch
@@ -415,10 +456,11 @@ void RaftCore::requestVote() {
     return;
   }
 
-  for (auto &p : mPeers) {
+  auto members = mClusterMembers->getCurrent();
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
 
-    if (mLearners.find(peer.mId) != mLearners.end()) {
+    if (!isVoter(peer.mId)) {
       continue;
     }
 
@@ -434,7 +476,7 @@ void RaftCore::requestVote() {
     RequestVote::Request request;
 
     request.set_term(currentTerm);
-    request.set_candidate_id(mSelfInfo.mId);
+    request.set_candidate_id(members->mSelfInfo.mId);
     request.set_last_log_index(lastLogIndex);
     request.set_last_log_term(lastLogTerm);
     request.set_create_time_in_nano(TimeUtil::currentTimeInNanos());
@@ -449,8 +491,10 @@ void RaftCore::requestVote() {
       request.set_prevote(true);
     }
 
+    assert(members->mClients.find(peer.mId) != members->mClients.end());
+
     /// send RV_req/RPV_req
-    auto &client = *mClients[peer.mId];
+    auto &client = *(members->mClients.at(peer.mId));
     client.requestVote(request);
 
     SPDLOG_INFO("{} send {}_req to Node {} for term {} "
@@ -465,20 +509,21 @@ void RaftCore::requestVote() {
 
 grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &request,
                                           AppendEntries::Response *response) {
-  if (mLearners.find(request.leader_id()) != mLearners.end()) {
-    SPDLOG_WARN("Receive AE request from a Learner in my perception, ignored");
+  if (!isVoter(request.leader_id())) {
+    SPDLOG_WARN("Receive AE request from a nonvoter in my perception, ignored");
     return grpc::Status::CANCELLED;
   }
-
+  auto members = mClusterMembers->constCurrent();
   auto currentTerm = mLog->getCurrentTerm();
+
   /// prepare AE_resp
   (*response->mutable_metrics()) = request.metrics();
-  (*response->mutable_metrics()).set_follower_id(mSelfInfo.mId);
+  (*response->mutable_metrics()).set_follower_id(members->mSelfInfo.mId);
   (*response->mutable_metrics()).set_response_create_time(TimeUtil::currentTimeInNanos());
 
   response->set_term(currentTerm);
   response->set_success(false);
-  response->set_id(mSelfInfo.mId);
+  response->set_id(members->mSelfInfo.mId);
   response->set_saved_term(request.term());
   response->set_saved_prev_log_index(request.prev_log_index());
   response->set_last_log_index(mLog->getLastLogIndex());
@@ -591,6 +636,7 @@ grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &
 
 void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &response) {
   auto currentTerm = mLog->getCurrentTerm();
+  auto members = mClusterMembers->getCurrent();
 
   if (currentTerm != response.saved_term()) {
     /// we don't care about result of RPC
@@ -608,7 +654,11 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
     return;
   }
 
-  auto &peer = mPeers[response.id()];
+  // in reconfiguration, we may receive AE_resp from old members
+  if (members->mPeers.find(response.id()) == members->mPeers.end()) {
+    return;
+  }
+  auto &peer = members->mPeers.at(response.id());
 
   /// ignore duplicate AE_resp
   if (response.saved_prev_log_index() != peer.mNextIndex - 1) {
@@ -675,14 +725,14 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
 grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &request,
                                         RequestVote::Response *response) {
   std::string requestName = request.prevote() ? "RPV" : "RV";
-
+  auto members = mClusterMembers->constCurrent();
   auto currentTerm = mLog->getCurrentTerm();
 
   /// prepare RV_resp
   response->set_term(currentTerm);
   response->set_vote_granted(false);
   response->set_create_time_in_nano(TimeUtil::currentTimeInNanos());
-  response->set_id(mSelfInfo.mId);
+  response->set_id(members->mSelfInfo.mId);
   response->set_saved_term(request.term());
   response->set_prevote(request.prevote());
 
@@ -691,7 +741,7 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
     return grpc::Status::CANCELLED;
   }
 
-  if (mLearners.find(request.candidate_id()) != mLearners.end()) {
+  if (isLearner(request.candidate_id())) {
     SPDLOG_WARN("Receive RV request from a Learner in my perception, ignored");
     return grpc::Status::CANCELLED;
   }
@@ -738,7 +788,8 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
 
   // check for prevote
   bool noLeader = mRaftRole == RaftRole::Candidate || mRaftRole == RaftRole::PreCandidate ||
-                  (mRaftRole == RaftRole::Follower && mElectionTimePointInNano <= TimeUtil::currentTimeInNanos());
+                  ((mRaftRole == RaftRole::Follower || mRaftRole == RaftRole::PreFollower) &&
+                  mElectionTimePointInNano <= TimeUtil::currentTimeInNanos());
   if (request.prevote() && noLeader) {
     response->set_vote_granted(true);
     SPDLOG_INFO("{} prevote for Node {} in term {}, logIsOk={}, noLeader={}",
@@ -752,6 +803,8 @@ grpc::Status RaftCore::handleRequestVoteRequest(const RequestVote::Request &requ
 }
 
 void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) {
+  auto members = mClusterMembers->getCurrent();
+
   std::string requestName = response.prevote() ? "RPV" : "RV";
   std::string voteName = response.prevote() ? "prevote" : "vote";
 
@@ -772,7 +825,11 @@ void RaftCore::handleRequestVoteResponse(const RequestVote::Response &response) 
     return;
   }
 
-  auto &peer = mPeers[response.id()];
+  // in reconfiguration, we may receive RV_resp from old members
+  if (members->mPeers.find(response.id()) == members->mPeers.end()) {
+    return;
+  }
+  auto &peer = members->mPeers.at(response.id());
   peer.mRequestVoteDone = true;
 
   if (response.vote_granted()) {
@@ -832,10 +889,12 @@ void RaftCore::handleSyncRequest(SyncRequest syncRequest) {
     SPDLOG_WARN("won't process sync request unless it is in Syncer mode");
     return;
   }
+  auto members = mClusterMembers->constCurrent();
   if (syncRequest.mFinishMeta) {
-    SPDLOG_INFO("finish sync, become follower now");
-    mRaftRole = RaftRole::Follower;
+    mRaftRole = members->mInitialRoles.at(members->mSelfInfo.mId);
+    SPDLOG_INFO("finish sync, become {} now", roleString(mRaftRole));
     mBeginIndex = syncRequest.mFinishMeta->mBeginIndex;
+    updateElectionTimePoint();
     return;
   }
   assert(syncRequest.mStartIndex == mLog->getLastLogIndex() + 1);
@@ -847,33 +906,24 @@ void RaftCore::handleSyncRequest(SyncRequest syncRequest) {
   mCommitIndex = mLog->getLastLogIndex();
 }
 
+void RaftCore::handleReconfigureRequest(ReconfigureRequest reconfigureRequest) {
+  // syncer will never process reconfiguration request
+  if (mRaftRole == RaftRole::Syncer) {
+    return;
+  }
+  SPDLOG_INFO("Handle reconfigure request, reconfigure to bypassLoc {}", mClusterMembers->getBypassLoc());
+  // use new cluster configuration to init bypass buffer
+  initClusterConf(reconfigureRequest.mClusterInfo, reconfigureRequest.mSelfId, mClusterMembers->getBypass());
+  // do the configuration switch right now
+  configurationSwitch();
+}
+
 void RaftCore::advanceCommitIndex() {
   if (mRaftRole != RaftRole::Leader) {
     return;
   }
 
-  /// calculate the largest entry stored on a quorum of servers
-  /// work for single-server cluster as well
-  std::vector<uint64_t> indices;
-  indices.push_back(mLog->getLastLogIndex());
-
-  for (auto &p : mPeers) {
-    auto &peer = p.second;
-    if (mLearners.find(peer.mId) != mLearners.end()) {
-      continue;
-    }
-    indices.push_back(peer.mMatchIndex);
-    /// followers match index & lag
-    gringofts::getGauge("match_index", {{"address", peer.mAddress}})
-        .set(peer.mMatchIndex);
-  }
-  gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
-      .set(mCommitIndex);
-
-  std::sort(indices.begin(), indices.end(),
-            [](uint64_t x, uint64_t y) { return x > y; });
-
-  auto majorityIndex = indices[indices.size() >> 1];
+  auto majorityIndex = getMajorityIndex();
 
   /// commitIndex monotonically increase
   if (mCommitIndex >= majorityIndex) {
@@ -919,25 +969,13 @@ void RaftCore::becomeCandidate() {
     return;
   }
 
-  uint64_t voteNum = 1;
-
-  for (const auto &p : mPeers) {
-    auto &peer = p.second;
-    if (mLearners.find(peer.mId) != mLearners.end()) {
-      continue;
-    }
-    if (peer.mHaveVote) {
-      ++voteNum;
-    }
-  }
-
-  auto quorumNum = getMajorityNumber(mPeers.size() + 1 - mLearners.size());
-  if (voteNum < quorumNum) {
+  if (!checkVotePass()) {
     return;
   }
 
-  SPDLOG_INFO("{}, become Candidate on term {}, voteNum={}, quorumNum={}.",
-              selfId(), mLog->getCurrentTerm(), voteNum, quorumNum);
+  SPDLOG_INFO("{}, become Candidate on term {}", selfId(), mLog->getCurrentTerm());
+
+  auto members = mClusterMembers->getCurrent();
 
   auto currentTerm = mLog->getCurrentTerm();
   /// become Candidate
@@ -947,13 +985,12 @@ void RaftCore::becomeCandidate() {
   /// increment currentTerm
   mLog->setCurrentTerm(++currentTerm);
   /// vote for self
-  mLog->setVoteFor(mSelfInfo.mId);
-
+  mLog->setVoteFor(members->mSelfInfo.mId);
   /// reset election timer
   updateElectionTimePoint();
 
   /// schedule a round of RV_req immediately
-  for (auto &p : mPeers) {
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
     peer.mRequestVoteDone = false;
     peer.mHaveVote = false;
@@ -968,33 +1005,18 @@ void RaftCore::becomeLeader() {
     return;
   }
 
-  /// candidate always vote for himself
-  /// work for single-server cluster as well
-  uint64_t voteNum = 1;
-
-  for (const auto &p : mPeers) {
-    auto &peer = p.second;
-    if (mLearners.find(peer.mId) != mLearners.end()) {
-      continue;
-    }
-    if (peer.mHaveVote) {
-      ++voteNum;
-    }
-  }
-
-  auto quorumNum = getMajorityNumber(mPeers.size() + 1 - mLearners.size());
-  if (voteNum < quorumNum) {
+  if (!checkVotePass()) {
     return;
   }
 
-  SPDLOG_INFO("{}, become Leader on term {}, voteNum={}, quorumNum={}.",
-              selfId(), mLog->getCurrentTerm(), voteNum, quorumNum);
+  SPDLOG_INFO("{}, become Leader on term {}", selfId(), mLog->getCurrentTerm());
 
+  auto members = mClusterMembers->getCurrent();
   mRaftRole = RaftRole::Leader;
-  mLeaderId = mSelfInfo.mId;
+  mLeaderId = members->mSelfInfo.mId;
 
   /// schedule a round of AE_req (heartbeat) immediately
-  for (auto &p : mPeers) {
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
 
     peer.mNextIndex = mLog->getLastLogIndex() + 1;
@@ -1025,12 +1047,13 @@ void RaftCore::becomeLeader() {
 void RaftCore::electionTimeout() {
   /// syncer also won't raise a election
   if (mRaftRole == RaftRole::Leader || mRaftRole == RaftRole::Syncer
-      || mRaftRole == RaftRole::Learner) {
+      || mRaftRole == RaftRole::Learner || mRaftRole == RaftRole::PreFollower) {
     return;
   }
+  auto members = mClusterMembers->getCurrent();
 
   TEST_POINT_WITH_TWO_ARGS(mTPProcessor, TPRegistry::RaftCore_electionTimeout_interceptTimeout,
-                           &mSelfInfo, &mElectionTimePointInNano);
+                           &(members->mSelfInfo), &mElectionTimePointInNano);
 
   if (mElectionTimePointInNano > TimeUtil::currentTimeInNanos()) {
     return;
@@ -1047,7 +1070,7 @@ void RaftCore::electionTimeout() {
     /// increment currentTerm
     mLog->setCurrentTerm(++currentTerm);
     /// vote for self
-    mLog->setVoteFor(mSelfInfo.mId);
+    mLog->setVoteFor(members->mSelfInfo.mId);
   } else {  // request prevote before vote
     /// become PreCandidate
     mRaftRole = RaftRole::PreCandidate;
@@ -1060,7 +1083,7 @@ void RaftCore::electionTimeout() {
   updateElectionTimePoint();
 
   /// schedule a round of RV_req/RPV_req immediately
-  for (auto &p : mPeers) {
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
     peer.mRequestVoteDone = false;
     peer.mHaveVote = false;
@@ -1075,26 +1098,8 @@ void RaftCore::leadershipTimeout() {
     return;
   }
 
-  auto nowInNano = TimeUtil::currentTimeInNanos();
-
-  /// work for single-server cluster as well
-  std::vector<uint64_t> timePoints;
-  timePoints.push_back(nowInNano);
-
-  for (const auto &p : mPeers) {
-    auto &peer = p.second;
-    if (mLearners.find(peer.mId) != mLearners.end()) {
-      continue;
-    }
-    timePoints.push_back(peer.mLastResponseTimeInNano);
-  }
-
-  /// sort by descending order
-  std::sort(timePoints.begin(), timePoints.end(),
-            [](uint64_t x, uint64_t y) { return x > y; });
-
-  auto timeElapseInNano = nowInNano - timePoints[timePoints.size() >> 1];
-  if (timeElapseInNano / 1000000.0 < mMaxElectionTimeoutInMillis) {
+  auto timeElapseInNano = getMajorityTimeElapse();
+  if (timeElapseInNano / 1000000.0 < RaftConstants::kMaxElectionTimeoutInMillis) {
     return;
   }
 
@@ -1108,13 +1113,76 @@ void RaftCore::leadershipTimeout() {
   stepDown(currentTerm + 1);
 }
 
+void RaftCore::configurationSwitch() {
+  if (mRaftRole == RaftRole::Syncer) {
+    // syncer role never involve in reconfiguration
+    return;
+  }
+
+  mClusterMembers->swap();
+
+  auto bypass = mClusterMembers->getBypass();
+  SPDLOG_INFO("Bypass configuration: ");
+  bypass->printCluster();
+  SPDLOG_INFO("Current configuration: ");
+  auto members = mClusterMembers->getCurrent();
+  members->printCluster();
+
+  checkSelfNeedExit();
+
+  // inherit peer status is this peer exist in old configuration
+  // init status for new added peer
+  for (auto &p : members->mPeers) {
+    auto &peer = p.second;
+    if (bypass->mPeers.find(peer.mId) != bypass->mPeers.end()) {
+      peer = bypass->mPeers.at(peer.mId);
+    } else {
+      peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      peer.mMatchIndex = 0;
+      peer.mSuppressBulkData = true;
+
+      /// turn on switch
+      peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    }
+  }
+
+  auto prevRole = mRaftRole;
+  if (isLearner(members->mSelfInfo.mId)) {
+    mRaftRole = RaftRole::Learner;
+  } else if (isPreFollower(members->mSelfInfo.mId)) {
+    mRaftRole = RaftRole::PreFollower;
+  } else if (prevRole != RaftRole::Leader) {
+    mRaftRole = RaftRole::Follower;
+  }
+
+  SPDLOG_INFO("Switch Role from {} to {}.", prevRole, mRaftRole);
+
+  if (mRaftRole != prevRole && prevRole == RaftRole::Leader) {
+    mLeaderId = 0;
+    /// step down from Leader
+    /// cleanup client request
+    while (!mPendingClientRequests.empty()) {
+      auto &p = mPendingClientRequests.front();
+      if (p.second != nullptr) {
+        p.second->fillResultAndReply(301, "LeaderStepDown", mLeaderId);
+      }
+      mPendingClientRequests.pop_front();
+    }
+
+    /// notify monitor
+    mLeadershipGauge.set(0);
+    /// resume election timer
+    updateElectionTimePoint();
+  }
+}
+
 void RaftCore::stepDown(uint64_t newTerm) {
   auto currentTerm = mLog->getCurrentTerm();
   assert(currentTerm <= newTerm);
 
   /// Attention, must change role before update term.
   auto prevRole = mRaftRole;
-  if (mRaftRole != RaftRole::Learner) mRaftRole = RaftRole::Follower;
+  if (mRaftRole != RaftRole::Learner && mRaftRole != RaftRole::PreFollower) mRaftRole = RaftRole::Follower;
 
   if (currentTerm < newTerm) {
     mLeaderId = 0;
@@ -1142,13 +1210,14 @@ void RaftCore::stepDown(uint64_t newTerm) {
     /// notify monitor
     mLeadershipGauge.set(0);
 
-    for (auto &p : mPeers) {
+    auto members = mClusterMembers->constCurrent();
+    for (auto &p : members->mPeers) {
       auto &peer = p.second;
       /// followers match index & lag
       gringofts::getGauge("match_index", {{"address", peer.mAddress}})
           .set(0);
     }
-    gringofts::getGauge("match_index", {{"address", mSelfInfo.mAddress}})
+    gringofts::getGauge("match_index", {{"address", members->mSelfInfo.mAddress}})
         .set(0);
 
     /// resume election timer
@@ -1157,7 +1226,8 @@ void RaftCore::stepDown(uint64_t newTerm) {
 }
 
 uint64_t RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffsets) const {
-  for (auto &p : mPeers) {
+  auto members = mClusterMembers->constCurrent();
+  for (auto &p : members->mPeers) {
     auto &peer = p.second;
     mMemberOffsets->emplace_back(peer.mId, peer.mAddress, peer.mMatchIndex);
   }
@@ -1165,6 +1235,7 @@ uint64_t RaftCore::getMemberOffsets(std::vector<MemberOffsetInfo> *mMemberOffset
 }
 
 void RaftCore::printStatus(const std::string &reason) const {
+  auto members = mClusterMembers->constCurrent();
   auto firstLogIndex = mLog->getFirstLogIndex();
   auto lastLogIndex = mLog->getLastLogIndex();
 
@@ -1173,10 +1244,10 @@ void RaftCore::printStatus(const std::string &reason) const {
               firstLogIndex, lastLogIndex, mCommitIndex);
 
   if (mRaftRole == RaftRole::Leader) {
-    for (auto &p : mPeers) {
+    for (auto &p : members->mPeers) {
       auto &peer = p.second;
-      SPDLOG_INFO("Follower {}: nextIndex={}, matchIndex={}",
-                  peer.mId, peer.mNextIndex, peer.mMatchIndex);
+      SPDLOG_INFO("{}: nextIndex={}, matchIndex={}",
+                  otherId(peer.mId), peer.mNextIndex, peer.mMatchIndex);
     }
   }
 
@@ -1193,7 +1264,7 @@ void RaftCore::printStatus(const std::string &reason) const {
   }
 }
 
-void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
+void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) const {
   if (metrics.entries_count() == 0) {
     /// avoid printing trace for heartbeat
     return;
@@ -1203,7 +1274,7 @@ void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
     return beginInNano > endInNano ? 0.0 : (endInNano - beginInNano) / 1000000.0;
   };
 
-  SPDLOG_INFO("AE_metrics between Leader {} and Follower {}, entries.num={}, "
+  SPDLOG_INFO("AE_metrics between Leader {} and {}, entries.num={}, "
               "total.cost={}ms, "
               "read.entries.cost={}ms, "
               "request.build.cost={}ms, "
@@ -1212,7 +1283,7 @@ void RaftCore::printMetrics(const raft::AppendEntries::Metrics &metrics) {
               "write.entries.cost={}ms, "
               "response.network.latency={}ms, "
               "response.queue.latency={}ms.",
-              metrics.leader_id(), metrics.follower_id(), metrics.entries_count(),
+              metrics.leader_id(), otherId(metrics.follower_id()), metrics.entries_count(),
               elapseInMillis(metrics.request_create_time(), metrics.response_event_dequeue_time()),
               elapseInMillis(metrics.request_create_time(), metrics.entries_reading_done_time()),
               elapseInMillis(metrics.entries_reading_done_time(), metrics.request_send_time()),

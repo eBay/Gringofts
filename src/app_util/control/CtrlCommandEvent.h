@@ -18,6 +18,7 @@ limitations under the License.
 #include "../../infra/es/Command.h"
 #include "../../infra/es/Event.h"
 #include "../../infra/es/ProcessCommandStateMachine.h"
+#include "../generated/grpc/ctrl.pb.h"
 #include "CtrlState.h"
 
 namespace gringofts::app::ctrl {
@@ -59,6 +60,7 @@ class CtrlEvent : public Event {
   CtrlEvent(Type type, TimestampInNanos createdTimeInNanos)
       : Event(type, createdTimeInNanos) {}
   virtual void apply(CtrlState *State) const = 0;
+  virtual void onApplied() const {}  // notify others that the event has been persisted and applied
 };
 
 }  // namespace gringofts::app::ctrl

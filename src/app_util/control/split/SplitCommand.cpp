@@ -51,7 +51,7 @@ ProcessHint SplitCommand::process(const CtrlState &state,
                                   std::vector<std::shared_ptr<Event>> *events) const {
   SPDLOG_INFO("process split event");
   TimestampInNanos time = TimeUtil::currentTimeInNanos();
-  if (state.hasState()) {
+  if (state.hasSplitState()) {
     auto epoch = state.epoch();
     if (mRequest.epoch() < epoch) {
       return ProcessHint{400, absl::StrFormat("epoch should be greater than %d", epoch)};

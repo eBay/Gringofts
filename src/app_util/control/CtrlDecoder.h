@@ -17,6 +17,8 @@ limitations under the License.
 #include "CtrlCommandEvent.h"
 #include "split/SplitCommand.h"
 #include "split/SplitEvent.h"
+#include "reconfigure/ReconfigureEvent.h"
+#include "reconfigure/ReconfigureCommand.h"
 
 namespace gringofts::app::ctrl {
 class CtrlDecoderUtil {
@@ -29,6 +31,11 @@ class CtrlDecoderUtil {
         ptr->setPartialMetaData(metaData);
         return ptr;
       }
+      case reconfigure::RECONFIGURE_EVENT: {
+        auto ptr = std::make_unique<reconfigure::ReconfigureEvent>(metaData.getCreatedTimeInNanos(), payload);
+        ptr->setPartialMetaData(metaData);
+        return ptr;
+      }
       default:return std::unique_ptr<CtrlEvent>{};
     }
   }
@@ -38,6 +45,11 @@ class CtrlDecoderUtil {
     switch (metaData.getType()) {
       case split::SPILT_COMMAND: {
         auto ptr = std::make_unique<split::SplitCommand>(metaData.getCreatedTimeInNanos(), payload);
+        ptr->setPartialMetaData(metaData);
+        return ptr;
+      }
+      case reconfigure::RECONFIGURE_COMMAND: {
+        auto ptr = std::make_unique<reconfigure::ReconfigureCommand>(metaData.getCreatedTimeInNanos(), payload);
         ptr->setPartialMetaData(metaData);
         return ptr;
       }

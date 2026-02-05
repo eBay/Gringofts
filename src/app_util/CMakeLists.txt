@@ -6,10 +6,10 @@ MESSAGE(STATUS "processing app_util")
 set(gringofts_proto_generated_dir "generated/grpc")
 file(MAKE_DIRECTORY ${gringofts_proto_generated_dir})
 
-# scale.proto
+# ctrl.proto
 ADD_PROTO_RESOURCE(
-        gringofts_scale_proto_library
-        "protos/scale.proto"
+        gringofts_ctrl_proto_library
+        "protos/ctrl.proto"
         ${gringofts_proto_generated_dir})
 
 # route.proto
@@ -25,14 +25,16 @@ ADD_PROTO_RESOURCE(
         ${gringofts_proto_generated_dir})
 
 add_dependencies(gringofts_netadmin_proto_library gringofts_route_proto_library)
-add_dependencies(gringofts_scale_proto_library gringofts_route_proto_library)
+add_dependencies(gringofts_ctrl_proto_library gringofts_route_proto_library)
 
 # Source files
 set(GRINGOFTS_APP_UTIL_SRC
         AppInfo.cpp
-        control/split/ScaleReceiver.cpp
         control/split/SplitCommand.cpp
         control/split/SplitEvent.cpp
+        control/reconfigure/ReconfigureEvent.cpp
+        control/reconfigure/ReconfigureCommand.cpp
+        control/CtrlReceiver.cpp
         control/CtrlState.cpp
         control/Route.cpp
         sync/LogReader.cpp
@@ -42,5 +44,4 @@ set(GRINGOFTS_APP_UTIL_SRC
 set(GRINGOFTS_APP_UTIL_LIBS ${Boost_LIBRARIES} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF} lib_inih)
 
 add_library(gringofts_app_util STATIC ${GRINGOFTS_APP_UTIL_SRC})
-target_link_libraries(gringofts_app_util gringofts_netadmin_proto_library gringofts_scale_proto_library
-        gringofts_route_proto_library ${GRINGOFTS_APP_UTIL_LIBS})
+target_link_libraries(gringofts_app_util gringofts_netadmin_proto_library gringofts_ctrl_proto_library gringofts_route_proto_library ${GRINGOFTS_APP_UTIL_LIBS})

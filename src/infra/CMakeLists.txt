@@ -55,8 +55,8 @@ target_link_libraries(gringofts_infra_monitor ${GRINGOFTS_LIBRARIES})
 
 add_library(gringofts_infra_util STATIC
         ${GRINGOFTS_UTIL_SRC})
-add_dependencies(gringofts_infra_util gringofts_store_proto_library)
-target_link_libraries(gringofts_infra_util gringofts_store_proto_library ${GRINGOFTS_LIBRARIES})
+add_dependencies(gringofts_infra_util gringofts_store_proto_library gringofts_ctrl_proto_library gringofts_route_proto_library)
+target_link_libraries(gringofts_infra_util gringofts_store_proto_library gringofts_route_proto_library ${GRINGOFTS_LIBRARIES})
 
 add_library(gringofts_infra STATIC
         ${GRINGOFTS_INFRA_SRC})
