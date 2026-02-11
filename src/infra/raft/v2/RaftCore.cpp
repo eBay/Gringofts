@@ -389,6 +389,9 @@ void RaftCore::appendEntries() {
       continue;
     }
 
+    SPDLOG_INFO("Leader try to send AE to peer {}, nextIndex {}, currentTerm {}, firstindex {}, lastIndex {} ",
+        peer.mId, peer.mNextIndex, mLog->getCurrentTerm(), mLog->getFirstLogIndex(), mLog->getLastLogIndex());
+
     /// build AE_req
     AppendEntries::Request request;
     (*request.mutable_metrics()).set_request_create_time(TimeUtil::currentTimeInNanos());
@@ -440,10 +443,10 @@ void RaftCore::appendEntries() {
     client.appendEntries(request);
 
     /// avoid printing trace for heartbeat.
-    if (batchSize > 0) {
-      SPDLOG_INFO("{} send AE_req to {} for term {}, copy {} entries",
-                  selfId(), otherId(peer.mId), currentTerm, batchSize);
-    }
+    // if (batchSize > 0) {
+    SPDLOG_INFO("{} send AE_req to {} for term {}, copy {} entries",
+                selfId(), otherId(peer.mId), currentTerm, batchSize);
+    // }
 
     /// turn off switch
     peer.mNextRequestTimeInNano = std::numeric_limits<uint64_t>::max();
@@ -520,6 +523,9 @@ grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &
   (*response->mutable_metrics()) = request.metrics();
   (*response->mutable_metrics()).set_follower_id(members->mSelfInfo.mId);
   (*response->mutable_metrics()).set_response_create_time(TimeUtil::currentTimeInNanos());
+
+  SPDLOG_INFO("{} receive AE_req from Node {}, self id {}, remoteTerm {}, currentTerm {}.",
+              selfId(), request.leader_id(), members->mSelfInfo.mId, request.term(), currentTerm);
 
   response->set_term(currentTerm);
   response->set_success(false);
@@ -659,6 +665,11 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
     return;
   }
   auto &peer = members->mPeers.at(response.id());
+
+  SPDLOG_WARN("{} receive AE_resp from Follower {} "
+                "with prevLogIndex={}, Peer with matchIndex={} and nextIndex={}.",
+                selfId(), response.id(), response.saved_prev_log_index(),
+                peer.mMatchIndex, peer.mNextIndex);
 
   /// ignore duplicate AE_resp
   if (response.saved_prev_log_index() != peer.mNextIndex - 1) {
