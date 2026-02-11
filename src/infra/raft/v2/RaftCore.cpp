@@ -389,6 +389,9 @@ void RaftCore::appendEntries() {
       continue;
     }
 
+    SPDLOG_INFO("Leader try to send AE to peer {}, nextIndex {}, currentTerm {}, firstindex {}, lastIndex {} ",
+        peer.mId, peer.mNextIndex, mLog->getCurrentTerm(), mLog->getFirstLogIndex(), mLog->getLastLogIndex());
+
     /// build AE_req
     AppendEntries::Request request;
     (*request.mutable_metrics()).set_request_create_time(TimeUtil::currentTimeInNanos());
