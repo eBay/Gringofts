@@ -23,6 +23,7 @@ limitations under the License.
 
 #include "generated/raft.pb.h"
 #include "../grpc/RequestHandle.h"
+#include "../util/ClusterInfo.h"
 
 namespace gringofts {
 namespace raft {
@@ -88,6 +89,13 @@ struct SyncRequest {
   std::optional<SyncFinishMeta> mFinishMeta;
 };
 
+struct ReconfigureRequest {
+  // node id of this raft service
+  NodeId mSelfId;
+  // the new cluster info that contains nodes, learners, joint members
+  ClusterInfo mClusterInfo;
+};
+
 //////////////////////////// Raft Interface ////////////////////////////
 
 enum class RaftRole {
@@ -97,6 +105,7 @@ enum class RaftRole {
   Syncer = 3,
   PreCandidate = 4,
   Learner = 5,
+  PreFollower = 6,
 };
 
 class RaftInterface {
@@ -120,6 +129,10 @@ class RaftInterface {
   virtual uint64_t getLastLogIndex() const = 0;
   virtual std::optional<uint64_t> getLeaderHint() const = 0;
   virtual std::vector<MemberInfo> getClusterMembers() const = 0;
+  /// raft role
+  virtual bool isLearner(uint64_t id) const = 0;
+  virtual bool isPreFollower(uint64_t id) const = 0;
+  virtual bool isVoter(uint64_t id) const = 0;
 
   /// return leader commit index
   /// Using commit index instead of majority index as leader offset is due to one edge
@@ -148,6 +161,8 @@ class RaftInterface {
 
   /// using it to sync logs with others
   virtual void enqueueSyncRequest(SyncRequest syncRequest) {}
+
+  virtual void enqueueReconfigureRequest(ReconfigureRequest reconfigureRequest) {}
 
   /// used by NetAdminServer to do log retention.
   /// truncate log prefix from [firstIndex, lastIndex] to [firstIndexKept, lastIndex]

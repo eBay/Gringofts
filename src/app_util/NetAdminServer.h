@@ -214,7 +214,7 @@ class NetAdminServer final : public AppNetAdmin::Service {
 
     // update info queried from Raft core
     mServiceProvider->queryCtrlState(&ctrlState);
-    if (ctrlState.hasState()) {
+    if (ctrlState.hasSplitState()) {
       *reply->mutable_splitstate() = ctrlState.buildProto();
     }
     auto raftState = raftQuerySignal->getFuture().get();

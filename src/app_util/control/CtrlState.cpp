@@ -15,8 +15,8 @@ limitations under the License.
 
 #include <sstream>
 #include <spdlog/spdlog.h>
+#include <absl/strings/str_join.h>
 
-#include "../AppInfo.h"
 #include "../../infra/util/ClusterInfo.h"
 #include "../../infra/util/Signal.h"
 #include "../../infra/raft/RaftSignal.h"
@@ -33,21 +33,47 @@ SplitState CtrlState::buildProto() const {
   state.set_clusterid(mClusterId);
   state.set_startindex(mStartIndex);
   *state.mutable_routes() = mRouteMap.buildProto();
+  // cluster configuration:
+  state.set_clusterversion(mClusterVersion);
+  mClusterConfiguration.syncToProto(state.mutable_clusterconfiguration());
+  state.set_clusterreconfigureindex(mClusterReconfigureIndex);
   return state;
 }
 
 std::string CtrlState::prettyPrint() const {
-  if (hasState()) {
-    std::stringstream ss;
-    ss << "--- control state --- " << std::endl;
+  std::stringstream ss;
+  ss << "--- control state --- " << std::endl;
+  if (hasSplitState()) {
     ss << mRouteMap.prettyPrint() << std::endl;
     ss << "Epoch:\t\t" << mEpoch << std::endl;
     ss << "PlanId:\t\t" << mPlanId << std::endl;
     ss << "ClusterId:\t" << mClusterId << std::endl;
-    ss << "StartIndex:\t" << mStartIndex;
-    return ss.str();
+    ss << "StartIndex:\t" << mStartIndex << std::endl;
+  } else {
+    ss << "<empty split state>" << std::endl;
   }
-  return "<empty state>";
+  if (hasClusterConfiguration()) {
+    ss << "ClusterConfiguration:" << std::endl;
+    ss << "ClusterVersion:\t" << mClusterVersion << std::endl;
+    ss << "ClusterId:\t" << mClusterConfiguration.getClusterId() << std::endl;
+    ss << "Members:\t";
+    for (const auto &node : mClusterConfiguration.getAllNodeInfo()) {
+      ss << node.first << "@" << node.second.mHostName << ":" << node.second.mPortForRaft << ",";
+    }
+    ss << std::endl;
+    ss << "Roles:\t";
+    for (const auto &node : mClusterConfiguration.getAllInitialRoles()) {
+      ss << node.first << ":" << node.second << ",";
+    }
+    ss << std::endl;
+    ss << "NewJointMembers:\t" << absl::StrJoin(mClusterConfiguration.getNewJointMembers(), ",") << std::endl;
+    ss << "OldJointMembers:\t" << absl::StrJoin(mClusterConfiguration.getOldJointMembers(), ",") << std::endl;
+    ss << "InsyncLearers:\t" << absl::StrJoin(mClusterConfiguration.getInsyncLearners(), ",") << std::endl;
+    ss << "ClusterReconfigureIndex:\t" << mClusterReconfigureIndex << std::endl;
+  } else {
+    ss << "<empty cluster configuration>" << std::endl;
+  }
+  return ss.str();
 }
 
 std::string CtrlState::encodeToString() const {
@@ -58,6 +84,7 @@ std::string CtrlState::encodeToString() const {
     return "";
   }
 }
+
 void CtrlState::decodeFromString(std::string_view view) {
   if (!view.empty()) {
     SplitState decodeState;
@@ -73,6 +100,9 @@ void CtrlState::decodeFromString(std::string_view view) {
                   decodeState.clusterid(),
                   AppInfo::groupId());
     }
+    mClusterVersion = decodeState.clusterversion();
+    mClusterConfiguration.syncFromProto(decodeState.clusterconfiguration());
+    mClusterReconfigureIndex = decodeState.clusterreconfigureindex();
   }
 }
 
@@ -81,7 +111,7 @@ void CtrlState::recoverForEAL(std::string_view str) {
   SPDLOG_INFO("load ctrl state: {}", prettyPrint());
   // for cluster Id > 0, need to start raft
   // for cluster = 0, direct start raft
-  if (hasState() && mClusterId > 0) {
+  if (hasSplitState() && mClusterId > 0) {
     auto routeSignal = std::make_shared<gringofts::RouteSignal>(mEpoch, mClusterId);
     // query route info to guarantee it can start raft
     Signal::hub << routeSignal;
@@ -95,5 +125,7 @@ void CtrlState::recoverForEAL(std::string_view str) {
     }
   }
   getGauge("epoch_gauge", {}).set(mEpoch);
+  getGauge("cluster_configuration_version", {{"cluster", std::to_string(mClusterConfiguration.getClusterId())}}).
+    set(mClusterVersion);
 }
 }  // namespace gringofts::app::ctrl
