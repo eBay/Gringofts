@@ -111,7 +111,7 @@ class ClusterInfo final {
     return mClusterId;
   }
 
-  // ture: selfnode is in the cluster, false: selfnode is not in the cluster
+  // true: selfnode is in the cluster, false: selfnode is not in the cluster
   bool deduceSelfNodeId(NodeId *myNodeId, std::string *myHostname) const;
 
   std::string to_string() const;

@@ -62,8 +62,6 @@ grpc::Status ReconfigureCallDataHandler::buildResponse(const ReconfigureCommand 
   response->set_reconfigurecommitindex(command.getId());
   if (code == 301 && leaderId) {
     header->set_reserved(std::to_string(*leaderId));
-    const gringofts::ClusterInfo &clusterInfo = gringofts::app::AppInfo::getMyClusterInfo();
-    const auto &nodesMap = clusterInfo.getAllNodeInfo();
   }
   header->set_message(message);
   return grpc::Status::OK;

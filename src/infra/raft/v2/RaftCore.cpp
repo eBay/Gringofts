@@ -1099,7 +1099,7 @@ void RaftCore::leadershipTimeout() {
   }
 
   auto timeElapseInNano = getMajorityTimeElapse();
-  if (timeElapseInNano / 1000000.0 < RaftConstants::kMaxElectionTimeoutInMillis) {
+  if (timeElapseInNano / 1000000.0 < mMaxElectionTimeoutInMillis) {
     return;
   }
 

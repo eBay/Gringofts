@@ -15,6 +15,7 @@ limitations under the License.
 #pragma once
 
 #include <spdlog/spdlog.h>
+#include <memory>
 
 namespace gringofts {
 namespace raft {

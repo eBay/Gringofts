@@ -269,8 +269,8 @@ std::map<ClusterId, ClusterInfo> ClusterInfo::parseToClusterInfo(const std::stri
       std::pair<std::string, std::string> clusterIdWithLearnerIds = absl::StrSplit(c, "#");
       gringofts::ClusterId clusterId = std::stoi(clusterIdWithLearnerIds.first);
       if (result.find(clusterId) == result.end()) {
-        SPDLOG_ERROR("Unknown cluser id {} in learner config: {}", clusterId, learnersStr);
-        throw std::runtime_error("Unknown cluser id in learner config");
+        SPDLOG_ERROR("Unknown cluster id {} in learner config: {}", clusterId, learnersStr);
+        throw std::runtime_error("Unknown cluster id in learner config");
       }
 
       std::set<std::string> learnerIdStrs = absl::StrSplit(clusterIdWithLearnerIds.second, ",");
