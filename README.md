@@ -79,12 +79,12 @@ bash ./scripts/addSubmodules.sh
 This approach requires minimum dependencies on the target OS as all of the dependencies are encapsulated in a docker image.
 1. Build docker image for compiling the project (one-time setup)
    ```bash
-   sudo docker build --rm -t gringofts/dependencies:v3 -f dockers/dependencies/download.Dockerfile .
-   sudo docker build --rm -t gringofts/compile:v3 -f dockers/dependencies/install.Dockerfile .
+   sudo docker build --rm -t gringofts/dependencies:v4 -f dockers/dependencies/download.Dockerfile .
+   sudo docker build --rm -t gringofts/compile:v4 -f dockers/dependencies/install.Dockerfile .
    ```
 1. Build binaries
    ```bash
-   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v3 hooks/pre-commit
+   sudo docker run --workdir "$(pwd)" --mount type=bind,source="$(pwd)",target="$(pwd)" --user "$(id -u)":"$(id -g)" gringofts/compile:v4 hooks/pre-commit
    ```
 
 ### Build directly on local OS
@@ -165,11 +165,6 @@ Some parts of this software include 3rd party code licensed under open source li
    https://www.sqlite.org/index.html<br/>
    License: https://www.sqlite.org/copyright.html<br/>
    SQLite Is Public Domain
-
-1. abseil-cpp<br/>
-   URL: https://github.com/abseil/abseil-cpp<br/>
-   License: https://github.com/abseil/abseil-cpp/blob/master/LICENSE<br/>
-   Originally licensed under the Apache 2.0 license.
 
 1. cpplint<br/>
    URL: https://github.com/google/styleguide<br/>

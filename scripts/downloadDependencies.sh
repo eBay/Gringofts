@@ -17,11 +17,11 @@ apt-get update -y &&
   apt-get install -y wget tar git build-essential apt-utils &&
   apt-get install -y apt-transport-https ca-certificates
 # download cmake
-cmake_version=3.14
-cd ~/temp && version=${cmake_version} && build=0 &&
-wget https://cmake.org/files/v$version/cmake-$version.$build.tar.gz &&
-tar -xzf cmake-$version.$build.tar.gz &&
-mv cmake-$version.$build cmake
+cmake_version=3.14.0
+cd ~/temp &&
+wget https://github.com/Kitware/CMake/releases/download/v${cmake_version}/cmake-${cmake_version}.tar.gz &&
+tar -xzf cmake-${cmake_version}.tar.gz &&
+mv cmake-${cmake_version} cmake
 # download and install gcc/g++
 gcc9_version=9.5.0
 GCC9=$(g++-9 --version | grep ${gcc9_version})
@@ -41,8 +41,8 @@ apt-get install -y libcurl4-gnutls-dev &&
   git clone -b v${prometheus_version} https://github.com/jupp0r/prometheus-cpp.git &&
   cd prometheus-cpp/ && git submodule init && git submodule update
 # download grpc and related components
-grpc_version="1.16"
-cd ~/temp && version=${grpc_version} && build=1 &&
+grpc_version="1.40"
+cd ~/temp && version=${grpc_version} && build=0 &&
   git clone https://github.com/grpc/grpc &&
   cd grpc && git fetch --all --tags --prune &&
   git checkout tags/v$version.$build -b v$version.$build &&

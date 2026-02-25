@@ -20,6 +20,27 @@ else
   echo "cmake ${cmake_version} has been installed, skip"
 fi
 # install grpc and related components
+# 0. install absl (abseil-cpp) to system
+absl_version="20210324.0"
+ABSL=$(find /usr/local/lib -name 'libabsl_*.a' 2>/dev/null | head -1)
+if [ -z "$ABSL" ]; then
+  cd ~/temp/grpc/third_party/abseil-cpp &&
+    # Fix SIGSTKSZ type mismatch in abseil (glibc 2.34+)
+    sed -i 's/std::max(SIGSTKSZ, 65536)/std::max<size_t>(SIGSTKSZ, 65536)/' \
+      absl/debugging/failure_signal_handler.cc &&
+    mkdir -p build && cd build &&
+    CXX=g++-9 CC=gcc-9 cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DABSL_BUILD_TESTING=OFF \
+      -DCMAKE_CXX_STANDARD=17 \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+      .. &&
+    make -j$(nproc) && make install && ldconfig
+  checkLastSuccess "install abseil-cpp ${absl_version} fails"
+  echo -e "\033[32mabseil-cpp ${absl_version} installed successfully.\033[0m"
+else
+  echo "abseil-cpp ${absl_version} has been installed, skip"
+fi
 # 1. install cares
 CARES=$(find /usr -name '*c-ares*')
 if [ -z "$CARES" ]; then
@@ -43,19 +64,21 @@ if [ -z "$PROTOBUF" ]; then
 else
   echo "protobuf ${protobuf_version} has been installed, skip"
 fi
-# 3. install grpc
+# 3. install grpc (using system absl with C++17)
 # install libssl-dev to skip installing boringssl
-grpc_version="1.16"
-GRPC=$(grep ${grpc_version} /usr/local/lib/cmake/grpc/gRPCConfigVersion.cmake)
+grpc_version="1.40"
+GRPC=$(grep ${grpc_version} /usr/local/lib/cmake/grpc/gRPCConfigVersion.cmake 2>/dev/null)
 if [ -z "$GRPC" ]; then
   cd ~/temp/grpc &&
-    sed -i -E "s/(gRPC_ZLIB_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
-    sed -i -E "s/(gRPC_CARES_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
-    sed -i -E "s/(gRPC_SSL_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
-    sed -i -E "s/(gRPC_PROTOBUF_PROVIDER.*)module(.*CACHE)/\1package\2/" CMakeLists.txt &&
-    echo "src/core/lib/gpr/log_linux.cc,src/core/lib/gpr/log_posix.cc,src/core/lib/iomgr/ev_epollex_linux.cc" | tr "," "\n" | xargs -L1 sed -i "s/gettid/sys_gettid/" &&
-    CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug &&
-    make && make install && make clean && ldconfig
+    CXX=g++-9 CC=gcc-9 cmake -DCMAKE_BUILD_TYPE=Debug \
+      -DCMAKE_CXX_STANDARD=17 \
+      -DgRPC_ZLIB_PROVIDER=package \
+      -DgRPC_CARES_PROVIDER=package \
+      -DgRPC_SSL_PROVIDER=package \
+      -DgRPC_PROTOBUF_PROVIDER=package \
+      -DgRPC_ABSL_PROVIDER=package \
+      . &&
+    make -j$(nproc) && make install && make clean && ldconfig
   checkLastSuccess "install grpc ${grpc_version} fails"
 else
   echo "gRPC ${grpc_version} has been installed, skip"

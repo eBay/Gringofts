@@ -211,10 +211,9 @@ include_directories(third_party/spdlog/include)
 # ini parser
 include_directories(third_party/inih/cpp)
 
-# abseil-cpp
+# abseil-cpp - use system installed absl
 set(CMAKE_CXX_STANDARD 17)
-add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
-include_directories(third_party/abseil-cpp)
+find_package(absl REQUIRED CONFIG)
 set(ABSL_LIBS absl::strings absl::base absl::str_format absl::time)
 
 # prometheus
@@ -293,7 +292,6 @@ if(hasParent)
     set(GRINGOFTS_INCL
             Gringofts/src
             Gringofts/test
-            Gringofts/third_party/abseil-cpp
             Gringofts/third_party/prometheus-cpp/core/include
             Gringofts/third_party/prometheus-cpp/pull/include
             Gringofts/third_party/spdlog/include

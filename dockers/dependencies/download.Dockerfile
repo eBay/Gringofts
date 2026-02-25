@@ -1,5 +1,5 @@
 # This Dockerfile downloads all the external dependencies
-# tag: gringofts/dependencies:v3
+# tag: gringofts/dependencies:v4
 FROM ubuntu:22.04
 LABEL maintainer="jingyichen@ebay.com"
 WORKDIR /usr/external
