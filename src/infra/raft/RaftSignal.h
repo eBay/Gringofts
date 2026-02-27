@@ -27,6 +27,24 @@ class StopSyncRoleSignal : public Signal {
   uint64_t mBeginIndex;
 };
 
+class ReconfigureSignal : public Signal {
+ public:
+  explicit ReconfigureSignal(const uint64_t clusterVersion,
+                             const NodeId selfId,
+                             const ClusterInfo &clusterConfiguration) :
+           mClusterVersion(clusterVersion),
+           mSelfId(selfId),
+           mClusterConfiguration(clusterConfiguration) {}
+  uint64_t getClusterVersion() const { return mClusterVersion; }
+  NodeId getSelfId() const { return mSelfId; }
+  ClusterInfo getClusterConfiguration() const { return mClusterConfiguration; }
+
+ private:
+  uint64_t mClusterVersion;
+  NodeId mSelfId;
+  ClusterInfo mClusterConfiguration;
+};
+
 struct RaftState {
   uint64_t mFirstIndex;
   uint64_t mLastIndex;

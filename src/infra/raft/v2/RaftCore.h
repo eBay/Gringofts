@@ -20,15 +20,18 @@ limitations under the License.
 #include <memory>
 #include <optional>
 #include <thread>
+#include <sstream>
+#include <absl/strings/str_join.h>
 
 #include <INIReader.h>
 
 #include "../../util/ClusterInfo.h"
 #include "../../util/RandomUtil.h"
-#include "../../util/TestPointProcessor.h"
 #include "../../util/SecretKeyFactory.h"
+#include "../../util/TestPointProcessor.h"
 #include "../../util/TimeUtil.h"
 #include "../../util/Util.h"
+#include "../DoubleBuffer.h"
 #include "../generated/raft.pb.h"
 #include "../storage/InMemoryLog.h"
 #include "../storage/Log.h"
@@ -110,6 +113,44 @@ struct Peer {
 
 class RaftCore : public RaftInterface {
  public:
+  struct ClusterMemberShip {
+    std::map<uint64_t, Peer> mPeers;
+    std::map<uint32_t, RaftRole> mInitialRoles;
+    MemberInfo mSelfInfo;
+    std::map<uint64_t, std::unique_ptr<RaftClient>> mClients;
+    std::set<uint32_t> mOldMembers;
+    std::set<uint32_t> mNewMembers;
+    std::set<uint32_t> mInsyncLearners;
+    void clear() {
+      SPDLOG_INFO("Abandon Current Membership");
+      mPeers.clear();
+      mInitialRoles.clear();
+      mSelfInfo = {};
+      mClients.clear();
+      mOldMembers.clear();
+      mNewMembers.clear();
+      mInsyncLearners.clear();
+    }
+    void printCluster() const {
+      std::stringstream ss;
+      ss << "========== PRINT CLUSTER MEMBERSHIP ==========" << std::endl;
+      ss << "Self: " << mSelfInfo.mId << "; ";
+      std::set<uint32_t> peers;
+      for (auto &peer : mPeers) {
+        peers.insert(peer.first);
+      }
+      ss << "Peers: " << absl::StrJoin(peers, ",") << "; ";
+      std::vector<std::string> roles;
+      for (const auto &node : mInitialRoles) {
+        roles.emplace_back(roleString(node.second));
+      }
+      ss << "InitRoles: " << absl::StrJoin(roles, ",") << "; ";
+      ss << "OldMembers: " << absl::StrJoin(mOldMembers, ",") << "; ";
+      ss << "NewMembers: " << absl::StrJoin(mNewMembers, ",") << "; ";
+      ss << "InsyncLearners: " << absl::StrJoin(mInsyncLearners, ",");
+      SPDLOG_INFO(ss.str());
+    }
+  };
   RaftCore(const char *configPath,
       const NodeId &selfId,
       const ClusterInfo &clusterInfo,
@@ -132,14 +173,30 @@ class RaftCore : public RaftInterface {
   }
   std::vector<MemberInfo> getClusterMembers() const override {
     std::vector<MemberInfo> cluster;
-    cluster.push_back(mSelfInfo);
-    for (auto &[id, p] : mPeers) {
+    auto members = mClusterMembers->constCurrent();
+    cluster.push_back(members->mSelfInfo);
+    for (const auto &[id, p] : members->mPeers) {
       cluster.push_back({id, p.mAddress});
     }
     /// guarantee a unique sort order
     std::sort(cluster.begin(), cluster.end(),
               [](const MemberInfo &info1, const MemberInfo &info2) { return info1.mId < info2.mId; });
     return cluster;
+  }
+
+  bool isLearner(uint64_t id) const override {
+    auto members = mClusterMembers->constCurrent();
+    return members->mInitialRoles.at(id) == RaftRole::Learner;
+  }
+
+  bool isPreFollower(uint64_t id) const override {
+    auto members = mClusterMembers->constCurrent();
+    return members->mInitialRoles.at(id) == RaftRole::PreFollower;
+  }
+
+  bool isVoter(uint64_t id) const override {
+    auto members = mClusterMembers->constCurrent();
+    return members->mInitialRoles.at(id) == RaftRole::Follower;
   }
 
   bool getEntry(uint64_t index, LogEntry *entry) const override {
@@ -176,6 +233,15 @@ class RaftCore : public RaftInterface {
     mClientRequestsQueue.enqueue(std::move(event));
   }
 
+  void enqueueReconfigureRequest(ReconfigureRequest reconfigureRequest) override {
+    auto event = std::make_shared<ReconfigureRequestEvent>();
+
+    event->mType = RaftEventBase::Type::ReconfigureRequest;
+    event->mPayload = std::move(reconfigureRequest);
+
+    mClientRequestsQueue.enqueue(std::move(event));
+  }
+
   void truncatePrefix(uint64_t firstIndexKept) override {
     assert(firstIndexKept <= mCommitIndex);
     return mLog->truncatePrefix(firstIndexKept);
@@ -187,9 +253,10 @@ class RaftCore : public RaftInterface {
  private:
   /// init
   void initConfigurableVars(const INIReader &iniReader);
-  void initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId);
+  void initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId,
+      std::shared_ptr<ClusterMemberShip> members);
   void initStorage(const INIReader &iniReader, std::shared_ptr<SecretKeyFactoryInterface> secretKeyFactory);
-  void initService(const INIReader &iniReader, std::shared_ptr<DNSResolver> dnsResolver);
+  void initService(const INIReader &iniReader);
 
   /// thread function of mRaftLoop
   void raftLoopMain();
@@ -224,6 +291,9 @@ class RaftCore : public RaftInterface {
   /// receive syncRequest
   void handleSyncRequest(SyncRequest syncRequest);
 
+  /// receive reconfigureRequest
+  void handleReconfigureRequest(ReconfigureRequest reconfigureRequest);
+
   void advanceCommitIndex();
 
   void becomeLeader();
@@ -238,10 +308,164 @@ class RaftCore : public RaftInterface {
   /// with majority within election timeout.
   void leadershipTimeout();
 
+  void configurationSwitch();
+
   void stepDown(uint64_t newTerm);
 
   /// be careful that precedence of '>>' is less than '+'
   static uint64_t getMajorityNumber(uint64_t totalNum) { return (totalNum >> 1) + 1; }
+
+  void checkSelfNeedExit() {
+    auto members = mClusterMembers->constCurrent();
+    if (members->mSelfInfo.mId == kBadID) {
+      // if this node is not in the configure list, exit
+      SPDLOG_INFO("Exit for configure dont not contain may selfId");
+      assert(0);
+    }
+  }
+
+  uint64_t getMajorityIndexofVoters(const std::set<uint32_t> &nodeIds) {
+    auto members = mClusterMembers->constCurrent();
+    std::vector<uint64_t> indices;
+    for (auto &id : nodeIds) {
+      if (!isVoter(id)) {
+        continue;
+      }
+      if (members->mSelfInfo.mId == id) {
+        indices.push_back(mLog->getLastLogIndex());
+      } else {
+        auto it = members->mPeers.find(id);
+        assert(it != members->mPeers.end());
+        indices.push_back(it->second.mMatchIndex);
+      }
+    }
+    std::sort(indices.begin(), indices.end(),
+                [](uint64_t x, uint64_t y) { return x > y; });
+    return indices[indices.size() >> 1];
+  }
+
+  // only used in in-sync learner feature
+  uint64_t getMajorityIndexofLearners(const std::set<uint32_t> &nodeIds) {
+    auto members = mClusterMembers->constCurrent();
+    std::vector<uint64_t> indices;
+    for (auto &id : nodeIds) {
+      if (!isLearner(id)) {
+        continue;
+      }
+      auto it = members->mPeers.find(id);
+      assert(it != members->mPeers.end());
+      indices.push_back(it->second.mMatchIndex);
+    }
+    std::sort(indices.begin(), indices.end(),
+                [](uint64_t x, uint64_t y) { return x > y; });
+    return indices[indices.size() >> 1];
+  }
+
+  // return current majority index, support both single-cluster and joint-cluster
+  uint64_t getMajorityIndex() {
+    auto members = mClusterMembers->constCurrent();
+    if (members->mOldMembers.empty() || members->mNewMembers.empty()) {
+      /// calculate the largest entry stored on a quorum of servers
+      /// work for single-server cluster as well
+      std::set<uint32_t> nodeIds;
+      for (auto &p : members->mPeers) {
+        auto &peer = p.second;
+        nodeIds.insert(peer.mId);
+      }
+      nodeIds.insert(members->mSelfInfo.mId);
+      if (members->mInsyncLearners.empty()) {
+        return getMajorityIndexofVoters(nodeIds);
+      } else {
+        // take the majority index of in-sync learners into consideration while advancing commitIndex
+        return std::min(getMajorityIndexofVoters(nodeIds), getMajorityIndexofLearners(members->mInsyncLearners));
+      }
+    } else {
+      /// calculate the largest entry stored on joint-consensus
+      /// work for the status of Cold & Cnew co-exist
+      return std::min(getMajorityIndexofVoters(members->mOldMembers), getMajorityIndexofVoters(members->mNewMembers));
+    }
+  }
+
+  // count the vote number for current node in the nodeIds, return whether reach quorum size
+  // note that current node may not be in the nodeIds set
+  bool checkQuorumVoteofInput(const std::set<uint32_t> &nodeIds) {
+    auto members = mClusterMembers->constCurrent();
+    uint64_t voteNum = 0;
+    uint64_t nonVoterNum = 0;
+    for (auto &id : nodeIds) {
+      // accept the RV response from a server, which is recoginized as a prefollower
+      // align the rule: for RV request, always believe what received is the latest configuration
+      if (isLearner(id)) {
+        ++nonVoterNum;
+        continue;
+      }
+      if (members->mSelfInfo.mId == id) {
+        ++voteNum;
+      } else {
+        auto it = members->mPeers.find(id);
+        assert(it != members->mPeers.end());
+        if (it->second.mHaveVote) {
+          ++voteNum;
+        }
+      }
+    }
+    return voteNum >= getMajorityNumber(nodeIds.size() - nonVoterNum);
+  }
+
+  // check whether pass prevote or vote, support both single-cluster and joint-cluster
+  bool checkVotePass() {
+    auto members = mClusterMembers->constCurrent();
+    if (members->mOldMembers.empty() || members->mNewMembers.empty()) {
+      std::set<uint32_t> nodeIds;
+      for (auto &p : members->mPeers) {
+        auto &peer = p.second;
+        nodeIds.insert(peer.mId);
+      }
+      nodeIds.insert(members->mSelfInfo.mId);
+      return checkQuorumVoteofInput(nodeIds);
+    } else {
+      // joint consensus status, Cold & Cnew
+      return checkQuorumVoteofInput(members->mOldMembers) && checkQuorumVoteofInput(members->mNewMembers);
+    }
+  }
+
+  uint64_t getMajorityTimeElapseofInput(const std::set<uint32_t> &nodeIds) {
+    auto members = mClusterMembers->constCurrent();
+    std::vector<uint64_t> timePoints;
+    auto nowInNano = TimeUtil::currentTimeInNanos();
+    for (auto &id : nodeIds) {
+      if (!isVoter(id)) {
+        continue;
+      }
+      if (members->mSelfInfo.mId == id) {
+        timePoints.push_back(nowInNano);
+      } else {
+        auto it = members->mPeers.find(id);
+        assert(it != members->mPeers.end());
+        timePoints.push_back(it->second.mLastResponseTimeInNano);
+      }
+    }
+    std::sort(timePoints.begin(), timePoints.end(),
+                [](uint64_t x, uint64_t y) { return x > y; });
+    return nowInNano - timePoints[timePoints.size() >> 1];
+  }
+
+  // return current majority timeelapse, support both single-cluster and joint-cluster
+  uint64_t getMajorityTimeElapse() {
+    auto members = mClusterMembers->constCurrent();
+    if (members->mOldMembers.empty() || members->mNewMembers.empty()) {
+      std::set<uint32_t> nodeIds;
+      for (auto &p : members->mPeers) {
+        auto &peer = p.second;
+        nodeIds.insert(peer.mId);
+      }
+      nodeIds.insert(members->mSelfInfo.mId);
+      return getMajorityTimeElapseofInput(nodeIds);
+    } else {
+      return std::max(getMajorityTimeElapseofInput(members->mOldMembers),
+          getMajorityTimeElapseofInput(members->mNewMembers));
+    }
+  }
 
   uint64_t termOfLogEntryAt(uint64_t index) const {
     uint64_t term;
@@ -260,23 +484,36 @@ class RaftCore : public RaftInterface {
     mElectionTimePointInNano = TimeUtil::currentTimeInNanos() + timeIntervalInNano;
   }
 
-  std::string selfId() const {
-    switch (mRaftRole) {
-      case RaftRole::Leader: return "Leader " + std::to_string(mSelfInfo.mId);
-      case RaftRole::Follower: return "Follower " + std::to_string(mSelfInfo.mId);
-      case RaftRole::Candidate: return "Candidate " + std::to_string(mSelfInfo.mId);
-      case RaftRole::Syncer: return "Syncer " + std::to_string(mSelfInfo.mId);
-      case RaftRole::PreCandidate: return "PreCandidate " + std::to_string(mSelfInfo.mId);
-      case RaftRole::Learner: return "Learner " + std::to_string(mSelfInfo.mId);
+  static std::string roleString(const RaftRole &role) {
+    switch (role) {
+      case RaftRole::Leader: return "Leader";
+      case RaftRole::Follower: return "Follower";
+      case RaftRole::Candidate: return "Candidate";
+      case RaftRole::Syncer: return "Syncer";
+      case RaftRole::PreCandidate: return "PreCandidate";
+      case RaftRole::Learner: return "Learner";
+      case RaftRole::PreFollower: return "PreFollower";
       default: return "";
     }
+  }
+
+  std::string selfId() const {
+    auto members = mClusterMembers->constCurrent();
+    return roleString(mRaftRole) + " " + std::to_string(members->mSelfInfo.mId);
+  }
+
+  // should only call by leader
+  std::string otherId(MemberId id) const {
+    assert(mRaftRole == RaftRole::Leader);
+    auto members = mClusterMembers->constCurrent();
+    return roleString(members->mInitialRoles.at(id)) + " " + std::to_string(id);
   }
 
   /// for some reason, print status.
   void printStatus(const std::string &reason) const;
 
   /// metrics
-  static void printMetrics(const AppendEntries::Metrics &metrics);
+  void printMetrics(const AppendEntries::Metrics &metrics) const;
 
   /**
    * configurable vars
@@ -303,14 +540,6 @@ class RaftCore : public RaftInterface {
    */
   /// 0 should not be used as mId
   static constexpr uint64_t kBadID = 0;
-
-  std::map<uint64_t, Peer> mPeers;
-
-  std::set<uint64_t> mLearners;
-
-  MemberInfo mSelfInfo;
-
-  std::string mAddressForRaftSvc;
 
   std::atomic<uint64_t> mLeaderId = kBadID;
   /// if now > election time point, incr current term, convert to candidate
@@ -342,13 +571,18 @@ class RaftCore : public RaftInterface {
 
   /// raft service: server and clients
   std::unique_ptr<RaftServer> mServer;
-  std::map<uint64_t, std::unique_ptr<RaftClient>> mClients;
+
+  // this data member should put after mAeRvQueue
+  // because raftclient mainloop depened on mAeRvQueue
+  // so raftclient should be destruct before mAeRvQueue
+  std::shared_ptr<DoubleBuffer<ClusterMemberShip>> mClusterMembers;
 
   /// streaming service
   bool mStreamingSvcEnabled = false;
   uint64_t mStreamingPort;
   std::unique_ptr<StreamingService> mStreamingService;
   std::optional<TlsConf> mTlsConfOpt;
+  std::shared_ptr<DNSResolver> mDNSResolver;
 
   /**
    * monitor

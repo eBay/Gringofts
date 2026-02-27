@@ -98,6 +98,7 @@ TEST_F(RaftCoreTest, BasicTest) {
     aeResp.set_last_log_index(1);
     aeResp.set_match_index(1);
     aeResp.mutable_metrics()->set_entries_count(1);
+    aeResp.mutable_metrics()->set_follower_id(1);
 
     /// handle AE_resp
     mRaftImpl->handleAppendEntriesResponse(aeResp);
