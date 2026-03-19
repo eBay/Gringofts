@@ -39,7 +39,11 @@ void ReconfigureEvent::onApplied() const {
   NodeId oldSelfId = AppInfo::getMyNodeId();
   std::string myHostname;
 
-  mClusterConfiguration.deduceSelfNodeId(&newSelfId, &myHostname);
+  if (!mClusterConfiguration.deduceSelfNodeId(&newSelfId, &myHostname)) {
+    SPDLOG_INFO("Failed to deduce seflt nodeid");
+    return;
+  }
+
   SPDLOG_INFO("ReconfigureEvent onApplied, oldSelfId={}, newSelfId={}", oldSelfId, newSelfId);
 
   // 1. update cluster info in AppInfo
