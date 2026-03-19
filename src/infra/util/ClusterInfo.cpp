@@ -310,6 +310,15 @@ bool ClusterInfo::deduceSelfNodeId(NodeId *myNodeId, std::string *myHostname) co
     }
   }
 
+  const char* selfMemberId = getenv("MEMBERID");
+  NodeId nodeId = std::stoi(std::string(selfMemberId));
+  auto iter = mNodes.find(nodeId);
+  if (iter != mNodes.end()) {
+    *myNodeId = nodeId;
+    *myHostname = iter->second.mHostName;
+    return true;
+  }
+
   return false;
 }
 
