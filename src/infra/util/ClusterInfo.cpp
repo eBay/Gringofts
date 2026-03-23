@@ -111,15 +111,24 @@ std::tuple<ClusterId, NodeId, uint64_t, std::map<ClusterId, ClusterInfo>> Cluste
       assert(myNodeId != -1);
     }
 
+    SPDLOG_INFO("read raft cluster conf from local, "
+                "cluster.conf={}, cluster.conf.learners={}, conf.version={}, self.clusterId={}, self.nodeId={}",
+                clusterConf, learnersConf, clusterVersion, myClusterId, myNodeId);
+
+    /// use the larger version
+    if (clusterVersionFromState > clusterVersion) {
+      clusterVersion = clusterVersionFromState;
+      allClusterInfo[clusterInfoFromState.getClusterId()] = clusterInfoFromState;
+      SPDLOG_INFO("raft cluster conf updated from ctrl state, cluster.version={}, cluster.conf={}",
+                  clusterVersionFromState, clusterInfoFromState.to_string());
+    }
+
     Signal::hub.handle<RouteSignal>([](const Signal &s) {
       const auto &signal = dynamic_cast<const RouteSignal &>(s);
       SPDLOG_WARN("for non-external controlled cluster direct start raft");
       signal.passValue(true);
     });
 
-    SPDLOG_INFO("read raft cluster conf from local, "
-                "cluster.conf={}, cluster.conf.learners={}, self.clusterId={}, self.nodeId={}",
-                clusterConf, learnersConf, myClusterId, myNodeId);
     return {myClusterId, myNodeId, clusterVersion, allClusterInfo};
   } else {
     std::string externalConfigFile = iniReader.Get("raft.external", "config.file", "");
