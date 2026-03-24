@@ -77,12 +77,8 @@ std::string CtrlState::prettyPrint() const {
 }
 
 std::string CtrlState::encodeToString() const {
-  if (mEpoch >= 0) {
-    auto state = buildProto();
-    return state.SerializeAsString();
-  } else {
-    return "";
-  }
+  auto state = buildProto();
+  return state.SerializeAsString();
 }
 
 void CtrlState::decodeFromString(std::string_view view) {
