@@ -58,8 +58,7 @@ std::string ClusterInfo::to_string() const {
 }
 
 std::tuple<ClusterId, NodeId, uint64_t, std::map<ClusterId, ClusterInfo>> ClusterInfo::resolveAllClusters(
-    const INIReader &iniReader, uint64_t clusterVersionFromState, const ClusterInfo &clusterInfoFromState,
-    std::unique_ptr<kv::ClientFactory> factory) {
+    const INIReader &iniReader, std::unique_ptr<kv::ClientFactory> factory) {
   std::string storeType = iniReader.Get("cluster", "persistence.type", "UNKNOWN");
   assert(storeType == "raft");
   bool externalEnabled = iniReader.GetBoolean("raft.external", "enable", false);
@@ -115,14 +114,6 @@ std::tuple<ClusterId, NodeId, uint64_t, std::map<ClusterId, ClusterInfo>> Cluste
                 "cluster.conf={}, cluster.conf.learners={}, conf.version={}, self.clusterId={}, self.nodeId={}",
                 clusterConf, learnersConf, clusterVersion, myClusterId, myNodeId);
 
-    /// use the larger version
-    if (clusterVersionFromState > clusterVersion) {
-      clusterVersion = clusterVersionFromState;
-      allClusterInfo[clusterInfoFromState.getClusterId()] = clusterInfoFromState;
-      SPDLOG_INFO("raft cluster conf updated from ctrl state, cluster.version={}, cluster.conf={}",
-                  clusterVersionFromState, clusterInfoFromState.to_string());
-    }
-
     Signal::hub.handle<RouteSignal>([](const Signal &s) {
       const auto &signal = dynamic_cast<const RouteSignal &>(s);
       SPDLOG_WARN("for non-external controlled cluster direct start raft");
@@ -158,13 +149,7 @@ std::tuple<ClusterId, NodeId, uint64_t, std::map<ClusterId, ClusterInfo>> Cluste
 
     /// read raft cluster conf version from state
     uint64_t clusterVersion = clusterVersionFromExternal;
-    /// use the larger version
-    if (clusterVersionFromState > clusterVersionFromExternal) {
-      clusterVersion = clusterVersionFromState;
-      allClusterInfo[clusterInfoFromState.getClusterId()] = clusterInfoFromState;
-      SPDLOG_INFO("raft cluster conf updated from ctrl state, cluster.version={}, cluster.conf={}",
-                  clusterVersionFromState, clusterInfoFromState.to_string());
-    }
+
     /// N.B.: when using external, the assumption is two PUs will never run on the same host,
     ///       otherwise below logic will break.
     std::optional<ClusterId> myClusterId = std::nullopt;

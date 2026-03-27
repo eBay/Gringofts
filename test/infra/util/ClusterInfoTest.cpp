@@ -70,7 +70,7 @@ TEST(ClusterInfoTest, resolveAllClustersUsingExternal) {
     ExternalClientMock::mKv["cluster.conf"] =
         absl::StrFormat("1#1@node11.ebay.com,2@%s,3@node13.ebay.com", gringofts::Util::getHostname());
     auto[clusterId, nodeId, clusterVersion, allClusterInfo] = ClusterInfo::resolveAllClusters(
-        INIReader("../test/infra/util/config/cluster_external.ini"), 0, ClusterInfo(),
+        INIReader("../test/infra/util/config/cluster_external.ini"),
         std::make_unique<ClientFactory_t<ExternalClientMock>>());
     EXPECT_EQ(clusterId, 1);
     EXPECT_EQ(nodeId, 2);
@@ -84,7 +84,7 @@ TEST(ClusterInfoTest, resolveAllClustersUsingExternal) {
     ExternalClientMock::mKv["cluster.route"] =
         "{\"epoch\":1,\"routeInfos\":[{\"clusterId\":0,\"routeEntries\":[{\"groups\":[0,1,2,3,4,5,6,7],\"groupTotal\":8}]},{\"clusterId\":1,\"routeEntries\":[{\"groups\":[0,1,2,3,4,5,6,7],\"groupTotal\":8}]}]}";  // NOLINT
     auto[clusterId, nodeId, clusterVersion, allClusterInfo] = ClusterInfo::resolveAllClusters(
-        INIReader("../test/infra/util/config/cluster_external.ini"), 0, ClusterInfo(),
+        INIReader("../test/infra/util/config/cluster_external.ini"),
         std::make_unique<ClientFactory_t<ExternalClientMock>>());
     EXPECT_EQ(clusterId, 1);
     EXPECT_EQ(nodeId, 2);
