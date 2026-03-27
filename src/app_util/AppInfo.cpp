@@ -17,7 +17,7 @@ limitations under the License.
 
 namespace gringofts::app {
 
-void AppInfo::init(const INIReader &reader, uint64_t clusterVersionFromState, const ClusterInfo &clusterInfoFromState) {
+void AppInfo::init(const INIReader &reader) {
   auto &appInfo = getInstance();
 
   auto &initialized = appInfo.initialized;
@@ -28,8 +28,7 @@ void AppInfo::init(const INIReader &reader, uint64_t clusterVersionFromState, co
     return;
   }
 
-  auto[myClusterId, myNodeId, clusterVersion, allClusterInfo] = ClusterInfo::resolveAllClusters(reader,
-      clusterVersionFromState, clusterInfoFromState, nullptr);
+  auto[myClusterId, myNodeId, clusterVersion, allClusterInfo] = ClusterInfo::resolveAllClusters(reader, nullptr);
   appInfo.mMyClusterId = myClusterId;
   appInfo.mMyNodeId = myNodeId;
   appInfo.mAllClusterInfo = allClusterInfo;
@@ -58,5 +57,22 @@ void AppInfo::init(const INIReader &reader, uint64_t clusterVersionFromState, co
               appInfo.mAppVersion,
               appInfo.mMyClusterId,
               appInfo.mMyNodeId);
+}
+
+void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo &clusterInfo) {
+  auto &appInfo = getInstance();
+
+  auto &initialized = appInfo.initialized;
+  bool expected = false;
+
+  if (!initialized.compare_exchange_strong(expected, true)) {
+    SPDLOG_WARN("appInfo has already been initialized, ignore.");
+    return;
+  }
+
+  appInfo.mClusterVersion = clusterConfersion;
+  appInfo.mMyNodeId = nodeId;
+  appInfo.mMyClusterId = clusterInfo.getClusterId();
+  appInfo.mAllClusterInfo[nodeId] = clusterInfo;
 }
 }  /// namespace gringofts::app
