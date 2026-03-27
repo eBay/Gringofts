@@ -65,7 +65,7 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
                                                       &SyncPointProcessor::getInstance()));
   } else {
     auto[myClusterId, nodeId, clusterVersion, allClusterInfo] =
-    ClusterInfo::resolveAllClusters(reader, 0, ClusterInfo(), nullptr);
+    ClusterInfo::resolveAllClusters(reader, nullptr);
     /**
      * in default, the config path is the app-level path,
      * which included raft config path

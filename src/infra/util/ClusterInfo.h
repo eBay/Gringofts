@@ -77,8 +77,7 @@ class ClusterInfo final {
    * Return my cluster id and full cluster info
    */
   static std::tuple<ClusterId, NodeId, uint64_t, std::map<ClusterId, ClusterInfo>> resolveAllClusters(
-      const INIReader &iniReader, uint64_t clusterVersionFromState, const ClusterInfo &clusterInfoFromState,
-      std::unique_ptr<kv::ClientFactory> factory);
+      const INIReader &iniReader, std::unique_ptr<kv::ClientFactory> factory);
 
   static bool checkHasRoute(const std::string &routeStr, uint64_t clusterId, uint64_t epoch);
 

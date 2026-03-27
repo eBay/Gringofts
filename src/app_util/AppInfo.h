@@ -33,8 +33,9 @@ class AppInfo final {
     getInstance().initialized = false;
   }
 
-  static void init(const INIReader &reader, uint64_t clusterVersionFromState = 0,
-                   const ClusterInfo &clusterInfoFromState = ClusterInfo());
+  static void init(const INIReader &reader);
+
+  static void init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo &clusterInfo);
 
   /// disallow copy ctor and copy assignment
   AppInfo(const AppInfo &) = delete;
@@ -59,6 +60,10 @@ class AppInfo final {
   static ClusterInfo::Node getMyNode() {
     assert(getInstance().initialized);
     return getMyClusterInfo().getAllNodeInfo()[getMyNodeId()];
+  }
+
+  static std::string getMyNodeAddress() {
+    return getMyNode().mHostName + ":" + std::to_string(getMyNode().mPortForRaft);
   }
 
   static std::optional<ClusterInfo> getClusterInfo(uint64_t clusterId) {
