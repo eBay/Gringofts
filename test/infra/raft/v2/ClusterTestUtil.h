@@ -52,7 +52,7 @@ class SyncRequestHandle : public RequestHandle {
 
 class ClusterTestUtil {
  public:
-    using ClusterParserType = std::function<std::tuple<NodeId, ClusterInfo>(const INIReader &)>;
+    using ClusterParserType = std::function<std::tuple<NodeId, ClusterInfo, uint64_t>(const INIReader &)>;
     explicit ClusterTestUtil(ClusterParserType parser = nullptr) :mParser(parser) { }
 
     /// disallow copy ctor and copy assignment
