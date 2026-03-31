@@ -54,7 +54,7 @@ MemberInfo ClusterTestUtil::setupServer(const std::string &configPath) {
   std::shared_ptr<RaftCore> raftImpl;
   std::string raftConfigPath;
   if (mParser) {
-    auto[nodeId, info] = mParser(reader);
+    auto[nodeId, info, version] = mParser(reader);
     /**
      * for self defined parser function, the config path is the raft config directly
      */
