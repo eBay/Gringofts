@@ -35,7 +35,7 @@ class AppInfo final {
 
   static void init(const INIReader &reader);
 
-  static void init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo &clusterInfo);
+  static void init(uint64_t clusterConfersion, NodeId nodeId, ClusterInfo clusterInfo);
 
   /// disallow copy ctor and copy assignment
   AppInfo(const AppInfo &) = delete;

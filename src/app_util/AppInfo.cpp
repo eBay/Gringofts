@@ -59,7 +59,7 @@ void AppInfo::init(const INIReader &reader) {
               appInfo.mMyNodeId);
 }
 
-void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo &clusterInfo) {
+void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, ClusterInfo clusterInfo) {
   auto &appInfo = getInstance();
 
   auto &initialized = appInfo.initialized;
@@ -81,7 +81,7 @@ void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo 
   SPDLOG_INFO("Global settings: "
               "app.clusterconfversion={}, "
               "app.clusterid={}, "
-              "app.nodeid={}",
+              "app.nodeid={}, "
               "app.clusterconf={}",
               appInfo.mClusterVersion,
               appInfo.mMyClusterId,
