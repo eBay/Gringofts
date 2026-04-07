@@ -14,7 +14,6 @@ limitations under the License.
 
 #include "RaftCore.h"
 
-#include <absl/strings/str_split.h>
 #include <cassert>
 #include <limits>
 #include <netinet/in.h>
@@ -150,7 +149,7 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
 
     if (selfId == nodeId) {
       members->mSelfInfo.mId = selfId;
-      members->mSelfInfo.mAddress = "0.0.0.0:" + port;
+      members->mSelfInfo.mAddress = addr;
       mStreamingPort = node.mPortForStream;
     } else {
       Peer peer;
@@ -225,7 +224,8 @@ void RaftCore::initStorage(const INIReader &iniReader, std::shared_ptr<SecretKey
 void RaftCore::initService(const INIReader &iniReader) {
   /// init RaftServer
   auto members = mClusterMembers->constCurrent();
-  mServer = std::make_unique<RaftServer>(members->mSelfInfo.mAddress, mTlsConfOpt, &mAeRvQueue, mDNSResolver);
+  mServer = std::make_unique<RaftServer>("0.0.0.0:" + members->mSelfInfo.getPort(),
+      mTlsConfOpt, &mAeRvQueue, mDNSResolver);
 
   /// sleep 10s, can we receive any AE_req from current Leader ?
   auto initialElectionTimeout = static_cast<uint64_t>(

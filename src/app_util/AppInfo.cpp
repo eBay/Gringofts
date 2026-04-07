@@ -73,16 +73,16 @@ void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo 
   appInfo.mClusterVersion = clusterConfersion;
   appInfo.mMyNodeId = nodeId;
   appInfo.mMyClusterId = clusterInfo.getClusterId();
-  appInfo.mAllClusterInfo[nodeId] = clusterInfo;
+  appInfo.mAllClusterInfo[clusterInfo.getClusterId()] = clusterInfo;
 
   std::string clusterInfoString = appInfo.getMyClusterInfo().to_string();
   getGauge("configuration_version", {{"address", clusterInfoString}}).set(appInfo.mClusterVersion);
 
-  SPDLOG_INFO("Global settings: "
+  SPDLOG_INFO("Global settings of AppInfo singleton: "
               "app.clusterconfversion={}, "
               "app.clusterid={}, "
-              "app.nodeid={}",
-              "app.clusterconf={}",
+              "app.nodeid={}, "
+              "app.clusterconf: {}",
               appInfo.mClusterVersion,
               appInfo.mMyClusterId,
               appInfo.mMyNodeId,
