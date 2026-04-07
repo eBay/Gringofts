@@ -81,10 +81,10 @@ class AppInfo final {
   static void setClusterInfo(uint64_t clusterVersion, NodeId nodeId, const ClusterInfo &clusterInfo) {
     assert(getMyClusterId() == clusterInfo.getClusterId());  // cluster id cannot be changed
     assert(clusterVersion > getClusterVersion());            // version should be increased
-    SPDLOG_INFO("AppInfo receive reconfiguration, selfId: {}, version: {}, cluster configuration: {}",
-                nodeId, clusterVersion, clusterInfo.to_string());
     SPDLOG_INFO("AppInfo's old reconfiguration, selfId: {}, version: {}, cluster configuration: {}",
                 getMyNodeId(), getClusterVersion(), getMyClusterInfo().to_string());
+    SPDLOG_INFO("AppInfo receive reconfiguration, selfId: {}, version: {}, cluster configuration: {}",
+                nodeId, clusterVersion, clusterInfo.to_string());
     if (nodeId == kUnknownNodeId) {
       SPDLOG_INFO("node id is unknown({}). exiting...", nodeId);
       assert(0);
@@ -104,16 +104,16 @@ class AppInfo final {
     const auto& initialRoleMap = getMyClusterInfo().getAllInitialRoles();
     const auto iter = initialRoleMap.find(getMyNodeId());
     if (iter == initialRoleMap.end()) {
-      SPDLOG_INFO("cluster is 0, and node default role not set, will start with follower role");
+      SPDLOG_INFO("node default role not set, will start with follower role");
       role = raft::RaftRole::Follower;
     } else if (iter->second == protos::InitialRaftRole::Learner) {
-      SPDLOG_INFO("cluster is 0, and node is learner, will start with learner role");
+      SPDLOG_INFO("node is learner, will start with learner role");
       role = raft::RaftRole::Learner;
     } else if (iter->second == protos::InitialRaftRole::PreFollower) {
-      SPDLOG_INFO("cluster is 0, and node is pre-follower, will start with pre-follower role");
+      SPDLOG_INFO("node is pre-follower, will start with pre-follower role");
       role = raft::RaftRole::PreFollower;
     } else {
-      SPDLOG_INFO("cluster is 0, and node is voter, will start with follower role");
+      SPDLOG_INFO("node is voter, will start with follower role");
       role = raft::RaftRole::Follower;
     }
     return role;

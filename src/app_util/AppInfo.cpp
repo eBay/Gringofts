@@ -74,5 +74,18 @@ void AppInfo::init(uint64_t clusterConfersion, NodeId nodeId, const ClusterInfo 
   appInfo.mMyNodeId = nodeId;
   appInfo.mMyClusterId = clusterInfo.getClusterId();
   appInfo.mAllClusterInfo[nodeId] = clusterInfo;
+
+  std::string clusterInfoString = appInfo.getMyClusterInfo().to_string();
+  getGauge("configuration_version", {{"address", clusterInfoString}}).set(appInfo.mClusterVersion);
+
+  SPDLOG_INFO("Global settings: "
+              "app.clusterconfversion={}, "
+              "app.clusterid={}, "
+              "app.nodeid={}",
+              "app.clusterconf={}",
+              appInfo.mClusterVersion,
+              appInfo.mMyClusterId,
+              appInfo.mMyNodeId,
+              clusterInfoString);
 }
 }  /// namespace gringofts::app
