@@ -24,6 +24,7 @@ limitations under the License.
 #include "generated/raft.pb.h"
 #include "../grpc/RequestHandle.h"
 #include "../util/ClusterInfo.h"
+#include <absl/strings/str_split.h>
 
 namespace gringofts {
 namespace raft {
@@ -41,6 +42,10 @@ struct MemberInfo {
   }
   bool operator < (const MemberInfo &other) const {
     return mId < other.mId;
+  }
+  std::string getPort() const {
+    std::pair<std::string, std::string> hostWithPort = absl::StrSplit(mAddress, ":");
+    return hostWithPort.second.empty() ? std::to_string(kDefaultRaftPort) : hostWithPort.second;
   }
 };
 
