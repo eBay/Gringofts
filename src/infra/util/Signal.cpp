@@ -30,7 +30,6 @@ SignalSlot::SignalSlot() :
     mRunning = false;
   });
   mThread = std::thread([this]() {
-    SPDLOG_INFO("start event dispatcher");
     run();
   });
 }
