@@ -315,11 +315,11 @@ void RaftCore::receiveMessage() {
     if (members->mPeers.find(ptr->mPeerId) == members->mPeers.end()) {
       return;
     }
-    /// turn on switch
+    /// turn on AE switch
     auto &peer = members->mPeers.at(ptr->mPeerId);
     auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
-    peer.mNextRequestTimeInNano = std::max(peer.mLastRequestTimeInNano + hbIntervalInNano,
-                                           TimeUtil::currentTimeInNanos());
+    peer.mNextAERequestTimeInNano = std::max(peer.mLastAERequestTimeInNano + hbIntervalInNano,
+                                             TimeUtil::currentTimeInNanos());
 
     if (ptr->mStatus.ok()) {
       peer.mLastResponseTimeInNano = TimeUtil::currentTimeInNanos();
@@ -346,10 +346,10 @@ void RaftCore::receiveMessage() {
     }
     auto &peer = members->mPeers.at(ptr->mPeerId);
 
-    /// turn on switch
+    /// turn on RV switch
     auto hbIntervalInNano = mHeartBeatIntervalInMillis * 1000 * 1000;
-    peer.mNextRequestTimeInNano = std::max(peer.mLastRequestTimeInNano + hbIntervalInNano,
-                                           TimeUtil::currentTimeInNanos());
+    peer.mNextRVRequestTimeInNano = std::max(peer.mLastRVRequestTimeInNano + hbIntervalInNano,
+                                             TimeUtil::currentTimeInNanos());
 
     if (ptr->mStatus.ok()) {
       peer.mLastResponseTimeInNano = TimeUtil::currentTimeInNanos();
@@ -385,7 +385,7 @@ void RaftCore::appendEntries() {
   for (auto &p : members->mPeers) {
     auto &peer = p.second;
 
-    if (peer.mNextRequestTimeInNano > TimeUtil::currentTimeInNanos()) {
+    if (peer.mNextAERequestTimeInNano > TimeUtil::currentTimeInNanos()) {
       continue;
     }
 
@@ -445,9 +445,9 @@ void RaftCore::appendEntries() {
                   selfId(), otherId(peer.mId), currentTerm, batchSize);
     }
 
-    /// turn off switch
-    peer.mNextRequestTimeInNano = std::numeric_limits<uint64_t>::max();
-    peer.mLastRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    /// turn off AE switch
+    peer.mNextAERequestTimeInNano = std::numeric_limits<uint64_t>::max();
+    peer.mLastAERequestTimeInNano = TimeUtil::currentTimeInNanos();
   }
 }
 
@@ -465,7 +465,7 @@ void RaftCore::requestVote() {
     }
 
     if (peer.mRequestVoteDone
-        || peer.mNextRequestTimeInNano > TimeUtil::currentTimeInNanos()) {
+        || peer.mNextRVRequestTimeInNano > TimeUtil::currentTimeInNanos()) {
       continue;
     }
 
@@ -501,9 +501,9 @@ void RaftCore::requestVote() {
                 "with <lastLogIndex, lastLogTerm>=<{}, {}>",
                 selfId(), requestName, peer.mId, currentTerm, lastLogIndex, lastLogTerm);
 
-    /// turn off switch
-    peer.mNextRequestTimeInNano = std::numeric_limits<uint64_t>::max();
-    peer.mLastRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    /// turn off RV switch
+    peer.mNextRVRequestTimeInNano = std::numeric_limits<uint64_t>::max();
+    peer.mLastRVRequestTimeInNano = TimeUtil::currentTimeInNanos();
   }
 }
 
@@ -995,8 +995,8 @@ void RaftCore::becomeCandidate() {
     peer.mRequestVoteDone = false;
     peer.mHaveVote = false;
 
-    /// turn on switch
-    peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    /// turn on RV switch
+    peer.mNextRVRequestTimeInNano = TimeUtil::currentTimeInNanos();
   }
 }
 
@@ -1023,8 +1023,8 @@ void RaftCore::becomeLeader() {
     peer.mMatchIndex = 0;
     peer.mSuppressBulkData = true;
 
-    /// turn on switch
-    peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    /// turn on AE switch
+    peer.mNextAERequestTimeInNano = TimeUtil::currentTimeInNanos();
   }
 
   /// append noop
@@ -1088,8 +1088,8 @@ void RaftCore::electionTimeout() {
     peer.mRequestVoteDone = false;
     peer.mHaveVote = false;
 
-    /// turn on switch
-    peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+    /// turn on RV switch
+    peer.mNextRVRequestTimeInNano = TimeUtil::currentTimeInNanos();
   }
 }
 
@@ -1141,8 +1141,8 @@ void RaftCore::configurationSwitch() {
       peer.mMatchIndex = 0;
       peer.mSuppressBulkData = true;
 
-      /// turn on switch
-      peer.mNextRequestTimeInNano = TimeUtil::currentTimeInNanos();
+      /// turn on AE switch
+      peer.mNextAERequestTimeInNano = TimeUtil::currentTimeInNanos();
     }
   }
 

@@ -93,15 +93,26 @@ struct Peer {
   bool mSuppressBulkData = true;
 
   /**
-   * Last sent time of AE_req/RV_req/RPV_req by Leader/Candidate/PreCandidate
+   * Last sent time of AE_req by Leader
    */
-  uint64_t mLastRequestTimeInNano = 0;
+  uint64_t mLastAERequestTimeInNano = 0;
 
   /**
-   * As a switch used by Leader/Candidate/PreCandidate to determine
-   * whether next AE_req/RV_req/RPV_req is ready to send.
+   * As a switch used by Leader to determine
+   * whether next AE_req is ready to send.
    */
-  uint64_t mNextRequestTimeInNano = 0;
+  uint64_t mNextAERequestTimeInNano = 0;
+
+  /**
+   * Last sent time of RV_req/RPV_req by Candidate/PreCandidate
+   */
+  uint64_t mLastRVRequestTimeInNano = 0;
+
+  /**
+   * As a switch used by Candidate/PreCandidate to determine
+   * whether next RV_req/RPV_req is ready to send.
+   */
+  uint64_t mNextRVRequestTimeInNano = 0;
 
   /**
    * Last response time of AE_resp/RV_resp/RPV_resp, used by Leader
