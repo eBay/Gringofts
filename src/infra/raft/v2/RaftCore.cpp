@@ -682,35 +682,58 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
     /// logging metrics
     printMetrics(response.metrics());
   } else {
-    if (peer.mMatchIndex > response.last_log_index()) {
+    /// Two special cases out of raft consensus but practical happenings:
+    /// 1. follower's log is rolled back due to disk crash, so response.last_log_index() is less than peer.mMatchIndex.
+    /// 2. leader's log is truncated due to disk usage, so response.last_log_index() is less than leader's firstLogIndex
+    if (response.last_log_index() < peer.mMatchIndex) {
       // Peer's storage was rolled back.
-      // We should reset peer.mMatchIndex and peer.mNextIndex.
+      // eg. 1. due to disk crash, peer's log was all destroyed, so response.last_log_index() is 0, but
+      // peer.mMatchIndex is not 0 since leader has not reset it until now.
+      // eg. 2. due to disk crash, peer's log was all destroyed, then peer recovered some logs from snapshot,
+      // but the recovered logs are not up to date, so response.last_log_index() is less than peer.mMatchIndex.
+      // We should reset peer.mMatchIndex and peer.mNextIndex to refind proper peer.mMatchIndex and peer.mNextIndex.
       auto prevNextIndex = peer.mNextIndex;
       auto prevMatchIndex = peer.mMatchIndex;
-      peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      if (response.last_log_index() == 0 && mLog->getFirstLogIndex() == 1) {
+        // special case for leader's log isn't truncated yet.
+        peer.mNextIndex = response.last_log_index() + 1;
+      } else if (response.last_log_index() < mLog->getFirstLogIndex()) {
+        // reset peer.mNextIndex until peer's data is recovered.
+        peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      } else {
+        peer.mNextIndex = std::min(response.last_log_index(), mLog->getLastLogIndex()) + 1;
+      }
       peer.mMatchIndex = 0;
-      // Suppress bulk data until we find a proper nextIndex.
+      // Suppress bulk data until we find proper peer.mMatchIndex and peer.mNextIndex.
       peer.mSuppressBulkData = true;
-      SPDLOG_WARN("{} reset Follower {}: matchIndex from {} to 0, nextIndex from {} to {} ",
+      SPDLOG_WARN("Follower {} last_log_index({}) fall behind its matchIndex({})", response.id(),
+                  response.last_log_index(), prevMatchIndex);
+      SPDLOG_WARN("{} reset Follower {}: matchIndex from {} to 0, nextIndex from {} to {}",
                   selfId(), response.id(), prevMatchIndex, prevNextIndex, peer.mNextIndex);
+      return;
+    }
+    if (peer.mNextIndex <= mLog->getFirstLogIndex()) {
+      // Leader's storage was truncated, and peer.nextIndex points to the truncated region or boundary.
+      auto prevNextIndex = peer.mNextIndex;
+      if (response.last_log_index() < mLog->getFirstLogIndex()) {
+        peer.mNextIndex = mLog->getLastLogIndex() + 1;
+      } else {
+        peer.mNextIndex = std::min(response.last_log_index(), mLog->getLastLogIndex()) + 1;
+      }
+      peer.mMatchIndex = 0;
+      // Suppress bulk data until we find proper peer.mMatchIndex and peer.mNextIndex.
+      peer.mSuppressBulkData = true;
+      SPDLOG_WARN("Follower {} nextIndex({}) is at or below {} firstLogIndex({})",
+                  response.id(), prevNextIndex, selfId(), mLog->getFirstLogIndex());
+      SPDLOG_INFO("{} reset Follower {}: nextIndex from {} to {}",
+                  selfId(), response.id(), prevNextIndex, peer.mNextIndex);
+      return;
     }
 
     /// there should be a gap between matchIndex and nextIndex
     assert(peer.mMatchIndex + 1 < peer.mNextIndex);
 
-    if (response.last_log_index() < mLog->getFirstLogIndex()) {
-      auto prevNextIndex = peer.mNextIndex;
-      if (response.last_log_index() == 0 && mLog->getFirstLogIndex() == 1) {
-        peer.mNextIndex = response.last_log_index() + 1;
-      } else {
-        // reset peer.mNextIndex until peer's data is recovered.
-        peer.mNextIndex = mLog->getLastLogIndex() + 1;
-      }
-      SPDLOG_WARN("There is gap between Follower {} lastLogIndex({}) and {} firstLogIndex({})",
-                  response.id(), response.last_log_index(), selfId(), mLog->getFirstLogIndex());
-      SPDLOG_INFO("{} reset Follower {}: nextIndex from {} to {}",
-                  selfId(), response.id(), prevNextIndex, peer.mNextIndex);
-    } else if (peer.mNextIndex > response.last_log_index() + 1) {
+    if (peer.mNextIndex > response.last_log_index() + 1) {
       peer.mNextIndex = response.last_log_index() + 1;
     } else {
       auto prevNextIndex = peer.mNextIndex;
