@@ -706,7 +706,7 @@ void RaftCore::handleAppendEntriesResponse(const AppendEntries::Response &respon
       peer.mMatchIndex = 0;
       // Suppress bulk data until we find proper peer.mMatchIndex and peer.mNextIndex.
       peer.mSuppressBulkData = true;
-      SPDLOG_WARN("Follower {} last_log_index({}) fall behind its matchIndex({})", response.id(),
+      SPDLOG_WARN("Follower {} last_log_index({}) falls behind its matchIndex({})", response.id(),
                   response.last_log_index(), prevMatchIndex);
       SPDLOG_WARN("{} reset Follower {}: matchIndex from {} to 0, nextIndex from {} to {}",
                   selfId(), response.id(), prevMatchIndex, prevNextIndex, peer.mNextIndex);

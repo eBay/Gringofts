@@ -6,7 +6,7 @@ This document focuses on the index-handling behavior of:
 - `handleAppendEntriesRequest()`
 - `handleAppendEntriesResponse()`
 
-in `core/third_party/Gengar/third_party/Gringofts/src/infra/raft/v2/RaftCore.cpp`.
+in `<Gringofts>/src/infra/raft/v2/RaftCore.cpp`.
 
 This document covers retained-window overlap, rollback-reset, and truncate-boundary scenarios in these functions. It does not try to enumerate non-index control-flow branches such as term/role rejection, higher-term step-down, or duplicated-response ignore.
 
@@ -46,7 +46,7 @@ Abnormal cases handling:<br>
 
 ## Scenarios
 
-This walkthrough cover these scenarios:
+This walkthrough covers these scenarios:
 - Normal cases
 - New leader cases
 - Follower disk was lost cases
