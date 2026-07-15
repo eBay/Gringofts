@@ -183,7 +183,6 @@ void RaftReplyLoop::replyTask(Task *task) {
   if (task->handle) {
     task->handle->recordCommandCommittedTimeInNanos();
     task->handle->fillResultAndReply(task->events, task->code, task->message.c_str(), mRaftImpl->getLeaderHint());
-    task->handle->recordCommandRepliedTimeInNanos();
   }
 
   auto ts3InNano = TimeUtil::currentTimeInNanos();
