@@ -147,6 +147,7 @@ class RequestCallData final : public RequestHandle {
     // build response with events
     auto s = mHandler.buildResponse(*mCommand, events, code, message, leaderId, &mResponse);
     mStatus = FINISH;
+    recordCommandRepliedTimeInNanos();
     mResponder.Finish(mResponse, s, this);
   }
 
