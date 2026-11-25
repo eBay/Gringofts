@@ -15,8 +15,11 @@ limitations under the License.
 #include "Segment.h"
 
 #include <sys/mman.h>
+#include <limits>
 #include <vector>
 
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/wire_format_lite.h>
 #include <spdlog/spdlog.h>
 #include <absl/strings/str_cat.h>
 
@@ -24,6 +27,37 @@ limitations under the License.
 #include "../../util/TimeUtil.h"
 
 namespace {
+
+bool validateLogEntry(const void *data, int length) {
+  using google::protobuf::internal::WireFormatLite;
+  google::protobuf::io::CodedInputStream input(static_cast<const uint8_t *>(data), length);
+  uint32_t tag;
+  while ((tag = input.ReadTag()) != 0) {
+    if (tag == WireFormatLite::MakeTag(gringofts::raft::LogEntry::kVersionFieldNumber,
+                                       WireFormatLite::WIRETYPE_LENGTH_DELIMITED)
+        || tag == WireFormatLite::MakeTag(gringofts::raft::LogEntry::kSpecialTagFieldNumber,
+                                           WireFormatLite::WIRETYPE_LENGTH_DELIMITED)) {
+      // These submessages contain only scalar/bytes fields. Validate them without materializing payloads.
+      uint32_t size;
+      if (!input.ReadVarint32(&size) || size > static_cast<uint32_t>(std::numeric_limits<int>::max())
+          || size > static_cast<uint32_t>(input.BytesUntilLimit())
+          || !input.IncrementRecursionDepth()) {
+        return false;
+      }
+      auto limit = input.PushLimit(static_cast<int>(size));
+      bool valid = WireFormatLite::SkipMessage(&input) && input.ConsumedEntireMessage()
+          && input.BytesUntilLimit() == 0;
+      input.PopLimit(limit);
+      input.DecrementRecursionDepth();
+      if (!valid) {
+        return false;
+      }
+    } else if (!WireFormatLite::SkipField(&input, tag)) {
+      return false;
+    }
+  }
+  return input.ConsumedEntireMessage();
+}
 
 /**
  * fileName of data/meta for active/closed segment
@@ -217,6 +251,15 @@ void Segment::closeActiveSegment() {
 }
 
 bool Segment::shouldRoll(const std::vector<raft::LogEntry> &entries) const {
+  std::vector<const raft::LogEntry *> refs;
+  refs.reserve(entries.size());
+  for (const auto &entry : entries) {
+    refs.push_back(&entry);
+  }
+  return shouldRollByRef(refs);
+}
+
+bool Segment::shouldRollByRef(const std::vector<const raft::LogEntry *> &entries) const {
   assert(mIsActive);
 
   uint64_t metaLen = entries.size() * sizeof(LogMeta);
@@ -230,8 +273,8 @@ bool Segment::shouldRoll(const std::vector<raft::LogEntry> &entries) const {
 
   uint64_t dataLen = 0;
 
-  for (auto &entry : entries) {
-    dataLen += entry.ByteSizeLong();
+  for (const auto *entry : entries) {
+    dataLen += entry->ByteSizeLong();
   }
 
   if (mDataOffset + dataLen > mDataSizeLimit) {
@@ -245,7 +288,19 @@ bool Segment::shouldRoll(const std::vector<raft::LogEntry> &entries) const {
 }
 
 void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
+  std::vector<const raft::LogEntry *> refs;
+  refs.reserve(entries.size());
+  for (const auto &entry : entries) {
+    refs.push_back(&entry);
+  }
+  appendEntriesByRef(refs);
+}
+
+void Segment::appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries) {
   assert(mIsActive);
+  if (entries.empty()) {
+    return;
+  }
 
   auto beg = TimeUtil::currentTimeInNanos();
 
@@ -257,7 +312,7 @@ void Segment::appendEntries(const std::vector<raft::LogEntry> &entries) {
   /// copy to data file
   for (std::size_t i = 0; i < entries.size(); ++i) {
     auto &meta = metaArr[i];
-    auto &entry = entries[i];
+    const auto &entry = *entries[i];
 
     assert(mLastIndex + 1 + i == entry.index());
 
@@ -446,6 +501,39 @@ uint64_t Segment::getEntries(const uint64_t startIndex,
   SPDLOG_INFO("startIndex={}, batchSize={}, lenInBytes={}, timeCost={}ms",
               startIndex, batchSize, lenInBytes, (end - beg) / 1000000.0);
   return batchSize;
+}
+
+uint64_t Segment::getSerializedEntries(uint64_t startIndex, uint64_t maxLenInBytes, uint64_t maxBatchSize,
+                                       std::vector<std::string_view> *entries) const {
+  entries->clear();
+  if (!isWithInBoundary(startIndex)) {
+    return 0;
+  }
+  maxBatchSize = std::min(maxBatchSize, mLastIndex.load() - startIndex + 1);
+  entries->reserve(maxBatchSize);
+  uint64_t lenInBytes = 0;
+  for (uint64_t i = 0; i < maxBatchSize; ++i) {
+    const auto &meta = getMeta(startIndex + i);
+    if (meta.length > maxLenInBytes - lenInBytes) {
+      break;
+    }
+    if (meta.offset > mDataOffset || meta.length > mDataOffset - meta.offset
+        || meta.length > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
+      SPDLOG_ERROR("Invalid log entry bounds at {}", startIndex + i);
+      entries->clear();
+      return 0;
+    }
+    verifyHMAC(meta);
+    const auto *data = static_cast<const char *>(getEntryAddr(meta.offset));
+    if (!validateLogEntry(data, static_cast<int>(meta.length))) {
+      SPDLOG_ERROR("Invalid serialized LogEntry at {}", startIndex + i);
+      entries->clear();
+      return 0;
+    }
+    entries->emplace_back(data, meta.length);
+    lenInBytes += meta.length;
+  }
+  return entries->size();
 }
 
 void Segment::truncateSuffix(uint64_t lastIndexKept) {

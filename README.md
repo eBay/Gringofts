@@ -128,6 +128,29 @@ This approach requires minimum dependencies on the target OS as all of the depen
 ## Development Environment Setup
 Please refer to this [doc](docs/C++%20Development%20Environment.pdf) for details.
 
+## Optional Raft replication optimizations
+
+Both leader options are disabled by default and can be enabled independently in the Raft configuration:
+
+```ini
+[raft.default]
+append.entries.raw.enabled = true
+grpc.tcp.tx.zerocopy.enabled = true
+```
+
+Raw AppendEntries sends preserve the existing protobuf protocol and log format. File storage validates and
+forwards serialized entries without constructing full LogEntry objects. Closed-segment data is borrowed
+from mmap with reference-counted ownership; active-segment bytes are copied into an owned buffer to prevent
+in-flight RPCs from observing suffix overwrite after a leader steps down. In-memory storage falls back to
+normal serialization. Followers retain typed protobuf reception and append borrowed entry references
+synchronously, avoiding the intermediate deep copy without changing durability ordering.
+
+TCP TX zerocopy requires a supporting Linux gRPC TCP backend (for example, gRPC 1.28.1) and kernel support.
+The option requests the experimental gRPC feature; it does not guarantee kernel copy avoidance.
+gRPC retains its own payload threshold and completion handling. Unsupported backends may ignore the option;
+it does not optimize the follower receive path or remove TLS/compression copies.
+The standalone dependency script still pins gRPC 1.16.1; enabling this setting does not upgrade the linked library.
+
 # Core Developers
 - Bin (Glen) Geng <bigeng@ebay.com>
 - Qi (Jacky) Jia <jqi1@ebay.com>

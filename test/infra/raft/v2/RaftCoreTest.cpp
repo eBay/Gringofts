@@ -48,6 +48,8 @@ class RaftCoreTest : public ::testing::Test {
 };
 
 TEST_F(RaftCoreTest, BasicTest) {
+  EXPECT_FALSE(mRaftImpl->mRawAppendEntriesEnabled);
+  EXPECT_FALSE(mRaftImpl->mTcpTxZerocopyEnabled);
   /// init state of raft log
   ASSERT_EQ(mRaftImpl->getCommitIndex(), 0);
   ASSERT_EQ(mRaftImpl->getLastLogIndex(), 0);
@@ -78,6 +80,64 @@ TEST_F(RaftCoreTest, BasicTest) {
     /// handle RV_resp
     mRaftImpl->handleRequestVoteResponse(rvResp);
     mRaftImpl->becomeLeader();
+  }
+
+  TEST_F(RaftCoreTest, AppendEntriesBorrowsRequestEntries) {
+    class RecordingLog : public storage::InMemoryLog {
+     public:
+      bool appendEntriesByRef(const std::vector<const LogEntry *> &entries) override {
+        mReferences = entries;
+        return InMemoryLog::appendEntriesByRef(entries);
+      }
+      std::vector<const LogEntry *> mReferences;
+    };
+    auto log = std::make_unique<RecordingLog>();
+    auto *recording = log.get();
+    for (uint64_t index = 1; index <= 3; ++index) {
+      LogEntry entry;
+      entry.set_index(index);
+      entry.set_term(1);
+      ASSERT_TRUE(log->appendEntry(entry));
+    }
+    log->setCurrentTerm(2);
+    mRaftImpl->mLog = std::move(log);
+    mRaftImpl->mCommitIndex = 1;
+
+    AppendEntries::Request request;
+    request.set_term(2);
+    request.set_leader_id(2);
+    request.set_prev_log_index(1);
+    request.set_prev_log_term(1);
+    request.set_commit_index(2);
+    for (uint64_t index = 2; index <= 4; ++index) {
+      auto *entry = request.add_entries();
+      entry->set_index(index);
+      entry->set_term(index == 2 ? 1 : 2);
+      entry->set_payload(std::string(1024, 'x'));
+    }
+    const auto original = request.SerializeAsString();
+    AppendEntries::Response response;
+    ASSERT_TRUE(mRaftImpl->handleAppendEntriesRequest(request, &response).ok());
+    ASSERT_TRUE(response.success());
+    ASSERT_EQ(recording->mReferences.size(), 2);
+    EXPECT_EQ(recording->mReferences[0], &request.entries(1));
+    EXPECT_EQ(recording->mReferences[1], &request.entries(2));
+    EXPECT_EQ(recording->getLastLogIndex(), 4);
+    EXPECT_EQ(request.SerializeAsString(), original);
+
+    ASSERT_TRUE(mRaftImpl->handleAppendEntriesRequest(request, &response).ok());
+    EXPECT_TRUE(response.success());
+    EXPECT_TRUE(recording->mReferences.empty());
+
+    recording->truncatePrefix(3);
+    auto *entry = request.add_entries();
+    entry->set_index(5);
+    entry->set_term(2);
+    ASSERT_TRUE(mRaftImpl->handleAppendEntriesRequest(request, &response).ok());
+    ASSERT_TRUE(response.success());
+    ASSERT_EQ(recording->mReferences.size(), 1);
+    EXPECT_EQ(recording->mReferences[0], &request.entries(3));
+    EXPECT_EQ(recording->getLastLogIndex(), 5);
   }
 
   /// leader on term 1

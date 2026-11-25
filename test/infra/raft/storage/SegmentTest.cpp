@@ -262,4 +262,115 @@ TEST_F(SegmentTest, recoverSmallSizeSegment) {
   EXPECT_NE(result.find(std::to_string(kMaxMetaSize * 2)), std::string::npos);
 }
 
+TEST_F(SegmentTest, SerializedActiveEntriesSurviveOverwrite) {
+  auto crypto = std::make_shared<CryptoUtil>();
+  auto log = std::make_unique<SegmentLog>(mLogDir, crypto, kMaxDataSize, kMaxMetaSize);
+  raft::LogEntry entry;
+  entry.set_index(1);
+  entry.set_term(1);
+  entry.set_payload("first");
+  ASSERT_TRUE(log->appendEntry(entry));
+  entry.set_index(2);
+  entry.set_payload(std::string(1024, '\xff'));
+  ASSERT_TRUE(log->appendEntry(entry));
+  const auto original = entry.SerializeAsString();
+
+  std::vector<SerializedLogEntry> entries;
+  ASSERT_EQ(log->getSerializedEntries(2, kMaxDataSize, 10, &entries), 1);
+  log->truncateSuffix(1);
+  entry.set_term(2);
+  entry.set_payload(std::string(1024, '\0'));
+  ASSERT_TRUE(log->appendEntriesByRef({&entry}));
+  log.reset();
+  ASSERT_EQ(entries.size(), 1);
+  EXPECT_EQ(std::string(entries[0].mData.get(), entries[0].mSize), original);
+}
+
+TEST_F(SegmentTest, SerializedClosedEntriesRetainMappingAcrossTruncation) {
+  auto crypto = std::make_shared<CryptoUtil>();
+  auto log = std::make_unique<SegmentLog>(mLogDir, crypto, kMaxDataSize, kMaxMetaSize);
+  raft::LogEntry entry;
+  entry.set_term(1);
+  entry.set_payload(std::string(10 * 1024, 'a'));
+  for (uint64_t index = 1; index <= 3; ++index) {
+    entry.set_index(index);
+    if (index == 3) {
+      entry.set_payload(std::string(30 * 1024, 'b'));
+    }
+    ASSERT_TRUE(log->appendEntry(entry));
+  }
+  std::vector<SerializedLogEntry> entries;
+  ASSERT_EQ(log->getSerializedEntries(1, kMaxDataSize, 10, &entries), 2);
+  std::weak_ptr<const char> owner = entries[0].mData;
+  {
+    std::vector<SerializedLogEntry> secondRead;
+    ASSERT_EQ(log->getSerializedEntries(1, kMaxDataSize, 10, &secondRead), 2);
+    EXPECT_EQ(entries[0].mData.get(), secondRead[0].mData.get());
+  }
+  const std::string original(entries[1].mData.get(), entries[1].mSize);
+  log->truncateSuffix(1);
+  entry.set_index(2);
+  entry.set_term(2);
+  ASSERT_TRUE(log->appendEntry(entry));
+  log->truncatePrefix(3);
+  log.reset();
+  EXPECT_FALSE(owner.expired());
+  EXPECT_EQ(std::string(entries[1].mData.get(), entries[1].mSize), original);
+  raft::LogEntry parsed;
+  ASSERT_TRUE(parsed.ParseFromArray(entries[1].mData.get(), entries[1].mSize));
+  EXPECT_EQ(parsed.term(), 1);
+  EXPECT_EQ(parsed.index(), 2);
+  entries.clear();
+  EXPECT_TRUE(owner.expired());
+}
+
+TEST_F(SegmentTest, SerializedBatchLimitsAndHeartbeat) {
+  auto crypto = std::make_shared<CryptoUtil>();
+  SegmentLog log(mLogDir, crypto, kMaxDataSize, kMaxMetaSize);
+  raft::LogEntry entry;
+  entry.set_index(1);
+  entry.set_term(1);
+  entry.set_payload(std::string(1024, '\0'));
+  ASSERT_TRUE(log.appendEntry(entry));
+  const auto firstSize = entry.ByteSizeLong();
+  entry.set_index(2);
+  ASSERT_TRUE(log.appendEntry(entry));
+  std::vector<SerializedLogEntry> entries;
+  EXPECT_EQ(log.getSerializedEntries(1, firstSize - 1, 10, &entries), 0);
+  EXPECT_TRUE(entries.empty());
+  EXPECT_EQ(log.getSerializedEntries(1, firstSize, 10, &entries), 1);
+  EXPECT_EQ(log.getSerializedEntries(1, kMaxDataSize, 1, &entries), 1);
+  EXPECT_EQ(log.getSerializedEntries(3, kMaxDataSize, 10, &entries), 0);
+  EXPECT_TRUE(entries.empty());
+  EXPECT_EQ(log.getSerializedEntries(1, kMaxDataSize, 0, &entries), 0);
+  EXPECT_TRUE(entries.empty());
+}
+
+TEST_F(SegmentTest, SerializedReadsValidateNestedMessagesWithoutParsingPayload) {
+  auto crypto = std::make_shared<CryptoUtil>();
+  Segment segment(mLogDir, 1, kMaxDataSize, kMaxMetaSize, crypto);
+  raft::LogEntry entry;
+  entry.set_index(1);
+  entry.set_payload(std::string("\x80\xff\0", 3));
+  entry.mutable_version()->set_secret_key_version(1);
+  entry.mutable_specialtag()->set_identifier(1);
+  segment.appendEntriesByRef({&entry});
+  std::vector<std::string_view> entries;
+  ASSERT_EQ(segment.getSerializedEntries(1, kMaxDataSize, 10, &entries), 1);
+  const auto original = entry.SerializeAsString();
+  auto *data = const_cast<char *>(entries[0].data());
+  for (const auto &marker : {std::string("\x32\x02\x08\x01", 4), std::string("\x3a\x02\x08\x01", 4)}) {
+    auto offset = original.find(marker);
+    ASSERT_NE(offset, std::string::npos);
+    data[offset + 3] = '\x80';
+    EXPECT_EQ(segment.getSerializedEntries(1, kMaxDataSize, 10, &entries), 0);
+    EXPECT_TRUE(entries.empty());
+    data[offset + 3] = original[offset + 3];
+    data[offset + 1] = '\x7f';
+    EXPECT_EQ(segment.getSerializedEntries(1, kMaxDataSize, 10, &entries), 0);
+    data[offset + 1] = original[offset + 1];
+  }
+  EXPECT_EQ(segment.getSerializedEntries(1, kMaxDataSize, 10, &entries), 1);
+}
+
 }  /// namespace gringofts::storage::test

@@ -47,6 +47,15 @@ class InMemoryLog : public Log {
     return true;
   }
 
+  bool appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries) override {
+    for (const auto *entry : entries) {
+      if (!appendEntry(*entry)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool getEntry(uint64_t index, raft::LogEntry *entry) const override {
     if (index == 0) {
       raft::LogEntry dummy;

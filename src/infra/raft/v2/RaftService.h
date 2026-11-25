@@ -19,9 +19,11 @@ limitations under the License.
 #include <optional>
 #include <shared_mutex>
 #include <thread>
+#include <vector>
 
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
+#include <grpcpp/generic/generic_stub.h>
 #include <spdlog/spdlog.h>
 
 #include "../../grpc/RequestHandle.h"
@@ -32,6 +34,7 @@ limitations under the License.
 #include "../generated/raft.grpc.pb.h"
 #include "../RaftConstants.h"
 #include "../RaftInterface.h"
+#include "../storage/Log.h"
 
 namespace gringofts {
 namespace raft {
@@ -233,16 +236,21 @@ struct AsyncClientCall : public AsyncClientCallBase {
 };
 
 template<>
-inline
-std::string AsyncClientCall<AppendEntries::Response>::toString() const {
-  return "Leader sending AE_req to Follower " + std::to_string(mPeerId);
-}
+struct AsyncClientCall<AppendEntries::Response> : public AsyncClientCallBase {
+  std::string toString() const override {
+    return "Leader sending AE_req to Follower " + std::to_string(mPeerId);
+  }
 
-template<>
-inline
-RaftEventBase::Type AsyncClientCall<AppendEntries::Response>::getType() const {
-  return RaftEventBase::Type::AppendEntriesResponse;
-}
+  RaftEventBase::Type getType() const override {
+    return RaftEventBase::Type::AppendEntriesResponse;
+  }
+
+  AppendEntries::Response mResponse;
+  std::unique_ptr<grpc::ClientAsyncResponseReader<AppendEntries::Response>> mResponseReader;
+  grpc::ByteBuffer mRequestBuffer;
+  grpc::ByteBuffer mResponseBuffer;
+  std::unique_ptr<grpc::ClientAsyncResponseReader<grpc::ByteBuffer>> mRawResponseReader;
+};
 
 template<>
 inline
@@ -263,6 +271,9 @@ using RequestVoteClientCall = AsyncClientCall<RequestVote::Response>;
 
 //////////////////////////// RaftClient ////////////////////////////
 
+grpc::ByteBuffer buildAppendEntriesBuffer(const AppendEntries::Request &request,
+                                          const std::vector<storage::SerializedLogEntry> &entries);
+
 class RaftClient {
  public:
   RaftClient(const std::string &peerHostname,
@@ -271,11 +282,14 @@ class RaftClient {
              uint64_t peerId,
              EventQueue *aeRvQueue,
              uint64_t rpcAppendEntriesTimeoutInMillis = RaftConstants::AppendEntries::kRpcTimeoutInMillis,
-             uint64_t rpcRequestVoteTimeoutInMillis = RaftConstants::RequestVote::kRpcTimeoutInMillis);
+             uint64_t rpcRequestVoteTimeoutInMillis = RaftConstants::RequestVote::kRpcTimeoutInMillis,
+             bool tcpTxZerocopyEnabled = false);
   ~RaftClient();
 
   void requestVote(const RequestVote::Request &request);
   void appendEntries(const AppendEntries::Request &request);
+  void appendEntries(const AppendEntries::Request &request,
+                     const std::vector<storage::SerializedLogEntry> &entries);
 
  private:
   void refreshChannel();
@@ -288,10 +302,12 @@ class RaftClient {
   std::shared_ptr<DNSResolver> mDNSResolver;
   uint64_t mPeerId = 0;
   std::unique_ptr<Raft::Stub> mStub;
-  std::shared_mutex mMutex;  /// the lock to guarantee thread-safe access of mStub
+  std::unique_ptr<grpc::GenericStub> mGenericStub;
+  std::shared_mutex mMutex;  /// the lock to guarantee thread-safe access of both stubs
   grpc::CompletionQueue mCompletionQueue;
   uint64_t mRpcAppendEntriesTimeoutInMillis;
   uint64_t mRpcRequestVoteTimeoutInMillis;
+  bool mTcpTxZerocopyEnabled;
 
   /// event queue
   EventQueue *mAeRvQueue;

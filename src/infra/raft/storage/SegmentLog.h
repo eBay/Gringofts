@@ -74,6 +74,7 @@ class SegmentLog : public Log {
   /// append
   bool appendEntry(const raft::LogEntry &entry) override;
   bool appendEntries(const std::vector<raft::LogEntry> &entries) override;
+  bool appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries) override;
 
   /// kinds of get
   bool getEntry(uint64_t index, raft::LogEntry *entry) const override;
@@ -85,6 +86,9 @@ class SegmentLog : public Log {
   uint64_t getEntries(const uint64_t startIndex,
                       const uint64_t maxLenInBytes, uint64_t maxBatchSize,
                       std::vector<raft::LogEntry> *entries) const override;
+
+  uint64_t getSerializedEntries(uint64_t startIndex, uint64_t maxLenInBytes, uint64_t maxBatchSize,
+                               std::vector<SerializedLogEntry> *entries) const override;
 
   /// truncate prefix/suffix
   void truncatePrefix(uint64_t firstIndexKept) override;

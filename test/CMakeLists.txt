@@ -24,6 +24,7 @@ set(UNIT_TEST_SRC
         infra/raft/v2/ClusterTestUtil.cpp
         infra/raft/v2/FixedMembershipTest.cpp
         infra/raft/v2/RaftCoreTest.cpp
+        infra/raft/v2/RaftServiceTest.cpp
         infra/util/BigDecimalTest.cpp
         infra/util/ClusterInfoTest.cpp
         infra/util/CryptoUtilTest.cpp
