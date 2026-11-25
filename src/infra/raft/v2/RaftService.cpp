@@ -14,6 +14,12 @@ limitations under the License.
 
 #include "RaftService.h"
 
+#include <limits>
+
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/wire_format_lite.h>
+#include <grpcpp/impl/codegen/proto_utils.h>
+
 namespace gringofts {
 namespace raft {
 namespace v2 {
@@ -88,20 +94,45 @@ void RaftServer::serverLoopMain() {
 
 //////////////////////////// RaftClient ////////////////////////////
 
+grpc::ByteBuffer buildAppendEntriesBuffer(const AppendEntries::Request &request,
+                                          const std::vector<storage::SerializedLogEntry> &entries) {
+  assert(request.entries().empty());
+  std::vector<grpc::Slice> slices;
+  slices.reserve(1 + entries.size() * 2);
+  slices.emplace_back(request.SerializeAsString());
+  for (const auto &entry : entries) {
+    assert(entry.mData && entry.mSize <= std::numeric_limits<uint32_t>::max());
+    uint8_t header[10];
+    auto *end = google::protobuf::io::CodedOutputStream::WriteVarint32ToArray(
+        google::protobuf::internal::WireFormatLite::MakeTag(
+            AppendEntries::Request::kEntriesFieldNumber,
+            google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED), header);
+    end = google::protobuf::io::CodedOutputStream::WriteVarint32ToArray(
+        static_cast<uint32_t>(entry.mSize), end);
+    slices.emplace_back(header, end - header);
+    slices.emplace_back(const_cast<char *>(entry.mData.get()), entry.mSize, [](void *owner) {
+      delete static_cast<std::shared_ptr<const char> *>(owner);
+    }, new std::shared_ptr<const char>(entry.mData));
+  }
+  return grpc::ByteBuffer(slices.data(), slices.size());
+}
+
 RaftClient::RaftClient(const std::string &peerAddress,
                        std::optional<TlsConf> tlsConfOpt,
                        std::shared_ptr<DNSResolver> dnsResolver,
                        uint64_t peerId,
                        EventQueue *aeRvQueue,
                        uint64_t rpcAppendEntriesTimeoutInMillis,
-                       uint64_t rpcRequestVoteTimeoutInMillis) :
+                       uint64_t rpcRequestVoteTimeoutInMillis,
+                       bool tcpTxZerocopyEnabled) :
     mPeerAddress(peerAddress),
-    mDNSResolver(dnsResolver),
     mTLSConfOpt(tlsConfOpt),
+    mDNSResolver(dnsResolver),
     mPeerId(peerId),
-    mAeRvQueue(aeRvQueue),
     mRpcAppendEntriesTimeoutInMillis(rpcAppendEntriesTimeoutInMillis),
-    mRpcRequestVoteTimeoutInMillis(rpcRequestVoteTimeoutInMillis) {
+    mRpcRequestVoteTimeoutInMillis(rpcRequestVoteTimeoutInMillis),
+    mTcpTxZerocopyEnabled(tcpTxZerocopyEnabled),
+    mAeRvQueue(aeRvQueue) {
   refreshChannel();
   /// start AE_resp/RV_resp receiving thread
   mClientLoop = std::thread(&RaftClient::clientLoopMain, this);
@@ -121,13 +152,18 @@ RaftClient::~RaftClient() {
   /// drain completion queue.
   void *tag;
   bool ok;
-  while (mCompletionQueue.Next(&tag, &ok)) { ; }
+  while (mCompletionQueue.Next(&tag, &ok)) {
+    delete static_cast<AsyncClientCallBase *>(tag);
+  }
 }
 
 void RaftClient::refreshChannel() {
   grpc::ChannelArguments chArgs;
   chArgs.SetMaxReceiveMessageSize(INT_MAX);
   chArgs.SetInt("grpc.testing.fixed_reconnect_backoff_ms", 100);
+  if (mTcpTxZerocopyEnabled) {
+    chArgs.SetInt("grpc.experimental.tcp_tx_zerocopy_enabled", 1);
+  }
   auto newResolvedAddress = mDNSResolver->resolve(mPeerAddress);
   if (newResolvedAddress != mResolvedPeerAddress) {
     std::unique_lock<std::shared_mutex> lock(mMutex);
@@ -137,6 +173,7 @@ void RaftClient::refreshChannel() {
       auto channel = grpc::CreateCustomChannel(
           newResolvedAddress, TlsUtil::buildChannelCredentials(mTLSConfOpt), chArgs);
       mStub = raft::Raft::NewStub(channel);
+      mGenericStub = std::make_unique<grpc::GenericStub>(channel);
       mResolvedPeerAddress = newResolvedAddress;
     }
   }
@@ -157,7 +194,7 @@ void RaftClient::requestVote(const RequestVote::Request &request) {
   call->mResponseReader->StartCall();
   call->mResponseReader->Finish(&call->mResponse,
                                 &call->mStatus,
-                                reinterpret_cast<void *>(call));
+                                static_cast<AsyncClientCallBase *>(call));
 }
 
 void RaftClient::appendEntries(const AppendEntries::Request &request) {
@@ -174,7 +211,23 @@ void RaftClient::appendEntries(const AppendEntries::Request &request) {
   call->mResponseReader->StartCall();
   call->mResponseReader->Finish(&call->mResponse,
                                 &call->mStatus,
-                                reinterpret_cast<void *>(call));
+                                static_cast<AsyncClientCallBase *>(call));
+}
+
+void RaftClient::appendEntries(const AppendEntries::Request &request,
+                               const std::vector<storage::SerializedLogEntry> &entries) {
+  auto *call = new AppendEntriesClientCall;
+  call->mPeerId = mPeerId;
+  call->mRequestBuffer = buildAppendEntriesBuffer(request, entries);
+  call->mContext.set_deadline(std::chrono::system_clock::now()
+      + std::chrono::milliseconds(mRpcAppendEntriesTimeoutInMillis));
+
+  std::shared_lock<std::shared_mutex> lock(mMutex);
+  call->mRawResponseReader = mGenericStub->PrepareUnaryCall(
+      &call->mContext, "/gringofts.raft.Raft/AppendEntriesV2", call->mRequestBuffer, &mCompletionQueue);
+  call->mRawResponseReader->StartCall();
+  call->mRawResponseReader->Finish(&call->mResponseBuffer, &call->mStatus,
+                                   static_cast<AsyncClientCallBase *>(call));
 }
 
 void RaftClient::clientLoopMain() {
@@ -186,13 +239,23 @@ void RaftClient::clientLoopMain() {
 
   /// Block until the next result is available in the completion queue.
   while (mCompletionQueue.Next(&tag, &ok)) {
+    auto *call = static_cast<AsyncClientCallBase *>(tag);
     if (!mRunning) {
-      SPDLOG_INFO("Client loop quit.");
-      return;
+      delete call;
+      continue;
     }
 
-    auto *call = static_cast<AsyncClientCallBase *>(tag);
     GPR_ASSERT(ok);
+
+    if (call->getType() == RaftEventBase::Type::AppendEntriesResponse) {
+      auto *aeCall = static_cast<AppendEntriesClientCall *>(call);
+      if (aeCall->mRawResponseReader && aeCall->mStatus.ok()) {
+        aeCall->mStatus = grpc::SerializationTraits<AppendEntries::Response>::Deserialize(
+            &aeCall->mResponseBuffer, &aeCall->mResponse);
+      }
+      aeCall->mRequestBuffer.Clear();
+      aeCall->mResponseBuffer.Clear();
+    }
 
     if (!call->mStatus.ok()) {
       SPDLOG_WARN("{} failed., gRpc error_code: {}, error_message: {}, error_details: {}",

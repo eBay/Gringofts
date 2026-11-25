@@ -17,7 +17,9 @@ limitations under the License.
 
 #include <assert.h>
 #include <cinttypes>
+#include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -27,6 +29,12 @@ limitations under the License.
 
 namespace gringofts {
 namespace storage {
+
+struct SerializedLogEntry {
+  /// Aliasing ownership keeps either the mapped Segment or a private byte copy alive.
+  std::shared_ptr<const char> mData;
+  std::size_t mSize = 0;
+};
 
 /**
  * The base class for Raft Log Storage.
@@ -48,6 +56,16 @@ class Log {
   virtual bool appendEntry(const raft::LogEntry &entry) = 0;
   virtual bool appendEntries(const std::vector<raft::LogEntry> &entries) = 0;
 
+  /// References are borrowed only for this synchronous append.
+  virtual bool appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries) {
+    std::vector<raft::LogEntry> copies;
+    copies.reserve(entries.size());
+    for (const auto *entry : entries) {
+      copies.push_back(*entry);
+    }
+    return appendEntries(copies);
+  }
+
   /// kinds of get
   virtual bool getEntry(uint64_t index, raft::LogEntry *entry) const = 0;
   virtual bool getTerm(uint64_t index, uint64_t *term) const = 0;
@@ -62,6 +80,27 @@ class Log {
   virtual uint64_t getEntries(const uint64_t startIndex,
                               const uint64_t maxLenInBytes, uint64_t maxBatchSize,
                               std::vector<raft::LogEntry> *entries) const = 0;
+
+  /// Called by the log writer thread; returned bytes remain immutable until their owners are released.
+  virtual uint64_t getSerializedEntries(uint64_t startIndex, uint64_t maxLenInBytes, uint64_t maxBatchSize,
+                                       std::vector<SerializedLogEntry> *entries) const {
+    entries->clear();
+    std::vector<raft::LogEntry> decoded;
+    auto count = getEntries(startIndex, maxLenInBytes, maxBatchSize, &decoded);
+    if (count != decoded.size()) {
+      return 0;
+    }
+    entries->reserve(count);
+    for (const auto &entry : decoded) {
+      auto bytes = std::make_shared<std::string>();
+      if (!entry.SerializeToString(bytes.get())) {
+        entries->clear();
+        return 0;
+      }
+      entries->push_back({std::shared_ptr<const char>(bytes, bytes->data()), bytes->size()});
+    }
+    return count;
+  }
 
   /// truncate prefix from [firstIndex, lastIndex] to [firstIndexKept, lastIndex]
   virtual void truncatePrefix(uint64_t firstIndexKept) = 0;

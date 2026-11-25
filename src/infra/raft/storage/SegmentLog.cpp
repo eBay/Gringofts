@@ -256,34 +256,23 @@ uint64_t SegmentLog::getEntries(const uint64_t startIndex,
 }
 
 bool SegmentLog::appendEntry(const raft::LogEntry &entry) {
-  if (entry.index() != mLastIndex + 1) {
-    return false;
-  }
-
-  SegmentPtr activeSegment;
-
-  {
-    std::lock_guard<std::mutex> lock(mMutex);
-    activeSegment = mActiveSegment;
-  }
-
-  assert(activeSegment);
-
-  /// roll if needed
-  if (activeSegment->shouldRoll({entry})) {
-    activeSegment = rollActiveSegment();
-  }
-
-  activeSegment->appendEntries({entry});
-  ++mLastIndex;
-  return true;
+  return appendEntriesByRef({&entry});
 }
 
 bool SegmentLog::appendEntries(const std::vector<raft::LogEntry> &entries) {
+  std::vector<const raft::LogEntry *> refs;
+  refs.reserve(entries.size());
+  for (const auto &entry : entries) {
+    refs.push_back(&entry);
+  }
+  return appendEntriesByRef(refs);
+}
+
+bool SegmentLog::appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries) {
   if (entries.empty()) {
     return true;
   }
-  if (entries[0].index() != mLastIndex + 1) {
+  if (entries[0]->index() != mLastIndex + 1) {
     return false;
   }
 
@@ -297,13 +286,40 @@ bool SegmentLog::appendEntries(const std::vector<raft::LogEntry> &entries) {
   assert(activeSegment);
 
   /// roll if needed
-  if (activeSegment->shouldRoll(entries)) {
+  if (activeSegment->shouldRollByRef(entries)) {
     activeSegment = rollActiveSegment();
   }
 
-  activeSegment->appendEntries(entries);
+  activeSegment->appendEntriesByRef(entries);
   mLastIndex += entries.size();
   return true;
+}
+
+uint64_t SegmentLog::getSerializedEntries(uint64_t startIndex, uint64_t maxLenInBytes, uint64_t maxBatchSize,
+                                          std::vector<SerializedLogEntry> *entries) const {
+  entries->clear();
+  if (startIndex > mLastIndex) {
+    assert(startIndex == mLastIndex + 1);
+    return 0;
+  }
+  auto segment = getSegment(startIndex);
+  if (!segment) {
+    return 0;
+  }
+  std::vector<std::string_view> views;
+  auto count = segment->getSerializedEntries(startIndex, maxLenInBytes, maxBatchSize, &views);
+  entries->reserve(count);
+  for (const auto &view : views) {
+    if (segment->isActive()) {
+      // A late RPC can outlive stepdown and suffix overwrite. Never lend active-segment bytes.
+      auto bytes = std::make_shared<std::string>(view);
+      entries->push_back({std::shared_ptr<const char>(bytes, bytes->data()), bytes->size()});
+    } else {
+      // Closed segments never overwrite data, even when suffix metadata is truncated.
+      entries->push_back({std::shared_ptr<const char>(segment, view.data()), view.size()});
+    }
+  }
+  return count;
 }
 
 void SegmentLog::truncatePrefix(uint64_t firstIndexKept) {

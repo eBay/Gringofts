@@ -545,6 +545,8 @@ class RaftCore : public RaftInterface {
   /// for printStatus()
   uint64_t mMaxTailedEntryNum = 5;
   bool mPreVoteEnabled = false;
+  bool mRawAppendEntriesEnabled = false;
+  bool mTcpTxZerocopyEnabled = false;
 
   /**
    * raft state
@@ -614,6 +616,7 @@ class RaftCore : public RaftInterface {
   TestPointProcessor *mTPProcessor = nullptr;
   friend class ClusterTestUtil;
   FRIEND_TEST(RaftCoreTest, BasicTest);
+  FRIEND_TEST(RaftCoreTest, AppendEntriesBorrowsRequestEntries);
 };
 
 }  /// namespace v2

@@ -195,6 +195,9 @@ TEST_F(LogTest, HMACTest) {
   EXPECT_TRUE(log->getEntry(10, &entry));
   /// HMAC enable
   EXPECT_TRUE(log->getEntry(20, &entry));
+  std::vector<SerializedLogEntry> serialized;
+  ASSERT_EQ(log->getSerializedEntries(20, 16 * 1024, 1, &serialized), 1);
+  EXPECT_EQ(std::string(serialized[0].mData.get(), serialized[0].mSize), entry.SerializeAsString());
 
   /// teardown
   Util::executeCmd("rm -rf " + logDir);
@@ -275,6 +278,22 @@ TEST_F(LogTest, InMemoryLogTest) {
 
     EXPECT_TRUE(log->getEntries(2, 1, &entries[0]));
   }
+}
+
+TEST_F(LogTest, SerializedMemoryEntriesOwnTheirBytes) {
+  InMemoryLog log;
+  raft::LogEntry entry;
+  entry.set_index(1);
+  entry.set_payload(std::string(1024, '\0'));
+  ASSERT_TRUE(log.appendEntriesByRef({&entry}));
+  const auto original = entry.SerializeAsString();
+  std::vector<SerializedLogEntry> entries;
+  ASSERT_EQ(log.getSerializedEntries(1, 2048, 1, &entries), 1);
+  log.truncateSuffix(0);
+  entry.set_payload("replacement");
+  ASSERT_TRUE(log.appendEntriesByRef({&entry}));
+  EXPECT_EQ(std::string(entries[0].mData.get(), entries[0].mSize), original);
+  EXPECT_TRUE(log.appendEntriesByRef({}));
 }
 
 }  /// namespace gringofts::storage::test

@@ -83,6 +83,8 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
   mMaxDecrStep = iniReader.GetInteger("raft.default", "max.decr.step", 0);
   mMaxTailedEntryNum = iniReader.GetInteger("raft.default", "max.tailed.entry.num", 0);
   mPreVoteEnabled = iniReader.GetBoolean("raft.protocol", "enable.prevote", true);
+  mRawAppendEntriesEnabled = iniReader.GetBoolean("raft.default", "append.entries.raw.enabled", false);
+  mTcpTxZerocopyEnabled = iniReader.GetBoolean("raft.default", "grpc.tcp.tx.zerocopy.enabled", false);
   mStreamingSvcEnabled = iniReader.GetBoolean("streaming", "enable", true);
   mHeartBeatIntervalInMillis = iniReader.GetInteger("raft.default", "heartbeat.interval.millis",
                                                     RaftConstants::kHeartBeatIntervalInMillis);
@@ -131,11 +133,14 @@ void RaftCore::initConfigurableVars(const INIReader &iniReader) {
               "min.election.timeout.millis={}, "
               "max.election.timeout.millis={}, "
               "rpc.append.entries.timeout.millis={}, "
-              "rpc.request.vote.timeout.millis={}",
+              "rpc.request.vote.timeout.millis={}, "
+              "append.entries.raw.enabled={}, "
+              "grpc.tcp.tx.zerocopy.enabled={}",
               mMaxBatchSize, mMaxLenInBytes, mMaxDecrStep, mMaxTailedEntryNum,
               mPreVoteEnabled, mStreamingSvcEnabled,
               mHeartBeatIntervalInMillis, mMinElectionTimeoutInMillis, mMaxElectionTimeoutInMillis,
-              mRpcAppendEntriesTimeoutInMillis, mRpcRequestVoteTimeoutInMillis);
+              mRpcAppendEntriesTimeoutInMillis, mRpcRequestVoteTimeoutInMillis,
+              mRawAppendEntriesEnabled, mTcpTxZerocopyEnabled);
 }
 
 void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &selfId,
@@ -185,7 +190,10 @@ void RaftCore::initClusterConf(const ClusterInfo &clusterInfo, const NodeId &sel
         mTlsConfOpt,
         mDNSResolver,
         peer.mId,
-        &mAeRvQueue);
+        &mAeRvQueue,
+        RaftConstants::AppendEntries::kRpcTimeoutInMillis,
+        RaftConstants::RequestVote::kRpcTimeoutInMillis,
+        mTcpTxZerocopyEnabled);
   }
 
   members->mOldMembers = clusterInfo.getOldJointMembers();
@@ -407,11 +415,15 @@ void RaftCore::appendEntries() {
     }
 
     std::vector<LogEntry> entries;
+    std::vector<storage::SerializedLogEntry> serializedEntries;
     uint64_t batchSize = 0;
 
     if (!peer.mSuppressBulkData) {
-      batchSize = mLog->getEntries(peer.mNextIndex,
-                                   mMaxLenInBytes, mMaxBatchSize, &entries);
+      if (mRawAppendEntriesEnabled) {
+        batchSize = mLog->getSerializedEntries(peer.mNextIndex, mMaxLenInBytes, mMaxBatchSize, &serializedEntries);
+      } else {
+        batchSize = mLog->getEntries(peer.mNextIndex, mMaxLenInBytes, mMaxBatchSize, &entries);
+      }
     }
 
     (*request.mutable_metrics()).set_term(currentTerm);
@@ -437,7 +449,11 @@ void RaftCore::appendEntries() {
 
     /// send AE_req
     auto &client = *(members->mClients.at(peer.mId));
-    client.appendEntries(request);
+    if (mRawAppendEntriesEnabled) {
+      client.appendEntries(request, serializedEntries);
+    } else {
+      client.appendEntries(request);
+    }
 
     /// avoid printing trace for heartbeat.
     if (batchSize > 0) {
@@ -572,7 +588,7 @@ grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &
     return grpc::Status::OK;
   }
 
-  std::vector<LogEntry> entries;
+  std::vector<const LogEntry *> entries;
   entries.reserve(request.entries().size());
 
   auto index = request.prev_log_index();
@@ -599,10 +615,10 @@ grpc::Status RaftCore::handleAppendEntriesRequest(const AppendEntries::Request &
       mLog->truncateSuffix(lastIndexKept);
     }
 
-    entries.push_back(entry);
+    entries.push_back(&entry);
   }
 
-  assert(mLog->appendEntries(entries));   /// mLog CAN handle empty entries.
+  assert(mLog->appendEntriesByRef(entries));   /// mLog CAN handle empty entries.
   (*response->mutable_metrics()).set_entries_writing_done_time(TimeUtil::currentTimeInNanos());
 
   /// adjust AE_resp

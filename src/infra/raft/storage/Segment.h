@@ -16,6 +16,8 @@ limitations under the License.
 #define SRC_INFRA_RAFT_STORAGE_SEGMENT_H_
 
 #include <atomic>
+#include <string_view>
+#include <vector>
 
 #include "../../util/CryptoUtil.h"
 #include "../generated/raft.pb.h"
@@ -118,10 +120,12 @@ class Segment final {
   /// check if current Segment (must be active) has enough space to hold entries,
   /// return true if should roll
   bool shouldRoll(const std::vector<raft::LogEntry> &entries) const;
+  bool shouldRollByRef(const std::vector<const raft::LogEntry *> &entries) const;
 
   /// require: call shouldRoll() ahead to make sure that
   ///          current Segment has enough space to hold entries.
   void appendEntries(const std::vector<raft::LogEntry> &entries);
+  void appendEntriesByRef(const std::vector<const raft::LogEntry *> &entries);
 
   /// kinds of get method
   bool getEntry(uint64_t index, raft::LogEntry *entry) const;
@@ -131,6 +135,11 @@ class Segment final {
   uint64_t getEntries(const uint64_t startIndex,
                       const uint64_t maxLenInBytes, uint64_t maxBatchSize,
                       std::vector<raft::LogEntry> *entries) const;
+
+  /// Borrowed views for the writer thread; active-segment bytes must be copied before asynchronous use.
+  uint64_t getSerializedEntries(uint64_t startIndex, uint64_t maxLenInBytes, uint64_t maxBatchSize,
+                               std::vector<std::string_view> *entries) const;
+  bool isActive() const { return mIsActive; }
 
   uint64_t getFirstIndex() const { return mFirstIndex; }
   uint64_t getLastIndex() const { return mLastIndex; }
